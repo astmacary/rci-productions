@@ -335,6 +335,10 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 .cat-form .linkbtn{margin-top:0}
 .date-chip.pick{cursor:pointer;border-style:dashed}
 .pick-field{margin:0}
+/* Save ✓: dark check on gold once there's a change (beats .iconbtn.notes-btn's gold text) */
+.iconbtn.save-btn:not(:disabled){background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.cat-form .iconbtn{width:30px;height:30px;flex:none}
+.cat-form .iconbtn svg{width:15px;height:15px}
 .no-svc-btn{width:100%;justify-content:center;background:transparent;border:2px solid var(--bad);color:var(--bad);font-weight:700}
 .no-svc-ask{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--bad-soft);color:var(--bad);border:1px solid var(--bad);border-radius:var(--r);padding:10px 14px;font-weight:600}
 .no-svc-ask .btn{padding:6px 12px}
@@ -375,7 +379,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "40";
+const APP_VERSION = "41";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
