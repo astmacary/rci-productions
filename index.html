@@ -109,7 +109,9 @@ h1.greet{font-family:var(--display);font-weight:700;font-size:clamp(30px,8vw,40p
 .bday-row{border-color:var(--accent)}
 .bday-wrap{position:relative}
 .bday-wrap .person{padding-right:56px}
-.chat-btn{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:34px;height:34px;color:#fff;border-color:var(--accent);background:var(--accent)}
+.chat-btn{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:34px;height:34px;color:var(--accent);border-color:var(--accent);background:transparent}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .chat-btn{color:#fff;border-color:#fff}}
+:root[data-theme="dark"] .chat-btn{color:#fff;border-color:#fff}
 .chat-btn svg{width:17px;height:17px}
 .date-chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:thin}
 .date-chip{flex:none;display:flex;flex-direction:column;align-items:center;min-width:54px;padding:6px 4px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--fg);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
@@ -221,7 +223,7 @@ a.btn{text-decoration:none}
 .day-h{display:flex;align-items:center;gap:8px;margin:0 0 8px}
 .day-h .section-label{margin:0;flex:1}
 .day-t{flex:1;min-width:0}
-.day-cat{margin-top:3px;font-size:15px;font-weight:700;color:var(--accent)}
+.day-cat{margin-top:3px;font-size:15px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.06em}
 .iconbtn.notes-btn{color:var(--accent);border-color:var(--accent)}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted)}
 .legend span{display:inline-flex;align-items:center;gap:6px}
@@ -357,7 +359,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "33";
+const APP_VERSION = "34";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
