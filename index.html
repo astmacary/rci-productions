@@ -112,9 +112,17 @@ h1.greet{font-family:var(--display);font-weight:700;font-size:clamp(30px,8vw,40p
 .date-chip b{font-size:20px;line-height:1.1;letter-spacing:0}
 .date-chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .admin-row{display:flex;flex-direction:column;gap:10px}
-.admin-top{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
-.admin-top b{font-size:16px}
-.admin-top .pill{margin-left:auto}
+.admin-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.admin-title{display:flex;flex-direction:column;gap:2px;min-width:0}
+.admin-title b{font-size:16px}
+.admin-top .pill{flex:none}
+.admin-row.locked select{opacity:.55}
+.who{display:flex;align-items:center;gap:10px;min-height:44px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.who b{font-weight:600;overflow-wrap:anywhere}
+.av.xs{width:30px;height:30px;font-size:11px}
+.warn-text{color:var(--warn)}
+ol.steps{margin:-6px 0 0;padding:12px 16px 12px 36px;display:flex;flex-direction:column;gap:4px}
+ol.steps li{padding-left:2px}
 .admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 @media (max-width:420px){.admin-grid{grid-template-columns:1fr}}
 .admin-grid select{font-size:14px}
@@ -212,6 +220,8 @@ a.btn{text-decoration:none}
 .av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .av.lg{width:104px;height:104px;font-size:36px}
 .av.sm{width:50px;height:50px;font-size:16px}
+.me-btn{position:relative;padding:0;border:none;width:50px;height:50px;overflow:visible}
+.red-dot{position:absolute;top:0;right:0;width:14px;height:14px;border-radius:50%;background:var(--stop);border:2px solid var(--surface)}
 
 /* Notes */
 .notes{overflow-x:auto}
@@ -233,12 +243,15 @@ form.stack{display:flex;flex-direction:column;gap:14px}
 .field label{font-weight:600;font-size:14px}
 .field .hint{color:var(--muted);font-size:13px}
 .field .label{font-weight:600;font-size:14px}
-.serve-list{display:flex;flex-wrap:wrap;gap:8px}
-.serve{background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-weight:600;font-size:14px}
-.serve-pick{display:flex;flex-wrap:wrap;gap:8px}
-.serve-opt{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:7px 12px;font-weight:600;font-size:13.5px}
-.serve-opt[aria-pressed="true"]{background:var(--blue);border-color:var(--blue);color:#FFFFFF}
-.serve-opt[aria-pressed="true"]::before{content:"✓ "}
+ul.rows{list-style:none;margin:0;padding:0 16px}
+ul.rows li{padding:12px 0;font-weight:600;border-top:1px solid var(--line)}
+ul.rows li:first-child{border-top:none}
+.checklist{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--bg)}
+.serve-opt{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:none;border-top:1px solid var(--line);background:transparent;color:var(--fg);padding:11px 12px;font-weight:600;font-size:14.5px}
+.serve-opt:first-child{border-top:none}
+.serve-opt .box{flex:none;width:22px;height:22px;border-radius:6px;border:2px solid var(--muted);display:grid;place-items:center;color:transparent}
+.serve-opt .box svg{width:14px;height:14px}
+.serve-opt[aria-pressed="true"] .box{background:var(--blue);border-color:var(--blue);color:#FFFFFF}
 .dcell:disabled{opacity:.3;cursor:default}
 .picked{display:flex;flex-wrap:wrap;gap:6px;min-height:30px;align-items:center}
 .chip{border:1px solid var(--accent);background:var(--accent-soft);color:var(--fg);border-radius:999px;padding:4px 10px;font-size:13px;font-weight:600}
@@ -311,7 +324,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "28";
+const APP_VERSION = "29";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -624,7 +637,7 @@ const DemoAPI = {
     ] : [];
     const users = people.map((p, n) => ({ id: String(n + 1), email: p[1], name: p[0] }));
     items.forEach(i => { const u = users.find(u => u.email === i.email); i.personId = u ? u.id : ""; });
-    const choices = { status: ["Pending", "Accepted", "Declined", "--"], published: ["Request Sent", "Request Approved", "Request Denied", "--"] };
+    const choices = { status: ["Pending", "Accepted", "Declined", "--"], published: ["Published", "Request Sent", "--", "Request Denied", "Request Approved"] };
     { const open = normalize(id++, { Title: "Gimbal Operator", ServiceCategory: "Sunday Service", CallTime: "7:30 AM", ServiceTime: "9:00 AM", Status: "--", Published: "--" }); open.date = sun(0); items.push(open); }
     return { me: { name: people[0][0], emails: [people[0][1]] }, items, names: people.map(p=>p[0]), servingChoices, announcements, messages, choices, users };
   },
@@ -904,7 +917,7 @@ function viewSchedule(){
 
 function eventsOn(k){
   const md = k.slice(5);
-  const a = assignments().filter(i => approved(i) && i.date === k).sort(byDate);
+  const a = assignments().filter(i => approved(i) && i.date === k).sort((x, y) => Number(x.id) - Number(y.id));   // same order as the SharePoint list
   const b = S.items.filter(i => isProfile(i) && i.birthday && i.birthday.slice(5) === md);
   const none = S.items.some(i => i.date === k && lc(i.category) === lc(CONFIG.noServiceCategory));
   return { a, b, none };
@@ -934,7 +947,7 @@ function viewCalendar(){
     </section>
     <section><div class="day-h"><h2 class="section-label">${esc(fmtLong(sel))}</h2>
         ${hasNotes ? `<button class="iconbtn notes-btn" data-act="notes" data-date="${sel}" aria-label="Production Notes for this day" title="Production Notes">${ICON.notes}</button>` : ""}
-        ${isEditor() && S.items.some(i => i.date === sel && !isProfile(i)) ? `<button class="iconbtn" data-act="admin-open" data-date="${sel}" aria-label="Edit this day's schedule" title="Edit schedule">${ICON.pencil}</button>` : ""}</div>
+        ${isEditor() && S.items.some(i => i.date === sel && !isProfile(i)) ? `<button class="iconbtn notes-btn" data-act="admin-open" data-date="${sel}" aria-label="Edit this day's schedule" title="Edit schedule">${ICON.pencil}</button>` : ""}</div>
       ${ev.none ? `<div class="no-service"><span aria-hidden="true">❌</span> No Service</div>` : ""}
       ${bdayRows ? `<div class="list" style="margin-bottom:10px">${bdayRows}</div>` : ""}
       ${team ? `<div class="roster">${team}</div>` : (bdayRows || ev.none ? "" : `<div class="empty">No events scheduled.</div>`)}
@@ -1001,7 +1014,7 @@ function viewNotes(){
 
 function viewTeam(){
   const k = S.arg;
-  const list = assignments().filter(i => i.date === k && approved(i)).sort(byDate);
+  const list = assignments().filter(i => i.date === k && approved(i)).sort((x, y) => Number(x.id) - Number(y.id));
   return `${backBar("Serving Team")}<p class="sub" style="margin-top:-12px">${esc(fmtLong(k))}</p>
     ${list.length ? `<div class="roster">${list.map(i => tile(i, i.role, "member-of", i.id)).join("")}</div>`
       : `<div class="empty">No one is confirmed for this date yet.</div>`}`;
@@ -1021,7 +1034,7 @@ function viewMember(){
       <dt>Birthday</dt><dd>${esc(bd)}</dd>
     </dl></section>
     <section><h2 class="section-label">Places I Serve</h2>
-      ${p.serving.length ? `<div class="panel serve-list">${p.serving.map(x => `<span class="serve">${esc(x)}</span>`).join("")}</div>` : `<div class="empty">No serving areas listed yet.</div>`}</section>
+      ${p.serving.length ? `<ul class="panel rows">${p.serving.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<div class="empty">No serving areas listed yet.</div>`}</section>
     ${wallSection(p)}
     ${next.length ? `<section><h2 class="section-label">Serving Next</h2><div class="list">${next.map(i=>`<div class="panel" style="padding:10px 14px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>${esc(i.role)}</b><span class="sub" style="margin:0">${esc(fmtShort(i.date))}</span></div>`).join("")}</div></section>` : ""}`;
 }
@@ -1091,8 +1104,8 @@ function viewProfile(){
       <div class="field"><label for="pf-bday">Birthday</label><input id="pf-bday" type="date" value="${esc(p.birthday)}"></div>
       <div class="field"><label for="pf-phone">Phone Number</label><input id="pf-phone" type="tel" value="${esc(p.phone)}" maxlength="255"></div>
       <div class="field"><span class="label">Places I Serve</span>
-        <span class="hint">Tap to add or remove, then save.</span>
-        <div class="serve-pick">${choices.map(x => `<button type="button" class="serve-opt" data-act="serve-toggle" data-value="${esc(x)}" aria-pressed="${p.serving.includes(x)}">${esc(x)}</button>`).join("")}</div></div>
+        <span class="hint">Check the places you serve, then save.</span>
+        <div class="checklist">${choices.map(x => `<button type="button" class="serve-opt" data-act="serve-toggle" data-value="${esc(x)}" aria-pressed="${p.serving.includes(x)}"><span class="box" aria-hidden="true">${ICON.check}</span>${esc(x)}</button>`).join("")}</div></div>
       <button class="btn blue block" type="submit" id="pf-save">Save Profile</button></form>
     ${isEditor() ? `<section class="panel install"><h2 class="section-label" style="margin:0">Admin</h2><p>Assign people, and change Status and Published on the upcoming schedule.</p><button class="btn blue" data-act="admin-open">${ICON.cal.replace("<svg",'<svg width="16" height="16"')}Edit Schedule</button></section>` : ""}
     ${badgePanel()}${installPanel()}`;
@@ -1116,33 +1129,49 @@ function opts(list, cur, blank){
   const all = [...new Set([...(list || []), ...(cur ? [cur] : [])])];
   return (blank ? `<option value="">${blank}</option>` : "") + all.map(v => `<option ${v === cur ? "selected" : ""}>${esc(v)}</option>`).join("");
 }
+/* Name Email follows Full Name: the person is found by name on the team (their 🎂 Birthday row) or the site's user list. */
+function personForName(name){
+  if (!name) return null;
+  const prof = S.items.find(i => isProfile(i) && i.fullName === name && i.personId);
+  if (prof) return { id: prof.personId, profile: prof };
+  const u = (S.users || []).find(u => lc(u.name) === lc(name));
+  return u ? { id: u.id, profile: S.items.find(i => isProfile(i) && i.personId === u.id) || { fullName: u.name, email: u.email } } : null;
+}
+function whoHtml(personId, fullName){
+  if (!fullName && !personId) return `<span class="hint">Fills in from Full Name</span>`;
+  const prof = (personId && S.items.find(i => isProfile(i) && i.personId === personId)) || personForName(fullName)?.profile;
+  if (!prof) return `<span class="hint warn-text">No team member found for this name. Name Email will be left blank.</span>`;
+  return `${avatar(prof, "xs")}<b>${esc(prof.fullName || fullName)}</b>`;
+}
 function viewAdmin(){
   if (!isEditor()) return `${backBar("Edit Schedule")}<div class="empty">Only schedule admins can edit the schedule.</div>`;
   const dates = adminDates();
   if (!dates.length) return `${backBar("Edit Schedule")}<div class="empty">There's nothing on the schedule from today on.</div>`;
   if (!S.adminDate || !dates.includes(S.adminDate)) S.adminDate = dates[0];
   const k = S.adminDate;
-  const rows = S.items.filter(i => !isProfile(i) && i.date === k)
-    .sort((a,b) => (a.category || "").localeCompare(b.category || "") || (a.role || "").localeCompare(b.role || ""));
-  const people = personOptions();
+  const rows = S.items.filter(i => !isProfile(i) && i.date === k).sort((x, y) => Number(x.id) - Number(y.id));   // same order as the SharePoint list
   const chips = dates.map(d => { const x = fromKey(d); return `<button class="date-chip ${d === k ? "on" : ""}" data-act="admin-date" data-date="${d}" aria-pressed="${d === k}"><span>${x.toLocaleDateString(undefined,{weekday:"short"})}</span><b>${x.getDate()}</b><span>${x.toLocaleDateString(undefined,{month:"short"})}</span></button>`; }).join("");
   const cards = rows.map(i => {
     if (lc(i.category) === lc(CONFIG.noServiceCategory)) return `<div class="no-service"><span aria-hidden="true">❌</span> No Service</div>`;
     const sid = esc(i.id);
-    return `<form class="panel admin-row" data-id="${sid}">
-      <div class="admin-top"><b>${esc(i.role || "No position")}</b><span class="sub" style="margin:0">${esc(i.category || "")}</span>${statusPill(i)}</div>
+    const locked = i.status === "Accepted" && !(S.adminUnlocked || new Set()).has(i.id);
+    const dis = locked ? "disabled" : "";
+    return `<form class="panel admin-row ${locked ? "locked" : ""}" data-id="${sid}">
+      <div class="admin-top"><div class="admin-title"><b>${esc(i.role || "No position")}</b><span class="sub" style="margin:0">${esc(i.category || "")}</span></div>${statusPill(i)}</div>
       ${i.call || i.svcTime ? `<div class="times">${i.call ? `<span>Call Time <b>${esc(i.call)}</b></span>` : ""}${i.svcTime ? `<span>Service Time <b>${esc(i.svcTime)}</b></span>` : ""}</div>` : ""}
       <div class="admin-grid">
-        <div class="field"><label for="ad-name-${sid}">Full Name</label><select id="ad-name-${sid}" data-f="ChoiceNames">${opts(S.names, i.fullName, "— Not assigned —")}</select></div>
-        <div class="field"><label for="ad-person-${sid}">Name Email</label><select id="ad-person-${sid}" data-f="PersonLookupId"><option value="">— None —</option>${people.map(o => `<option value="${esc(o.id)}" ${o.id === i.personId ? "selected" : ""}>${esc(o.label)}</option>`).join("")}${i.personId && !people.some(o => o.id === i.personId) ? `<option value="${esc(i.personId)}" selected>${esc(i.email || "Current person")}</option>` : ""}</select></div>
-        <div class="field"><label for="ad-status-${sid}">Status</label><select id="ad-status-${sid}" data-f="Status">${opts((S.choices || {}).status, i.status, "—")}</select></div>
-        <div class="field"><label for="ad-pub-${sid}">Published</label><select id="ad-pub-${sid}" data-f="Published">${opts((S.choices || {}).published, i.published, "—")}</select></div>
+        <div class="field"><label for="ad-name-${sid}">Full Name</label><select id="ad-name-${sid}" data-f="ChoiceNames" ${dis}>${opts(S.names, i.fullName, "— Not assigned —")}</select></div>
+        <div class="field"><span class="label">Name Email</span><input type="hidden" data-f="PersonLookupId" value="${esc(i.personId || "")}"><div class="who" data-who>${whoHtml(i.personId, i.fullName)}</div></div>
+        <div class="field"><label for="ad-status-${sid}">Status</label><select id="ad-status-${sid}" data-f="Status" ${dis}>${opts((S.choices || {}).status, i.status, "—")}</select></div>
+        <div class="field"><label for="ad-pub-${sid}">Published</label><select id="ad-pub-${sid}" data-f="Published" ${dis}>${opts((S.choices || {}).published, i.published, "—")}</select></div>
       </div>
-      <button class="btn blue block" type="submit" disabled>Save Changes</button>
+      ${locked
+        ? `<button class="btn block" type="button" data-act="admin-unlock" data-id="${sid}">${ICON.pencil.replace("<svg",'<svg width="16" height="16"')}Edit</button>`
+        : `<button class="btn blue block" type="submit" disabled>Save Changes</button>`}
     </form>`;
   }).join("");
   return `${backBar("Edit Schedule")}
-    <p class="sub" style="margin-top:-12px">Same as the SharePoint Admin view: from today on, by date.</p>
+    <ol class="panel steps"><li>Pick the <b>Full Name</b> from the drop-down.</li><li>Change <b>Published</b> to <b>Published</b>, then tap <b>Save Changes</b>.</li></ol>
     <div class="date-chips" role="group" aria-label="Service dates">${chips}</div>
     <h2 class="section-label" style="margin:4px 0 0">${esc(fmtLong(k))}</h2>
     <div class="list">${cards}</div>`;
@@ -1187,7 +1216,7 @@ function render(){
   const app = $("#app");
   const themeBtn = `<button class="iconbtn" data-act="theme" aria-label="Switch to ${currentDark()?"light":"dark"} mode">${currentDark()?ICON.sun:ICON.moon}</button>`;
   const header = `<header class="top"><div class="wrap"><div class="brand"><img class="wm wm-light" src="icons/wordmark.png?v=${APP_VERSION}" alt="RCI Productions"><img class="wm wm-dark" src="icons/wordmark-dark.png?v=${APP_VERSION}" alt="RCI Productions"></div>${themeBtn}
-    ${S.me ? `<button class="iconbtn" data-act="tab" data-view="profile" aria-label="My Profile" style="padding:0;overflow:hidden;border:none;width:50px;height:50px">${avatar(myProfile() || {fullName:S.me.name, email:S.me.emails[0]}, "sm")}</button>` : ""}</div></header>`;
+    ${S.me ? (() => { const n = S.phase === "ready" ? pendingCount() : 0; return `<button class="iconbtn me-btn" data-act="tab" data-view="profile" aria-label="My Profile${n ? `, ${n} pending request${n > 1 ? "s" : ""}` : ""}">${avatar(myProfile() || {fullName:S.me.name, email:S.me.emails[0]}, "sm")}${n ? '<span class="red-dot" aria-hidden="true"></span>' : ""}</button>`; })() : ""}</div></header>`;
   if (S.phase !== "ready"){
     let body = "";
     if (S.phase === "boot") body = `<div class="center-screen"><span class="spinner" role="status" aria-label="Loading"></span><p>Loading the schedule…</p></div>`;
@@ -1254,6 +1283,14 @@ document.addEventListener("click", async e => {
       try { await API.update(rec.id, { Notes: html }); rec.notes = html; S.notesEdit = null; render(); toast("Production Notes saved"); }
       catch(err){ toast("Couldn't save the notes. " + err.message, true); b.disabled = false; b.textContent = "Save Notes"; }
       break;
+    }
+    case "admin-unlock": {
+      const row = b.closest(".admin-row");
+      (S.adminUnlocked = S.adminUnlocked || new Set()).add(b.dataset.id);
+      row.classList.remove("locked");
+      row.querySelectorAll("select").forEach(x => x.disabled = false);
+      b.outerHTML = `<button class="btn blue block" type="submit" disabled>Save Changes</button>`;
+      row.querySelector("select")?.focus(); break;
     }
     case "admin-open": if (b.dataset.date) S.adminDate = b.dataset.date; go("admin"); break;
     case "admin-date": S.adminDate = b.dataset.date; render(); document.querySelector(`[data-act="admin-date"][data-date="${S.adminDate}"]`)?.scrollIntoView({ inline: "center", block: "nearest" }); break;
@@ -1335,6 +1372,7 @@ document.addEventListener("submit", async e => {
       Object.assign(item, next);
       const u = (S.users || []).find(u => u.id === next.personId) || S.items.find(i => isProfile(i) && i.personId === next.personId);
       item.email = next.personId ? lc(u ? u.email : item.email) : "";
+      S.adminUnlocked?.delete(item.id);
       toast(`Saved: ${item.role || "assignment"}, ${fmtShort(item.date)}`); render(); updateBadge();
     } catch(err){ toast("Couldn't save the change. " + err.message, true); btn.disabled = false; btn.textContent = "Save Changes"; }
     return;
@@ -1392,11 +1430,12 @@ function annDraftSave(){
 document.addEventListener("change", async e => {
   const row = e.target.closest(".admin-row");
   if (row){
-    // Picking a Full Name fills in that person's Name Email (from their profile row) if it's empty or belonged to the previous person.
+    // Picking a Full Name sets Name Email to the same person.
     if (e.target.dataset.f === "ChoiceNames"){
-      const prof = S.items.find(i => isProfile(i) && i.fullName === e.target.value && i.personId);
-      const sel = row.querySelector('[data-f="PersonLookupId"]');
-      if (prof && sel && [...sel.options].some(o => o.value === prof.personId)) sel.value = prof.personId;
+      const match = personForName(e.target.value);
+      row.querySelector('[data-f="PersonLookupId"]').value = match ? match.id : "";
+      row.querySelector("[data-who]").innerHTML = whoHtml(match ? match.id : "", e.target.value);
+      hydratePhotos();
     }
     row.querySelector('button[type="submit"]').disabled = false;
     return;
