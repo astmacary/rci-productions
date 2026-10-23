@@ -223,7 +223,7 @@ a.btn{text-decoration:none}
 .day-h{display:flex;align-items:center;gap:8px;margin:0 0 8px}
 .day-h .section-label{margin:0;flex:1}
 .day-t{flex:1;min-width:0}
-.day-cat{margin-top:3px;font-size:15px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.06em}
+.day-cat{margin-top:4px;font-family:var(--display);font-weight:600;font-size:15px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
 .iconbtn.notes-btn{color:var(--accent);border-color:var(--accent)}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted)}
 .legend span{display:inline-flex;align-items:center;gap:6px}
@@ -359,7 +359,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "34";
+const APP_VERSION = "35";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
