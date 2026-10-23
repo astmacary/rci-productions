@@ -111,10 +111,15 @@ h1.greet{font-family:var(--display);font-weight:700;font-size:clamp(30px,8vw,40p
 .date-chip{flex:none;display:flex;flex-direction:column;align-items:center;min-width:54px;padding:6px 4px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--fg);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
 .date-chip b{font-size:20px;line-height:1.1;letter-spacing:0}
 .date-chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
-.admin-row{display:flex;flex-direction:column;gap:10px}
+.admin-row{display:flex;flex-direction:column;gap:8px;padding:12px}
 .admin-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
-.admin-title{display:flex;flex-direction:column;gap:2px;min-width:0}
-.admin-title b{font-size:16px}
+.admin-title{display:flex;flex-direction:column;gap:1px;min-width:0}
+.admin-title .times{margin-top:2px;gap:0 14px}
+.admin-side{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex:none}
+.save-btn:disabled{opacity:.35;cursor:default}
+.save-btn:not(:disabled){background:var(--accent);color:var(--accent-ink)}
+.save-btn.busy{opacity:.6}
+.admin-title b{font-size:15.5px;line-height:1.25}
 .admin-top .pill{flex:none}
 .admin-row.locked select{opacity:.55}
 .who{display:flex;align-items:center;gap:10px;min-height:44px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
@@ -123,8 +128,11 @@ h1.greet{font-family:var(--display);font-weight:700;font-size:clamp(30px,8vw,40p
 .warn-text{color:var(--warn)}
 ol.steps{margin:-6px 0 0;padding:12px 16px 12px 36px;display:flex;flex-direction:column;gap:4px}
 ol.steps li{padding-left:2px}
-.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-@media (max-width:420px){.admin-grid{grid-template-columns:1fr}}
+.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.admin-grid .field{gap:4px}
+.admin-grid .field.wide{grid-column:1 / -1}
+.admin-grid select{padding:8px 10px}
+.admin-grid label{font-size:13px}
 .admin-grid select{font-size:14px}
 a.btn{text-decoration:none}
 .email-addr{margin:0;font-size:13px;user-select:all;overflow-wrap:anywhere}
@@ -173,7 +181,7 @@ a.btn{text-decoration:none}
 .btn.block{width:100%;justify-content:center;padding:11px 14px}
 .confirm-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;color:var(--muted)}
 
-.pill{font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.pill{font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;white-space:nowrap;text-transform:uppercase;letter-spacing:.03em}
 .pill.ok{background:var(--ok-soft);color:var(--ok)}
 .pill.warn{background:var(--warn-soft);color:var(--warn)}
 .pill.bad{background:var(--bad-soft);color:var(--bad)}
@@ -324,7 +332,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "29";
+const APP_VERSION = "30";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -577,6 +585,22 @@ const LiveAPI = {
     return a;
   },
   async updateAssignment(id, fields){ await this.update(id, fields); },
+  async updateAnnouncement(id, { text, until, flyer, removeFlyer }){
+    const url = `/sites/${this.siteId}/lists/${CONFIG.announcementsListId}/items/${id}/fields`;
+    const fields = { Announcements: text, Title: text.replace(/\s*\n+\s*/g, " ").slice(0, 255), ShowUntil: until ? until + "T12:00:00Z" : null };
+    if (removeFlyer && !flyer) fields.Flyer = null;
+    await this.g(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(fields) });
+    const a = { text, until: until || "" };
+    if (removeFlyer && !flyer) a.flyer = "";
+    if (flyer){
+      try {
+        const raw = await this.assetImage(CONFIG.announcementsListId, `flyer_${id}_${Date.now()}.jpg`, flyer);
+        await this.g(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ Flyer: raw }) });
+        a.flyer = raw;
+      } catch(e){ a.flyerError = e.message; }
+    }
+    return a;
+  },
   async removeAnnouncement(id){
     await this.g(`/sites/${this.siteId}/lists/${CONFIG.announcementsListId}/items/${id}`, { method: "DELETE" });
   }
@@ -649,6 +673,7 @@ const DemoAPI = {
   async deleteMessage(){},
   async addAnnouncement({ text, until, flyer }){ return { id: Date.now(), text, until: until || "", flyer: flyer ? "demo-upload" : "", flyerUrl: flyer ? URL.createObjectURL(flyer) : "" }; },
   async removeAnnouncement(){},
+  async updateAnnouncement(id, { text, until, flyer, removeFlyer }){ const a = { text, until: until || "" }; if (flyer){ a.flyer = "demo-upload"; a.flyerUrl = URL.createObjectURL(flyer); } else if (removeFlyer){ a.flyer = ""; a.flyerUrl = ""; } return a; },
   async updateAssignment(){ await new Promise(r => setTimeout(r, 200)); },
   async uploadPhoto(profile, blob){ return JSON.stringify({ demo: URL.createObjectURL(blob) }); }
 };
@@ -786,7 +811,7 @@ function wallSection(p){
     return `<article class="msg">${avatar(sender, "sm")}<div class="msg-body"><div class="msg-top"><b>${esc(sender.fullName || "Team member")}</b><span>${esc(ago(m.at))}</span></div><p>${esc(m.text)}</p>${del}</div></article>`;
   }).join("");
   const compose = open && !own ? `<form class="panel stack wall-form" id="wallForm" data-id="${p.id}">
-      <div class="field"><label for="wall-text">Write ${esc(p.first || firstOf(p.fullName))} a birthday message</label>
+      <div class="field"><label for="wall-text">Write ${esc(p.first || firstOf(p.fullName))} A Birthday Message</label>
         <textarea id="wall-text" maxlength="500" placeholder="Happy birthday! 🎉" required></textarea></div>
       <button class="btn blue block" type="submit" id="wall-send">Post Message</button></form>` : "";
   return `<section id="wall"><h2 class="section-label">🎂 Birthday Wall ${msgs.length ? `<span class="count">${msgs.length}</span>` : ""}</h2>
@@ -811,7 +836,7 @@ function annEditLine(a){
   const until = a.until ? `Shows until ${fromKey(a.until).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : "No end date";
   const ctl = S.annConfirm === a.id
     ? `Remove this announcement? <button class="linkbtn danger" data-act="ann-remove" data-id="${a.id}">Yes, Remove</button> <button class="linkbtn" data-act="ann-keep">Keep It</button>`
-    : `<button class="linkbtn danger" data-act="ann-ask" data-id="${a.id}">Remove</button>`;
+    : `<button class="linkbtn" data-act="ann-change" data-id="${a.id}">Edit</button> · <button class="linkbtn danger" data-act="ann-ask" data-id="${a.id}">Remove</button>`;
   return `<span class="ann-meta">${esc(until)} · ${ctl}</span>`;
 }
 /* The Announcements column can hold several lines; SharePoint may return it as plain text or simple HTML. */
@@ -831,15 +856,20 @@ function annCard(a){
 }
 function annForm(){
   const d = S.annDraft || {};
+  const editing = d.editId != null, cur = editing ? (S.announcements || []).find(a => a.id === d.editId) : null;
   return `<form class="stack ann-form" id="annForm">
-    <h3 class="ann-form-h" style="margin-top:0">New Announcement</h3>
+    <h3 class="ann-form-h" style="margin-top:0">${editing ? "Edit Announcement" : "New Announcement"}</h3>
     <div class="field"><label for="ann-text">Announcement</label><textarea id="ann-text" maxlength="2000" required placeholder="First line is the headline, e.g.&#10;NOV. 15 - FOUNDER'S DAY CELEBRATION&#10;Colors are Navy Blue and Orange">${esc(d.text || "")}</textarea></div>
     <div class="field"><label for="ann-until">Show Until <span class="hint">(optional)</span></label><input id="ann-until" type="date" min="${todayKey()}" value="${esc(d.until || "")}"></div>
     <div class="field"><span class="label">Flyer <span class="hint">(optional)</span></span>
-      <label class="btn" for="ann-flyer" style="cursor:pointer;align-self:flex-start">${d.file ? "Change Flyer" : "Add a Flyer"}</label>
+      ${cur && cur.flyer && !d.file ? (d.removeFlyer
+        ? `<span class="flyer-picked"><span>The current flyer will be removed.</span><button type="button" class="linkbtn" data-act="ann-flyer-keep">Keep It</button></span>`
+        : `<span class="flyer-picked"><span>This announcement has a flyer.</span><button type="button" class="linkbtn danger" data-act="ann-flyer-drop">Remove Flyer</button></span>`) : ""}
+      <label class="btn" for="ann-flyer" style="cursor:pointer;align-self:flex-start">${d.file || (cur && cur.flyer && !d.removeFlyer) ? "Change Flyer" : "Add a Flyer"}</label>
       <input id="ann-flyer" type="file" accept="image/*" hidden>
       ${d.file ? `<span class="flyer-picked">${d.preview ? `<img src="${d.preview}" alt="">` : ""}<span>${esc(d.file.name)}</span><button type="button" class="linkbtn" data-act="ann-flyer-clear">Remove Flyer</button></span>` : ""}</div>
-    <button class="btn blue block" type="submit" id="ann-add">Add Announcement</button></form>`;
+    <button class="btn blue block" type="submit" id="ann-add">${editing ? "Save Changes" : "Add Announcement"}</button>
+    ${editing ? `<button class="btn block" type="button" data-act="ann-change-cancel">Cancel</button>` : ""}</form>`;
 }
 
 function bdayRow(p, line, act){
@@ -848,7 +878,7 @@ function bdayRow(p, line, act){
 
 function statusPill(i){
   if (approved(i)) return `<span class="pill ok">CONFIRMED</span>`;
-  if (pending(i)) return `<span class="pill reply">Needs Reply</span>`;
+  if (pending(i)) return `<span class="pill reply">NEEDS REPLY</span>`;
   if (i.status === "Declined") return `<span class="pill bad">Declined</span>`;
   return `<span class="pill neutral">${esc(i.status || "Draft")}</span>`;
 }
@@ -1137,6 +1167,12 @@ function personForName(name){
   const u = (S.users || []).find(u => lc(u.name) === lc(name));
   return u ? { id: u.id, profile: S.items.find(i => isProfile(i) && i.personId === u.id) || { fullName: u.name, email: u.email } } : null;
 }
+function saveIcon(){ return `<button class="iconbtn notes-btn save-btn" type="submit" disabled aria-label="Save changes" title="Save changes">${ICON.check}</button>`; }
+/* Name Email is hidden: it's set from Full Name. Only say something when no matching person was found. */
+function whoWarn(personId, fullName){
+  if (!fullName || personId) return "";
+  return personForName(fullName) ? "" : "No team member found for this name, so Name Email will be left blank.";
+}
 function whoHtml(personId, fullName){
   if (!fullName && !personId) return `<span class="hint">Fills in from Full Name</span>`;
   const prof = (personId && S.items.find(i => isProfile(i) && i.personId === personId)) || personForName(fullName)?.profile;
@@ -1157,17 +1193,19 @@ function viewAdmin(){
     const locked = i.status === "Accepted" && !(S.adminUnlocked || new Set()).has(i.id);
     const dis = locked ? "disabled" : "";
     return `<form class="panel admin-row ${locked ? "locked" : ""}" data-id="${sid}">
-      <div class="admin-top"><div class="admin-title"><b>${esc(i.role || "No position")}</b><span class="sub" style="margin:0">${esc(i.category || "")}</span></div>${statusPill(i)}</div>
-      ${i.call || i.svcTime ? `<div class="times">${i.call ? `<span>Call Time <b>${esc(i.call)}</b></span>` : ""}${i.svcTime ? `<span>Service Time <b>${esc(i.svcTime)}</b></span>` : ""}</div>` : ""}
+      <div class="admin-top">
+        <div class="admin-title"><b>${esc(i.role || "No position")}</b><span class="sub" style="margin:0">${esc(i.category || "")}</span>
+          ${i.call || i.svcTime ? `<div class="times">${i.call ? `<span>Call Time <b>${esc(i.call)}</b></span>` : ""}${i.svcTime ? `<span>Service Time <b>${esc(i.svcTime)}</b></span>` : ""}</div>` : ""}</div>
+        <div class="admin-side">${statusPill(i)}${locked
+          ? `<button class="iconbtn notes-btn" type="button" data-act="admin-unlock" data-id="${sid}" aria-label="Edit this assignment" title="Edit">${ICON.pencil}</button>`
+          : saveIcon()}</div>
+      </div>
       <div class="admin-grid">
-        <div class="field"><label for="ad-name-${sid}">Full Name</label><select id="ad-name-${sid}" data-f="ChoiceNames" ${dis}>${opts(S.names, i.fullName, "— Not assigned —")}</select></div>
-        <div class="field"><span class="label">Name Email</span><input type="hidden" data-f="PersonLookupId" value="${esc(i.personId || "")}"><div class="who" data-who>${whoHtml(i.personId, i.fullName)}</div></div>
+        <div class="field wide"><label for="ad-name-${sid}">Full Name</label><select id="ad-name-${sid}" data-f="ChoiceNames" ${dis}>${opts(S.names, i.fullName, "— Not assigned —")}</select>
+          <input type="hidden" data-f="PersonLookupId" value="${esc(i.personId || "")}"><span class="hint warn-text" data-who>${whoWarn(i.personId, i.fullName)}</span></div>
         <div class="field"><label for="ad-status-${sid}">Status</label><select id="ad-status-${sid}" data-f="Status" ${dis}>${opts((S.choices || {}).status, i.status, "—")}</select></div>
         <div class="field"><label for="ad-pub-${sid}">Published</label><select id="ad-pub-${sid}" data-f="Published" ${dis}>${opts((S.choices || {}).published, i.published, "—")}</select></div>
       </div>
-      ${locked
-        ? `<button class="btn block" type="button" data-act="admin-unlock" data-id="${sid}">${ICON.pencil.replace("<svg",'<svg width="16" height="16"')}Edit</button>`
-        : `<button class="btn blue block" type="submit" disabled>Save Changes</button>`}
     </form>`;
   }).join("");
   return `${backBar("Edit Schedule")}
@@ -1289,13 +1327,21 @@ document.addEventListener("click", async e => {
       (S.adminUnlocked = S.adminUnlocked || new Set()).add(b.dataset.id);
       row.classList.remove("locked");
       row.querySelectorAll("select").forEach(x => x.disabled = false);
-      b.outerHTML = `<button class="btn blue block" type="submit" disabled>Save Changes</button>`;
+      b.outerHTML = saveIcon();
       row.querySelector("select")?.focus(); break;
     }
     case "admin-open": if (b.dataset.date) S.adminDate = b.dataset.date; go("admin"); break;
     case "admin-date": S.adminDate = b.dataset.date; render(); document.querySelector(`[data-act="admin-date"][data-date="${S.adminDate}"]`)?.scrollIntoView({ inline: "center", block: "nearest" }); break;
     case "ann-edit": S.annEdit = !S.annEdit; S.annConfirm = null; if (!S.annEdit) S.annDraft = null; render(); break;
     case "ann-ask": S.annConfirm = Number(b.dataset.id); render(); break;
+    case "ann-change": {
+      const a = (S.announcements || []).find(x => x.id === Number(b.dataset.id)); if (!a) break;
+      S.annConfirm = null; S.annDraft = { editId: a.id, text: a.text, until: a.until || "" };
+      render(); const f = $("#annForm"); f?.scrollIntoView({ block: "start", behavior: "smooth" }); setTimeout(() => $("#ann-text")?.focus({ preventScroll: true }), 300); break;
+    }
+    case "ann-change-cancel": S.annDraft = null; render(); break;
+    case "ann-flyer-drop": annDraftSave(); S.annDraft.removeFlyer = true; render(); break;
+    case "ann-flyer-keep": annDraftSave(); S.annDraft.removeFlyer = false; render(); break;
     case "ann-keep": S.annConfirm = null; render(); break;
     case "ann-remove": {
       const id = Number(b.dataset.id); b.disabled = true;
@@ -1366,7 +1412,7 @@ document.addEventListener("submit", async e => {
     if (next.published !== item.published) fields.Published = next.published || null;
     const btn = e.target.querySelector('button[type="submit"]');
     if (!Object.keys(fields).length){ btn.disabled = true; return; }
-    btn.disabled = true; btn.textContent = "Saving…";
+    btn.disabled = true; btn.classList.add("busy");
     try {
       await API.updateAssignment(item.id, fields);
       Object.assign(item, next);
@@ -1374,14 +1420,24 @@ document.addEventListener("submit", async e => {
       item.email = next.personId ? lc(u ? u.email : item.email) : "";
       S.adminUnlocked?.delete(item.id);
       toast(`Saved: ${item.role || "assignment"}, ${fmtShort(item.date)}`); render(); updateBadge();
-    } catch(err){ toast("Couldn't save the change. " + err.message, true); btn.disabled = false; btn.textContent = "Save Changes"; }
+    } catch(err){ toast("Couldn't save the change. " + err.message, true); btn.disabled = false; btn.classList.remove("busy"); }
     return;
   }
   if (e.target.id === "annForm"){
     annDraftSave();
     const d = S.annDraft;
     if (!d.text){ toast("Type the announcement first.", true); return; }
-    const btn = $("#ann-add"); btn.disabled = true; btn.textContent = d.file ? "Uploading flyer…" : "Adding…";
+    const btn = $("#ann-add"); btn.disabled = true; btn.textContent = d.file ? "Uploading flyer…" : (d.editId != null ? "Saving…" : "Adding…");
+    if (d.editId != null){
+      try {
+        const flyer = d.file ? await resizeImage(d.file, 1600) : null;
+        const a = await API.updateAnnouncement(d.editId, { text: d.text, until: d.until, flyer, removeFlyer: !!d.removeFlyer });
+        S.announcements = (S.announcements || []).map(x => x.id === d.editId ? { ...x, ...a } : x);
+        S.annEdit = false; S.annDraft = null; S.annConfirm = null; render();
+        toast(a.flyerError ? "Announcement saved, but the flyer couldn't be attached. Add it in SharePoint." : "Announcement updated", !!a.flyerError);
+      } catch(err){ toast("Couldn't save the announcement. " + err.message, true); btn.disabled = false; btn.textContent = "Save Changes"; }
+      return;
+    }
     try {
       const flyer = d.file ? await resizeImage(d.file, 1600) : null;
       const a = await API.addAnnouncement({ text: d.text, until: d.until, flyer });
@@ -1434,8 +1490,7 @@ document.addEventListener("change", async e => {
     if (e.target.dataset.f === "ChoiceNames"){
       const match = personForName(e.target.value);
       row.querySelector('[data-f="PersonLookupId"]').value = match ? match.id : "";
-      row.querySelector("[data-who]").innerHTML = whoHtml(match ? match.id : "", e.target.value);
-      hydratePhotos();
+      row.querySelector("[data-who]").textContent = whoWarn(match ? match.id : "", e.target.value);
     }
     row.querySelector('button[type="submit"]').disabled = false;
     return;
