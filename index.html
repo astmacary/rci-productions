@@ -373,7 +373,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "37";
+const APP_VERSION = "38";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1508,7 +1508,8 @@ document.addEventListener("submit", async e => {
     const list = S.items.filter(i => !isProfile(i) && i.date === k && !isNoService(i) && i.category !== v);
     const btn = e.target.querySelector('button[type="submit"]'); btn.disabled = true; btn.classList.add("busy");
     try {
-      for (const i of list){ await API.update(i.id, { ServiceCategory: v }); i.category = v; }
+      for (let n = 0; n < list.length; n += 6)   // a few rows at a time
+        await Promise.all(list.slice(n, n + 6).map(async i => { await API.update(i.id, { ServiceCategory: v }); i.category = v; }));
       S.catEdit = null; toast(`${fmtShort(k)}: ${v}`); render();
     } catch(err){ toast("Couldn't change it. " + err.message, true); btn.disabled = false; btn.classList.remove("busy"); render(); }
     return;
