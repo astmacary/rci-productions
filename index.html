@@ -330,10 +330,12 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 .cat-btn{display:inline-flex;align-items:center;gap:6px;background:none;border:none;padding:2px 0;font-family:var(--display);font-weight:600;font-size:15px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);cursor:pointer;text-align:left}
 .cat-btn svg{width:13px;height:13px;flex:none;opacity:.8}
 .cat-form{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.cat-form select{padding:6px 10px;min-height:36px;font-size:14px}
-.date-chip.pick{position:relative;cursor:pointer;border-style:dashed}
-.date-chip.pick input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
-.no-svc-btn{width:100%;background:var(--bad);border-color:var(--bad);color:#FFFFFF;font-weight:700}
+.cat-form{flex:1 1 220px;flex-direction:row;gap:8px;margin:0}
+.cat-form input{flex:1;min-width:0;padding:7px 10px;min-height:38px;font-size:14px}
+.cat-form .linkbtn{margin-top:0}
+.date-chip.pick{cursor:pointer;border-style:dashed}
+.pick-field{margin:0}
+.no-svc-btn{width:100%;justify-content:center;background:transparent;border:1.5px solid var(--bad);color:var(--bad);font-weight:700}
 .no-svc-ask{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--bad-soft);color:var(--bad);border:1px solid var(--bad);border-radius:var(--r);padding:10px 14px;font-weight:600}
 .no-svc-ask .btn{padding:6px 12px}
 .no-svc-ask .yes{background:var(--bad);border-color:var(--bad);color:#FFFFFF}
@@ -373,7 +375,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "38";
+const APP_VERSION = "39";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1032,7 +1034,7 @@ function viewCalendar(){
     </section>
     <section><div class="day-h"><div class="day-t"><h2 class="section-label">${esc(fmtLong(sel))}</h2>${dayCats ? `<div class="day-cat">${esc(dayCats)}</div>` : ""}</div>
         ${hasNotes ? `<button class="iconbtn notes-btn" data-act="notes" data-date="${sel}" aria-label="Production Notes for this day" title="Production Notes">${ICON.notes}</button>` : ""}
-        ${isEditor() && S.items.some(i => i.date === sel && !isProfile(i)) ? `<button class="iconbtn notes-btn" data-act="admin-open" data-date="${sel}" aria-label="Edit this day's schedule" title="Edit schedule">${ICON.pencil}</button>` : ""}</div>
+        ${isEditor() ? `<button class="iconbtn notes-btn" data-act="admin-open" data-date="${sel}" aria-label="Edit this day's schedule" title="Edit schedule">${ICON.pencil}</button>` : ""}</div>
       ${ev.none ? `<div class="no-service"><span aria-hidden="true">❌</span> No Service</div>` : ""}
       ${bdayRows ? `<div class="list" style="margin-bottom:10px">${bdayRows}</div>` : ""}
       ${team ? `<div class="roster">${team}</div>` : (bdayRows || ev.none ? "" : `<div class="empty">No events scheduled.</div>`)}
@@ -1254,8 +1256,9 @@ function adminDayHeader(k, rows){
   const cats = [...new Set(svc.filter(i => svcFilled(i.category)).map(i => i.category))];
   let cat = "";
   if (S.catEdit === k && svc.length){
-    cat = `<form class="cat-form" id="catForm" data-date="${k}"><select id="cat-pick" aria-label="Service Category">${opts(serviceChoices(), cats.length === 1 ? cats[0] : "", cats.length === 1 ? "" : "— Choose —")}</select>
-      <button class="iconbtn notes-btn save-btn" type="submit" aria-label="Save Service Category" title="Save">${ICON.check}</button>
+    const cur = cats.length === 1 ? cats[0] : "";
+    cat = `<form class="cat-form field" id="catForm" data-date="${k}" data-cur="${esc(cur)}"><input id="cat-pick" type="text" maxlength="80" autocomplete="off" value="${esc(cur)}" placeholder="Type the Service Category" aria-label="Service Category">
+      <button class="iconbtn notes-btn save-btn" type="submit" disabled aria-label="Save Service Category" title="Save">${ICON.check}</button>
       <button class="linkbtn" type="button" data-act="cat-cancel">Cancel</button></form>`;
   } else if (svc.length){
     cat = `<button class="cat-btn" type="button" data-act="cat-edit" data-date="${k}" title="Change the Service Category">${esc(cats.join(" · ") || "Add Service Category")}${ICON.pencil}</button>`;
@@ -1272,7 +1275,10 @@ function adminNoService(k, rows){
 }
 /* A date chip that opens a date picker, for days that aren't on the schedule yet. */
 function adminPickChip(){
-  return `<label class="date-chip pick" title="Pick another date"><span>Other</span><b>+</b><span>Date</span><input type="date" id="admin-pick" min="${todayKey()}" aria-label="Pick another date"></label>`;
+  return `<button class="date-chip pick ${S.pickOpen ? "on" : ""}" type="button" data-act="admin-pick-open" aria-expanded="${!!S.pickOpen}" title="Pick another date"><span>Other</span><b>+</b><span>Date</span></button>`;
+}
+function adminPickField(){
+  return S.pickOpen ? `<div class="field pick-field"><label for="admin-pick">Pick a date</label><input type="date" id="admin-pick" value="${esc(S.adminDate || "")}"></div>` : "";
 }
 const adminDateList = base => [...new Set([...base, ...(S.adminExtra ? [S.adminExtra] : [])])].sort();
 
@@ -1308,6 +1314,7 @@ function viewAdmin(){
   return `${backBar("Edit Schedule")}
     <ol class="panel steps"><li>Choose a name from the drop down menu.</li><li>Change the status to <b>"Published"</b> and hit the <span class="inline-check" aria-label="check">${ICON.check}</span> to save.</li></ol>
     <div class="date-chips" role="group" aria-label="Service dates">${chips}${adminPickChip()}</div>
+    ${adminPickField()}
     ${adminDayHeader(k, dayRows)}
     ${adminNoService(k, dayRows)}
     ${rows.length ? `<div class="list">${cards}</div>` : `<div class="empty">Nothing else is scheduled on this date.</div>`}`;
@@ -1428,8 +1435,13 @@ document.addEventListener("click", async e => {
       b.outerHTML = saveIcon();
       row.querySelector("select")?.focus(); break;
     }
-    case "admin-open": if (b.dataset.date) S.adminDate = b.dataset.date; go("admin"); break;
-    case "cat-edit": S.catEdit = b.dataset.date; render(); $("#cat-pick")?.focus(); break;
+    case "admin-open": if (b.dataset.date){ S.adminDate = b.dataset.date; S.adminExtra = b.dataset.date; } S.catEdit = null; S.noSvcAsk = null; S.pickOpen = false; go("admin"); break;
+    case "admin-pick-open": {
+      S.pickOpen = !S.pickOpen; render();
+      const f = $("#admin-pick"); if (f){ f.focus(); try { f.showPicker(); } catch(_){} }
+      break;
+    }
+    case "cat-edit": S.catEdit = b.dataset.date; render(); { const f = $("#cat-pick"); if (f){ f.focus(); f.select(); } } break;
     case "cat-cancel": S.catEdit = null; render(); break;
     case "no-service": S.noSvcAsk = b.dataset.date; render(); break;
     case "no-service-keep": S.noSvcAsk = null; render(); break;
@@ -1443,7 +1455,7 @@ document.addEventListener("click", async e => {
       } catch(err){ toast("Couldn't mark it. " + err.message, true); }
       S.noSvcBusy = false; render(); break;
     }
-    case "admin-date": S.catEdit = null; S.noSvcAsk = null; S.adminDate = b.dataset.date; render(); document.querySelector(`[data-act="admin-date"][data-date="${S.adminDate}"]`)?.scrollIntoView({ inline: "center", block: "nearest" }); break;
+    case "admin-date": S.catEdit = null; S.noSvcAsk = null; S.pickOpen = false; S.adminDate = b.dataset.date; render(); document.querySelector(`[data-act="admin-date"][data-date="${S.adminDate}"]`)?.scrollIntoView({ inline: "center", block: "nearest" }); break;
     case "ann-edit": S.annEdit = !S.annEdit; S.annConfirm = null; if (!S.annEdit) S.annDraft = null; render(); break;
     case "ann-ask": S.annConfirm = Number(b.dataset.id); render(); break;
     case "ann-change": {
@@ -1504,7 +1516,7 @@ document.addEventListener("submit", async e => {
   e.preventDefault();
   if (e.target.id === "catForm"){
     if (!isEditor()) return;
-    const k = e.target.dataset.date, v = $("#cat-pick").value; if (!v) return;
+    const k = e.target.dataset.date, v = $("#cat-pick").value.trim().replace(/\s+/g, " "); if (!v) return;
     const list = S.items.filter(i => !isProfile(i) && i.date === k && !isNoService(i) && i.category !== v);
     const btn = e.target.querySelector('button[type="submit"]'); btn.disabled = true; btn.classList.add("busy");
     try {
@@ -1593,7 +1605,8 @@ document.addEventListener("submit", async e => {
   }
 });
 
-document.addEventListener("input", e => { if (e.target.id === "ab-notes") absState().notes = e.target.value; });
+document.addEventListener("input", e => {
+  if (e.target.id === "cat-pick"){ const f = e.target.form, v = e.target.value.trim(); f.querySelector(".save-btn").disabled = !v || v === f.dataset.cur; return; } if (e.target.id === "ab-notes") absState().notes = e.target.value; });
 
 /* Remember where the cursor was in the notes editor, so the formatting buttons apply there. */
 let notesRange = null;
@@ -1610,7 +1623,7 @@ function annDraftSave(){
   if (u) S.annDraft.until = u.value;
 }
 document.addEventListener("change", async e => {
-  if (e.target.id === "admin-pick"){ if (e.target.value){ S.adminExtra = e.target.value; S.adminDate = e.target.value; S.catEdit = null; S.noSvcAsk = null; render(); } return; }
+  if (e.target.id === "admin-pick"){ if (e.target.value){ S.adminExtra = e.target.value; S.adminDate = e.target.value; S.catEdit = null; S.noSvcAsk = null; S.pickOpen = false; render(); } return; }
   const row = e.target.closest(".admin-row");
   if (row){
     // Picking a Full Name sets Name Email to the same person.
