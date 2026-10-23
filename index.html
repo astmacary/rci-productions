@@ -109,7 +109,7 @@ h1.greet{font-family:var(--display);font-weight:700;font-size:clamp(30px,8vw,40p
 .bday-row{border-color:var(--accent)}
 .bday-wrap{position:relative}
 .bday-wrap .person{padding-right:56px}
-.chat-btn{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:34px;height:34px;color:var(--accent);border-color:var(--accent);background:var(--surface)}
+.chat-btn{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:34px;height:34px;color:#fff;border-color:var(--accent);background:var(--accent)}
 .chat-btn svg{width:17px;height:17px}
 .date-chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:thin}
 .date-chip{flex:none;display:flex;flex-direction:column;align-items:center;min-width:54px;padding:6px 4px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--fg);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
@@ -134,7 +134,7 @@ h1.greet{font-family:var(--display);font-weight:700;font-size:clamp(30px,8vw,40p
 .av.face{width:36px;height:36px;font-size:12px}
 .av.face.empty{border:2px dashed var(--line);background:transparent}
 .admin-row.locked .name-pick .av{opacity:.7}
-.inline-check{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--accent-ink);vertical-align:-4px}
+.inline-check{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--accent);background:transparent;color:var(--accent);vertical-align:-5px;box-sizing:border-box}
 .inline-check svg{width:12px;height:12px}
 .who{display:flex;align-items:center;gap:10px;min-height:44px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
 .who b{font-weight:600;overflow-wrap:anywhere}
@@ -220,6 +220,8 @@ a.btn{text-decoration:none}
 .cal-panel{display:flex;flex-direction:column;gap:4px;padding:10px 10px 8px}
 .day-h{display:flex;align-items:center;gap:8px;margin:0 0 8px}
 .day-h .section-label{margin:0;flex:1}
+.day-t{flex:1;min-width:0}
+.day-cat{margin-top:3px;font-size:15px;font-weight:700;color:var(--accent)}
 .iconbtn.notes-btn{color:var(--accent);border-color:var(--accent)}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted)}
 .legend span{display:inline-flex;align-items:center;gap:6px}
@@ -355,7 +357,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "32";
+const APP_VERSION = "33";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -989,6 +991,7 @@ function viewCalendar(){
     cells += `<button class="dcell ${d.getMonth()!==m.getMonth()?"out":""} ${k===t?"today":""} ${k===sel?"sel":""}" data-act="pick" data-date="${k}" aria-label="${esc(fmtLong(k))}${ev.none?", no service":""}${ev.a.length?`, ${ev.a.length} assignments`:""}${ev.b.length?", birthday":""}"><span>${d.getDate()}</span><span class="dots">${dots}</span></button>`;
   }
   const ev = eventsOn(sel);
+  const dayCats = [...new Set(ev.a.map(i => (i.category || "").trim()).filter(Boolean))].join(" · ");
   const team = ev.a.map(i => tile(i, i.role, "member-of", i.id)).join("");
   const bdayRows = ev.b.map(p => {
     const canChat = wallOpen(p) && myProfile()?.id !== p.id;
@@ -1004,7 +1007,7 @@ function viewCalendar(){
         <button class="iconbtn" data-act="cal-next" aria-label="Next month">${ICON.next}</button></div>
       <div class="grid7">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(x=>`<div class="dowh">${x}</div>`).join("")}${cells}</div>
     </section>
-    <section><div class="day-h"><h2 class="section-label">${esc(fmtLong(sel))}</h2>
+    <section><div class="day-h"><div class="day-t"><h2 class="section-label">${esc(fmtLong(sel))}</h2>${dayCats ? `<div class="day-cat">${esc(dayCats)}</div>` : ""}</div>
         ${hasNotes ? `<button class="iconbtn notes-btn" data-act="notes" data-date="${sel}" aria-label="Production Notes for this day" title="Production Notes">${ICON.notes}</button>` : ""}
         ${isEditor() && S.items.some(i => i.date === sel && !isProfile(i)) ? `<button class="iconbtn notes-btn" data-act="admin-open" data-date="${sel}" aria-label="Edit this day's schedule" title="Edit schedule">${ICON.pencil}</button>` : ""}</div>
       ${ev.none ? `<div class="no-service"><span aria-hidden="true">❌</span> No Service</div>` : ""}
