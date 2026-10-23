@@ -83,6 +83,10 @@ h1.greet{font-family:var(--display);font-weight:700;font-size:clamp(30px,8vw,40p
 
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px}
 .announce p{margin:0}
+.ann-card{display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:var(--r);padding:12px 12px 12px 14px}
+.ann-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.ann-title{font-weight:700;font-size:15.5px;line-height:1.3;overflow-wrap:anywhere}
+.ann-text{margin:0;white-space:pre-line;color:var(--muted);font-size:14px;line-height:1.45;overflow-wrap:anywhere}
 .ann{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
 .ann li{padding-left:14px;position:relative;font-weight:500;display:flex;flex-direction:row;align-items:flex-start;gap:12px}
 .ann li > span{flex:1;min-width:0}
@@ -94,7 +98,7 @@ h1.greet{font-family:var(--display);font-weight:700;font-size:clamp(30px,8vw,40p
 .ann-form .hint{font-weight:400}
 .flyer-picked{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
 .flyer-picked img{width:56px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
-.flyer{display:block;flex:none;width:clamp(96px,30%,150px);padding:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface-2);cursor:zoom-in}
+.flyer{display:block;flex:none;width:clamp(84px,28%,140px);padding:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface-2);cursor:zoom-in}
 .flyer img{display:block;width:100%;height:auto;max-height:200px;object-fit:cover;object-position:top;background:var(--surface-2)}
 .flyer-load{display:block;padding:18px 6px;color:var(--muted);font-size:12px;font-weight:500;text-align:center}
 .lightbox{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;padding:calc(48px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
@@ -103,6 +107,17 @@ h1.greet{font-family:var(--display);font-weight:700;font-size:clamp(30px,8vw,40p
 .ann li::before{content:"";position:absolute;left:0;top:.6em;width:6px;height:6px;border-radius:50%;background:var(--accent)}
 .bday-panel{display:flex;flex-direction:column;gap:12px;border-color:var(--accent)}
 .bday-row{border-color:var(--accent)}
+.date-chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:thin}
+.date-chip{flex:none;display:flex;flex-direction:column;align-items:center;min-width:54px;padding:6px 4px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--fg);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.date-chip b{font-size:20px;line-height:1.1;letter-spacing:0}
+.date-chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.admin-row{display:flex;flex-direction:column;gap:10px}
+.admin-top{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.admin-top b{font-size:16px}
+.admin-top .pill{margin-left:auto}
+.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:420px){.admin-grid{grid-template-columns:1fr}}
+.admin-grid select{font-size:14px}
 a.btn{text-decoration:none}
 .email-addr{margin:0;font-size:13px;user-select:all;overflow-wrap:anywhere}
 .msgs{gap:8px}
@@ -162,15 +177,15 @@ a.btn{text-decoration:none}
 .cal-head h2{font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:.02em;margin:0;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .grid7{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
 .dowh{font-family:var(--display);font-weight:600;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-align:center;padding:2px 0}
-.dcell{height:44px;max-width:100%;border:none;background:transparent;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:14.5px;font-weight:500;color:var(--fg);padding:0}
+.dcell{height:36px;max-width:100%;border:none;background:transparent;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:14.5px;font-weight:500;color:var(--fg);padding:0}
 .dcell.out{color:var(--muted);opacity:.45}
 .dcell.today{box-shadow:inset 0 0 0 1.5px var(--accent)}
 .dcell.sel{background:var(--accent);color:var(--accent-ink)}
-.dots{display:flex;align-items:center;gap:3px;height:12px}
-.dots i{width:5px;height:5px;border-radius:50%;background:var(--accent)}
-.dots .cake{font-size:11px;line-height:1}
+.dots{display:flex;align-items:center;gap:3px;height:9px}
+.dots i{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.dots .cake{font-size:9px;line-height:1}
 .dcell.sel .dots i{background:var(--accent-ink)}
-.cal-panel{display:flex;flex-direction:column;gap:6px;padding:12px}
+.cal-panel{display:flex;flex-direction:column;gap:4px;padding:10px 10px 8px}
 .day-h{display:flex;align-items:center;gap:8px;margin:0 0 8px}
 .day-h .section-label{margin:0;flex:1}
 .iconbtn.notes-btn{color:var(--accent);border-color:var(--accent)}
@@ -179,12 +194,14 @@ a.btn{text-decoration:none}
 .legend i{width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block}
 
 /* Roster: square photo tiles */
-.roster{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
+.roster{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+@media (min-width:560px){.roster{grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}}
 .tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:0;overflow:hidden;text-align:left;display:flex;flex-direction:column;width:100%;min-width:0}
-.tile .av{width:100%;height:auto;aspect-ratio:1/1;border-radius:0;font-size:28px}
-.tile .meta{padding:8px 10px 10px;min-width:0;display:flex;flex-direction:column;gap:2px}
-.tile .meta b{font-weight:700;font-size:13.5px;line-height:1.25;overflow-wrap:anywhere}
-.tile .meta small{color:var(--muted);font-size:12.5px;line-height:1.3}
+.tile .av{width:100%;height:auto;aspect-ratio:1/1;border-radius:0;font-size:20px}
+.tile .meta{padding:5px 6px 7px;min-width:0;display:flex;flex-direction:column;gap:1px}
+.tile .meta b{font-weight:700;font-size:11.5px;line-height:1.2;overflow-wrap:break-word;hyphens:auto}
+.tile .meta small{color:var(--muted);font-size:10.5px;line-height:1.25;overflow-wrap:break-word;hyphens:auto}
+@media (max-width:359px){.tile .meta b{font-size:10.5px}.tile .meta small{font-size:9.5px}}
 /* People rows */
 .person{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;width:100%;text-align:left}
 .person .meta{min-width:0;flex:1}
@@ -294,7 +311,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "27";
+const APP_VERSION = "28";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -365,6 +382,7 @@ function normalize(id, f, emailById){
     svcTime: f.ServiceTime || "",
     fullName: f.ChoiceNames || "",
     email: lc(emailById ? emailById[f.PersonLookupId] : f.email),
+    personId: f.PersonLookupId != null ? String(f.PersonLookupId) : (f.personId || ""),
     status: f.Status || "",
     published: f.Published || "",
     notes: f.Notes || "",
@@ -419,23 +437,28 @@ const LiveAPI = {
     this.siteId = site.id;
     const base = `/sites/${this.siteId}/lists`;
     // Person column only returns a lookup id; the site's hidden user list maps it to an email.
-    let emailById = {};
+    let emailById = {}, users = [];
     try {
-      const users = await this.all(`${base}/${encodeURIComponent("User Information List")}/items?$expand=fields($select=EMail,UserName,Title)&$top=999`);
-      users.forEach(u => { emailById[u.id] = u.fields.EMail || u.fields.UserName || ""; });
+      const uil = await this.all(`${base}/${encodeURIComponent("User Information List")}/items?$expand=fields($select=EMail,UserName,Title)&$top=999`);
+      uil.forEach(u => {
+        const email = u.fields.EMail || u.fields.UserName || "";
+        emailById[u.id] = email;
+        if (email && email.includes("@")) users.push({ id: String(u.id), email: lc(email), name: u.fields.Title || email });
+      });
     } catch(e){ console.warn("Could not read User Information List; matching by name instead.", e); }
     const sel = "Title,ServiceDates,ServiceCategory,CallTime,ServiceTime,ChoiceNames,PersonLookupId,Status,Published,Notes,Name,TimeOffDate,Birthday,Photo,PhoneNumber,Serving";
     const rows = await this.all(`${base}/${CONFIG.listId}/items?$expand=fields($select=${sel})&$top=500`);
-    let names = [], servingChoices = [];
+    let names = [], servingChoices = [], choices = {};
     try {
       const cols = await this.g(`${base}/${CONFIG.listId}/columns?$select=name,choice`);
-      names = (cols.value.find(c => c.name === "ChoiceNames")?.choice?.choices) || [];
-      servingChoices = (cols.value.find(c => c.name === "Serving")?.choice?.choices) || [];
+      const ch = n => (cols.value.find(c => c.name === n)?.choice?.choices) || [];
+      names = ch("ChoiceNames"); servingChoices = ch("Serving");
+      choices = { status: ch("Status"), published: ch("Published") };
     } catch(e){}
     return {
       me: { name: me.displayName || this.account.name || "", emails: [me.mail, me.userPrincipalName, this.account.username].filter(Boolean).map(lc) },
       items: rows.map(r => normalize(r.id, r.fields, emailById)),
-      names, servingChoices,
+      names, servingChoices, choices, users,
       messages: await this.messages(),
       announcements: await this.announcements()
     };
@@ -457,8 +480,8 @@ const LiveAPI = {
   },
   async announcements(){
     try {
-      const rows = await this.all(`/sites/${this.siteId}/lists/${CONFIG.announcementsListId}/items?$expand=fields($select=Title,ShowUntil,Flyer)&$top=200`);
-      return rows.map(r => ({ id: Number(r.id), text: r.fields.Title || "", until: spDate(r.fields.ShowUntil), flyer: r.fields.Flyer || "" }));
+      const rows = await this.all(`/sites/${this.siteId}/lists/${CONFIG.announcementsListId}/items?$expand=fields($select=Title,Announcements,ShowUntil,Flyer)&$top=200`);
+      return rows.map(r => ({ id: Number(r.id), text: annText(r.fields.Announcements) || r.fields.Title || "", until: spDate(r.fields.ShowUntil), flyer: r.fields.Flyer || "" }));
     } catch(e){ console.warn("Couldn't read the Announcements list.", e); return []; }
   },
   async update(id, fields){
@@ -526,7 +549,8 @@ const LiveAPI = {
   },
   async addAnnouncement({ text, until, flyer }){
     const base = `/sites/${this.siteId}/lists/${CONFIG.announcementsListId}/items`;
-    const fields = { Title: text };
+    // Announcements holds the full text with line breaks; Title gets a one-line copy (max 255 characters).
+    const fields = { Announcements: text, Title: text.replace(/\s*\n+\s*/g, " ").slice(0, 255) };
     if (until) fields.ShowUntil = until + "T12:00:00Z";      // noon UTC keeps the same calendar date everywhere
     const item = await this.g(base, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fields }) });
     const a = { id: Number(item.id), text, until: until || "", flyer: "" };
@@ -539,6 +563,7 @@ const LiveAPI = {
     }
     return a;
   },
+  async updateAssignment(id, fields){ await this.update(id, fields); },
   async removeAnnouncement(id){
     await this.g(`/sites/${this.siteId}/lists/${CONFIG.announcementsListId}/items/${id}`, { method: "DELETE" });
   }
@@ -588,7 +613,7 @@ const DemoAPI = {
     { const ns = normalize(id++, { ServiceCategory: CONFIG.noServiceCategory }); ns.date = addDays(wed(0) < t ? wed(1) : wed(0), 7); items.push(ns); }
     const announcements = [
       { id: 1, text: "There is no Bible Study on Wednesday, October 21st.", until: "2026-10-21" },
-      { id: 2, text: "On Sunday, November 1st, we are going to Reach Out Tabernacle. There is no Sunday morning service at The Ramp.", until: "2026-11-01", flyer: "demo" }
+      { id: 2, text: "NOV. 1 - NO SUNDAY SERVICE AT THE RAMP\nService will be at Reach Out Apostolic Tabernacle\n225 Brenda Drive Axton, VA 24054 at 11am.", until: "2026-11-01", flyer: "demo" }
     ];
     const servingChoices = ["Production Director","FOH Audio Engineer","Lighting Technician","Broadcast Audio Engineer","Propresenter Technician","Creative Director","Broadcast Switcher Operator","Camera 2 Operator","Gimbal Operator"];
     items.filter(isProfile).forEach((p, n) => { p.serving = servingChoices.filter((_, j) => (j + n) % 3 === 0); });
@@ -597,7 +622,11 @@ const DemoAPI = {
       { id: "m1", toId: bdayP.id, text: "Happy birthday! Thanks for always keeping the slides on cue. 🎉", fromName: people[1][0], fromEmail: people[1][1], at: new Date(Date.now() - 3600e3).toISOString() },
       { id: "m2", toId: bdayP.id, text: "Have the best day! 🎂", fromName: people[6][0], fromEmail: people[6][1], at: new Date(Date.now() - 7200e3).toISOString() }
     ] : [];
-    return { me: { name: people[0][0], emails: [people[0][1]] }, items, names: people.map(p=>p[0]), servingChoices, announcements, messages };
+    const users = people.map((p, n) => ({ id: String(n + 1), email: p[1], name: p[0] }));
+    items.forEach(i => { const u = users.find(u => u.email === i.email); i.personId = u ? u.id : ""; });
+    const choices = { status: ["Pending", "Accepted", "Declined", "--"], published: ["Request Sent", "Request Approved", "Request Denied", "--"] };
+    { const open = normalize(id++, { Title: "Gimbal Operator", ServiceCategory: "Sunday Service", CallTime: "7:30 AM", ServiceTime: "9:00 AM", Status: "--", Published: "--" }); open.date = sun(0); items.push(open); }
+    return { me: { name: people[0][0], emails: [people[0][1]] }, items, names: people.map(p=>p[0]), servingChoices, announcements, messages, choices, users };
   },
   async update(id, fields){
     await new Promise(r => setTimeout(r, 250));
@@ -607,6 +636,7 @@ const DemoAPI = {
   async deleteMessage(){},
   async addAnnouncement({ text, until, flyer }){ return { id: Date.now(), text, until: until || "", flyer: flyer ? "demo-upload" : "", flyerUrl: flyer ? URL.createObjectURL(flyer) : "" }; },
   async removeAnnouncement(){},
+  async updateAssignment(){ await new Promise(r => setTimeout(r, 200)); },
   async uploadPhoto(profile, blob){ return JSON.stringify({ demo: URL.createObjectURL(blob) }); }
 };
 const API = DEMO ? DemoAPI : LiveAPI;
@@ -771,11 +801,26 @@ function annEditLine(a){
     : `<button class="linkbtn danger" data-act="ann-ask" data-id="${a.id}">Remove</button>`;
   return `<span class="ann-meta">${esc(until)} · ${ctl}</span>`;
 }
+/* The Announcements column can hold several lines; SharePoint may return it as plain text or simple HTML. */
+function annText(v){
+  if (!v) return "";
+  if (!/<[a-z][\s\S]*>/i.test(v)) return v.trim();
+  const d = new DOMParser().parseFromString(v.replace(/<br\s*\/?>/gi, "\n").replace(/<\/(p|div|li)>/gi, "\n"), "text/html");
+  return (d.body.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
+}
+function annCard(a){
+  const lines = a.text.split(/\n/).map(l => l.trim()).filter(Boolean);
+  const head = lines.shift() || "", rest = lines.join("\n");
+  return `<article class="ann-card">
+    <div class="ann-body"><b class="ann-title">${esc(head)}</b>${rest ? `<p class="ann-text">${esc(rest)}</p>` : ""}${S.annEdit ? annEditLine(a) : ""}</div>
+    ${a.flyer ? `<button class="flyer" data-act="flyer-open" data-flyer="${a.id}" aria-label="Open the flyer"><span class="flyer-load">Loading…</span></button>` : ""}
+  </article>`;
+}
 function annForm(){
   const d = S.annDraft || {};
   return `<form class="stack ann-form" id="annForm">
-    <h3 class="ann-form-h">New Announcement</h3>
-    <div class="field"><label for="ann-text">Announcement</label><textarea id="ann-text" maxlength="255" required placeholder="e.g. Nov. 15 – Founder's Day">${esc(d.text || "")}</textarea></div>
+    <h3 class="ann-form-h" style="margin-top:0">New Announcement</h3>
+    <div class="field"><label for="ann-text">Announcement</label><textarea id="ann-text" maxlength="2000" required placeholder="First line is the headline, e.g.&#10;NOV. 15 - FOUNDER'S DAY CELEBRATION&#10;Colors are Navy Blue and Orange">${esc(d.text || "")}</textarea></div>
     <div class="field"><label for="ann-until">Show Until <span class="hint">(optional)</span></label><input id="ann-until" type="date" min="${todayKey()}" value="${esc(d.until || "")}"></div>
     <div class="field"><span class="label">Flyer <span class="hint">(optional)</span></span>
       <label class="btn" for="ann-flyer" style="cursor:pointer;align-self:flex-start">${d.file ? "Change Flyer" : "Add a Flyer"}</label>
@@ -837,9 +882,9 @@ function viewHome(){
   return `
     <div><h1 class="greet">Welcome ${esc(first)}</h1><p class="sub">${esc(fmtLong(t))}</p></div>
     <section><div class="day-h"><h2 class="section-label">Announcements</h2>${annEditBtn()}</div>
-      <div class="panel announce">${anns.length ? `<ul class="ann">${anns.map(a => `<li><span>${esc(a.text)}${S.annEdit ? annEditLine(a) : ""}</span>${a.flyer ? `<button class="flyer" data-act="flyer-open" data-flyer="${a.id}" aria-label="Open the flyer"><span class="flyer-load">Loading…</span></button>` : ""}</li>`).join("")}</ul>` : `<p>We have no upcoming announcements at this time.</p>`}
-      ${S.annEdit ? annForm() : ""}
-      ${CONFIG.guidelinesUrl ? `<p style="margin-top:10px"><a href="${esc(CONFIG.guidelinesUrl)}" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600">Read the team guidelines</a></p>` : ""}</div></section>
+      ${anns.length ? `<div class="list">${anns.map(a => annCard(a)).join("")}</div>` : `<div class="empty">We have no upcoming announcements at this time.</div>`}
+      ${S.annEdit ? `<div class="panel" style="margin-top:10px">${annForm()}</div>` : ""}
+      ${CONFIG.guidelinesUrl ? `<p style="margin-top:10px"><a href="${esc(CONFIG.guidelinesUrl)}" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600">Read the team guidelines</a></p>` : ""}</section>
     ${bdays.length ? `<section><h2 class="section-label">Birthdays</h2>
       <div class="panel bday-panel"><p class="bday-msg">🎉 Happy Birthday! 🎂</p>
         <div class="list">${bdays.map(p => bdayRow(p, myProfile()?.id === p.id ? "That's you! Happy Birthday 🎂" : "Tap to wish them Happy Birthday 🎂", "wall")).join("")}</div></div></section>` : ""}
@@ -873,7 +918,7 @@ function viewCalendar(){
   let cells = "";
   for (let n = 0; n < weeks*7; n++){
     const k = addDays(start, n), d = fromKey(k), ev = eventsOn(k);
-    const dots = (ev.none ? '<span class="cake" aria-hidden="true">❌</span>' : "") + (ev.a.length ? '<span class="cake" aria-hidden="true">⛪</span>' : "") + (ev.b.length ? '<span class="cake" aria-hidden="true">🎂</span>' : "");
+    const dots = (ev.none ? '<span class="cake" aria-hidden="true">❌</span>' : "") + (ev.a.length ? "<i></i>" : "") + (ev.b.length ? '<span class="cake" aria-hidden="true">🎂</span>' : "");
     cells += `<button class="dcell ${d.getMonth()!==m.getMonth()?"out":""} ${k===t?"today":""} ${k===sel?"sel":""}" data-act="pick" data-date="${k}" aria-label="${esc(fmtLong(k))}${ev.none?", no service":""}${ev.a.length?`, ${ev.a.length} assignments`:""}${ev.b.length?", birthday":""}"><span>${d.getDate()}</span><span class="dots">${dots}</span></button>`;
   }
   const ev = eventsOn(sel);
@@ -886,10 +931,10 @@ function viewCalendar(){
         <button class="iconbtn" data-act="cal-prev" aria-label="Previous month">${ICON.back}</button>
         <button class="iconbtn" data-act="cal-next" aria-label="Next month">${ICON.next}</button></div>
       <div class="grid7">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(x=>`<div class="dowh">${x}</div>`).join("")}${cells}</div>
-      <div class="legend"><span><span aria-hidden="true">⛪</span>Service</span><span><span aria-hidden="true">❌</span>No Service</span><span><span aria-hidden="true">🎂</span>Birthday</span></div>
     </section>
     <section><div class="day-h"><h2 class="section-label">${esc(fmtLong(sel))}</h2>
-        ${hasNotes ? `<button class="iconbtn notes-btn" data-act="notes" data-date="${sel}" aria-label="Production Notes for this day" title="Production Notes">${ICON.notes}</button>` : ""}</div>
+        ${hasNotes ? `<button class="iconbtn notes-btn" data-act="notes" data-date="${sel}" aria-label="Production Notes for this day" title="Production Notes">${ICON.notes}</button>` : ""}
+        ${isEditor() && S.items.some(i => i.date === sel && !isProfile(i)) ? `<button class="iconbtn" data-act="admin-open" data-date="${sel}" aria-label="Edit this day's schedule" title="Edit schedule">${ICON.pencil}</button>` : ""}</div>
       ${ev.none ? `<div class="no-service"><span aria-hidden="true">❌</span> No Service</div>` : ""}
       ${bdayRows ? `<div class="list" style="margin-bottom:10px">${bdayRows}</div>` : ""}
       ${team ? `<div class="roster">${team}</div>` : (bdayRows || ev.none ? "" : `<div class="empty">No events scheduled.</div>`)}
@@ -1049,7 +1094,58 @@ function viewProfile(){
         <span class="hint">Tap to add or remove, then save.</span>
         <div class="serve-pick">${choices.map(x => `<button type="button" class="serve-opt" data-act="serve-toggle" data-value="${esc(x)}" aria-pressed="${p.serving.includes(x)}">${esc(x)}</button>`).join("")}</div></div>
       <button class="btn blue block" type="submit" id="pf-save">Save Profile</button></form>
+    ${isEditor() ? `<section class="panel install"><h2 class="section-label" style="margin:0">Admin</h2><p>Assign people, and change Status and Published on the upcoming schedule.</p><button class="btn blue" data-act="admin-open">${ICON.cal.replace("<svg",'<svg width="16" height="16"')}Edit Schedule</button></section>` : ""}
     ${badgePanel()}${installPanel()}`;
+}
+
+/* ================= ADMIN SCHEDULE (editors only) ================= */
+function adminDates(){
+  const t = todayKey();
+  return [...new Set(S.items.filter(i => !isProfile(i) && i.date && i.date >= t).map(i => i.date))].sort();
+}
+function personOptions(){
+  // Team members first (from their 🎂 Birthday rows), then anyone else on the site.
+  const seen = new Set(), out = [];
+  S.items.filter(i => isProfile(i) && i.personId).sort((a,b) => a.fullName.localeCompare(b.fullName))
+    .forEach(p => { if (!seen.has(p.personId)){ seen.add(p.personId); out.push({ id: p.personId, label: `${p.fullName} (${p.email || "no email"})` }); } });
+  (S.users || []).slice().sort((a,b) => a.name.localeCompare(b.name))
+    .forEach(u => { if (!seen.has(u.id)){ seen.add(u.id); out.push({ id: u.id, label: `${u.name} (${u.email})` }); } });
+  return out;
+}
+function opts(list, cur, blank){
+  const all = [...new Set([...(list || []), ...(cur ? [cur] : [])])];
+  return (blank ? `<option value="">${blank}</option>` : "") + all.map(v => `<option ${v === cur ? "selected" : ""}>${esc(v)}</option>`).join("");
+}
+function viewAdmin(){
+  if (!isEditor()) return `${backBar("Edit Schedule")}<div class="empty">Only schedule admins can edit the schedule.</div>`;
+  const dates = adminDates();
+  if (!dates.length) return `${backBar("Edit Schedule")}<div class="empty">There's nothing on the schedule from today on.</div>`;
+  if (!S.adminDate || !dates.includes(S.adminDate)) S.adminDate = dates[0];
+  const k = S.adminDate;
+  const rows = S.items.filter(i => !isProfile(i) && i.date === k)
+    .sort((a,b) => (a.category || "").localeCompare(b.category || "") || (a.role || "").localeCompare(b.role || ""));
+  const people = personOptions();
+  const chips = dates.map(d => { const x = fromKey(d); return `<button class="date-chip ${d === k ? "on" : ""}" data-act="admin-date" data-date="${d}" aria-pressed="${d === k}"><span>${x.toLocaleDateString(undefined,{weekday:"short"})}</span><b>${x.getDate()}</b><span>${x.toLocaleDateString(undefined,{month:"short"})}</span></button>`; }).join("");
+  const cards = rows.map(i => {
+    if (lc(i.category) === lc(CONFIG.noServiceCategory)) return `<div class="no-service"><span aria-hidden="true">❌</span> No Service</div>`;
+    const sid = esc(i.id);
+    return `<form class="panel admin-row" data-id="${sid}">
+      <div class="admin-top"><b>${esc(i.role || "No position")}</b><span class="sub" style="margin:0">${esc(i.category || "")}</span>${statusPill(i)}</div>
+      ${i.call || i.svcTime ? `<div class="times">${i.call ? `<span>Call Time <b>${esc(i.call)}</b></span>` : ""}${i.svcTime ? `<span>Service Time <b>${esc(i.svcTime)}</b></span>` : ""}</div>` : ""}
+      <div class="admin-grid">
+        <div class="field"><label for="ad-name-${sid}">Full Name</label><select id="ad-name-${sid}" data-f="ChoiceNames">${opts(S.names, i.fullName, "— Not assigned —")}</select></div>
+        <div class="field"><label for="ad-person-${sid}">Name Email</label><select id="ad-person-${sid}" data-f="PersonLookupId"><option value="">— None —</option>${people.map(o => `<option value="${esc(o.id)}" ${o.id === i.personId ? "selected" : ""}>${esc(o.label)}</option>`).join("")}${i.personId && !people.some(o => o.id === i.personId) ? `<option value="${esc(i.personId)}" selected>${esc(i.email || "Current person")}</option>` : ""}</select></div>
+        <div class="field"><label for="ad-status-${sid}">Status</label><select id="ad-status-${sid}" data-f="Status">${opts((S.choices || {}).status, i.status, "—")}</select></div>
+        <div class="field"><label for="ad-pub-${sid}">Published</label><select id="ad-pub-${sid}" data-f="Published">${opts((S.choices || {}).published, i.published, "—")}</select></div>
+      </div>
+      <button class="btn blue block" type="submit" disabled>Save Changes</button>
+    </form>`;
+  }).join("");
+  return `${backBar("Edit Schedule")}
+    <p class="sub" style="margin-top:-12px">Same as the SharePoint Admin view: from today on, by date.</p>
+    <div class="date-chips" role="group" aria-label="Service dates">${chips}</div>
+    <h2 class="section-label" style="margin:4px 0 0">${esc(fmtLong(k))}</h2>
+    <div class="list">${cards}</div>`;
 }
 
 /* ---------- red badge on the app icon for pending requests ---------- */
@@ -1100,8 +1196,8 @@ function render(){
     app.innerHTML = header + `<main><div class="wrap">${body}</div></main>`;
     return;
   }
-  const views = { directory: viewDirectory, home: viewHome, schedule: viewSchedule, calendar: viewCalendar, notes: viewNotes, team: viewTeam, member: viewMember, absence: viewAbsence, profile: viewProfile };
-  const active = ["notes","team","member"].includes(S.view) ? (S.stack[0]?.view || "home") : S.view;
+  const views = { admin: viewAdmin, directory: viewDirectory, home: viewHome, schedule: viewSchedule, calendar: viewCalendar, notes: viewNotes, team: viewTeam, member: viewMember, absence: viewAbsence, profile: viewProfile };
+  const active = ["notes","team","member","admin"].includes(S.view) ? (S.stack[0]?.view || "home") : S.view;
   const demoBar = DEMO ? `<div class="demo"><span><strong>Demo mode.</strong> Sample people and dates; nothing is saved to SharePoint. Add your app's client ID in the configuration to connect the Serving Schedule list.</span></div>` : "";
   app.innerHTML = header + `<main><div class="wrap">${demoBar}${views[S.view]()}</div></main>
     <nav class="tabs" aria-label="Main"><div class="wrap">${TABS.map(([v,l,ic]) => `<button data-act="tab" data-view="${v}" ${v===active?'aria-current="page"':""}>${ic}<span>${l}</span></button>`).join("")}</div></nav>`;
@@ -1159,6 +1255,8 @@ document.addEventListener("click", async e => {
       catch(err){ toast("Couldn't save the notes. " + err.message, true); b.disabled = false; b.textContent = "Save Notes"; }
       break;
     }
+    case "admin-open": if (b.dataset.date) S.adminDate = b.dataset.date; go("admin"); break;
+    case "admin-date": S.adminDate = b.dataset.date; render(); document.querySelector(`[data-act="admin-date"][data-date="${S.adminDate}"]`)?.scrollIntoView({ inline: "center", block: "nearest" }); break;
     case "ann-edit": S.annEdit = !S.annEdit; S.annConfirm = null; if (!S.annEdit) S.annDraft = null; render(); break;
     case "ann-ask": S.annConfirm = Number(b.dataset.id); render(); break;
     case "ann-keep": S.annConfirm = null; render(); break;
@@ -1221,6 +1319,26 @@ document.addEventListener("submit", async e => {
       p.timeOff = dates[0]; p.notes = html; A.sent = dates; A.notes = ""; S.absenceDone = true; render();
     } catch(err){ toast("Couldn't submit your absence. " + err.message, true); btn.disabled = false; btn.textContent = "Submit Absence"; }
   }
+  if (e.target.classList.contains("admin-row")){
+    const item = S.items.find(i => i.id === e.target.dataset.id); if (!item) return;
+    const get = f => e.target.querySelector(`[data-f="${f}"]`).value;
+    const fields = {}, next = { fullName: get("ChoiceNames"), personId: get("PersonLookupId"), status: get("Status"), published: get("Published") };
+    if (next.fullName !== item.fullName) fields.ChoiceNames = next.fullName || null;
+    if (next.personId !== item.personId) fields.PersonLookupId = next.personId ? String(next.personId) : null;
+    if (next.status !== item.status) fields.Status = next.status || null;
+    if (next.published !== item.published) fields.Published = next.published || null;
+    const btn = e.target.querySelector('button[type="submit"]');
+    if (!Object.keys(fields).length){ btn.disabled = true; return; }
+    btn.disabled = true; btn.textContent = "Saving…";
+    try {
+      await API.updateAssignment(item.id, fields);
+      Object.assign(item, next);
+      const u = (S.users || []).find(u => u.id === next.personId) || S.items.find(i => isProfile(i) && i.personId === next.personId);
+      item.email = next.personId ? lc(u ? u.email : item.email) : "";
+      toast(`Saved: ${item.role || "assignment"}, ${fmtShort(item.date)}`); render(); updateBadge();
+    } catch(err){ toast("Couldn't save the change. " + err.message, true); btn.disabled = false; btn.textContent = "Save Changes"; }
+    return;
+  }
   if (e.target.id === "annForm"){
     annDraftSave();
     const d = S.annDraft;
@@ -1272,6 +1390,17 @@ function annDraftSave(){
   if (u) S.annDraft.until = u.value;
 }
 document.addEventListener("change", async e => {
+  const row = e.target.closest(".admin-row");
+  if (row){
+    // Picking a Full Name fills in that person's Name Email (from their profile row) if it's empty or belonged to the previous person.
+    if (e.target.dataset.f === "ChoiceNames"){
+      const prof = S.items.find(i => isProfile(i) && i.fullName === e.target.value && i.personId);
+      const sel = row.querySelector('[data-f="PersonLookupId"]');
+      if (prof && sel && [...sel.options].some(o => o.value === prof.personId)) sel.value = prof.personId;
+    }
+    row.querySelector('button[type="submit"]').disabled = false;
+    return;
+  }
   if (e.target.id === "ann-flyer" && e.target.files[0]){
     annDraftSave(); S.annDraft.file = e.target.files[0];
     S.annDraft.preview = URL.createObjectURL(e.target.files[0]); render(); return;
@@ -1297,7 +1426,7 @@ async function start(){
     const signedIn = await API.init();
     if (!signedIn){ S.phase = "signin"; render(); return; }
     const data = await API.load();
-    S.me = data.me; S.items = data.items; S.names = data.names; S.servingChoices = data.servingChoices || []; S.announcements = data.announcements || []; S.messages = data.messages || [];
+    S.me = data.me; S.items = data.items; S.names = data.names; S.servingChoices = data.servingChoices || []; S.choices = data.choices || {}; S.users = data.users || []; S.announcements = data.announcements || []; S.messages = data.messages || [];
     const t = new Date(); S.cal.month = new Date(t.getFullYear(), t.getMonth(), 1); S.cal.sel = todayKey();
     S.phase = "ready"; render(); maybeConfetti(); updateBadge();
   } catch(e){
