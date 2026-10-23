@@ -1,0 +1,1259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RCI Productions</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#081C33" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="RCI Productions">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: single-column phone-first app shell — sticky header, stacked "cue cards", fixed bottom tab bar (mirrors the Power App's nav). */
+:root{
+  /* Brand: RCI navy #072442 and gold #BD9863 from the church logo */
+  --bg:#F2F4F8; --surface:#FFFFFF; --surface-2:#E7EBF2; --line:#D3DAE5;
+  --fg:#0B1D33; --muted:#566479; --accent:#8A6631; --accent-ink:#FFFFFF; --accent-soft:#F4EBDD;
+  --ok:#1E7A4C; --ok-soft:#DDF1E6; --warn:#8A5A00; --warn-soft:#FBEBCD; --bad:#B3261E; --bad-soft:#F9DEDC;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --r:10px;
+  --go:#1E8A52; --stop:#C62828; --blue:#0B3A6E;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#03111F; --surface:#081C33; --surface-2:#0E2845; --line:#1A3555;
+  --fg:#EEF2F7; --muted:#A3B2C6; --accent:#D2B07C; --accent-ink:#03111F; --accent-soft:#252C38; --blue:#2B6CB0;
+  --ok:#5CCB8F; --ok-soft:#0F2E2A; --warn:#E3B866; --warn-soft:#2E2A20; --bad:#F2877F; --bad-soft:#33202C; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#03111F; --surface:#081C33; --surface-2:#0E2845; --line:#1A3555;
+  --fg:#EEF2F7; --muted:#A3B2C6; --accent:#D2B07C; --accent-ink:#03111F; --accent-soft:#252C38; --blue:#2B6CB0;
+  --ok:#5CCB8F; --ok-soft:#0F2E2A; --warn:#E3B866; --warn-soft:#2E2A20; --bad:#F2877F; --bad-soft:#33202C; color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:720px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+header.top .wrap{display:flex;align-items:center;gap:12px;padding-top:16px;padding-bottom:10px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.wm{height:48px;width:auto;max-width:100%;display:block;object-fit:contain;object-position:left center}
+.wm-dark{display:none}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .wm-light{display:none}:root:not([data-theme="light"]) .wm-dark{display:block}}
+:root[data-theme="dark"] .wm-light{display:none}
+:root[data-theme="dark"] .wm-dark{display:block}
+.center-screen .wm{height:auto;width:min(280px,80%);object-position:center}
+.install{display:flex;flex-direction:column;gap:8px}
+.install p{margin:0;color:var(--muted);font-size:14px}
+.install b{color:var(--fg)}
+.brand b{font-family:var(--display);font-weight:700;font-size:24px;letter-spacing:.02em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iconbtn{background:none;border:1px solid var(--line);border-radius:999px;width:40px;height:40px;display:grid;place-items:center;color:var(--muted);flex:none}
+.iconbtn svg{width:18px;height:18px}
+
+main{padding-bottom:calc(68px + env(safe-area-inset-bottom,0px))}
+main .wrap{display:flex;flex-direction:column;gap:18px;padding-block:20px}
+
+.demo{background:var(--accent-soft);color:var(--fg);border:1px solid var(--line);border-radius:var(--r);padding:10px 14px;font-size:13.5px;display:flex;gap:10px;align-items:flex-start}
+.demo strong{color:var(--accent)}
+
+h1.greet{font-family:var(--display);font-weight:700;font-size:clamp(30px,8vw,40px);line-height:1.02;letter-spacing:.01em;text-wrap:balance;margin:0}
+.sub{color:var(--muted);margin:4px 0 0}
+.page-h{display:flex;align-items:center;gap:10px}
+.page-h h1{font-family:var(--display);font-weight:700;font-size:30px;letter-spacing:.02em;margin:0;text-wrap:balance}
+.back{background:none;border:none;color:var(--muted);display:flex;align-items:center;gap:4px;padding:6px 8px 6px 0;font-weight:600}
+.back svg{width:18px;height:18px}
+
+.section-label{font-family:var(--display);font-weight:600;font-size:15px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;display:flex;align-items:center;gap:8px}
+.count{font-size:12px;font-weight:700;letter-spacing:0;background:var(--surface-2);color:var(--fg);border-radius:999px;padding:1px 8px}
+.count.hot{background:var(--stop);color:#FFFFFF}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.announce p{margin:0}
+.ann{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+.ann li{padding-left:14px;position:relative;font-weight:500;display:flex;flex-direction:row;align-items:flex-start;gap:12px}
+.ann li > span{flex:1;min-width:0}
+.ann-meta{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;margin-top:6px;font-size:13px;font-weight:500;color:var(--muted)}
+.ann-meta .linkbtn{margin:0;padding:0}
+.iconbtn.edit-on{background:var(--go);border-color:var(--go);color:#FFFFFF}
+.ann-form{border-top:1px solid var(--line);margin-top:14px;padding-top:14px}
+.ann-form-h{margin:0;font-family:var(--display);font-size:20px;letter-spacing:.02em}
+.ann-form .hint{font-weight:400}
+.flyer-picked{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.flyer-picked img{width:56px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
+.flyer{display:block;flex:none;width:clamp(96px,30%,150px);padding:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface-2);cursor:zoom-in}
+.flyer img{display:block;width:100%;height:auto;max-height:200px;object-fit:cover;object-position:top;background:var(--surface-2)}
+.flyer-load{display:block;padding:18px 6px;color:var(--muted);font-size:12px;font-weight:500;text-align:center}
+.lightbox{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;padding:calc(48px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+.lightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:6px}
+.lb-close{position:absolute;top:calc(8px + env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,.15);color:#fff;font-size:26px;line-height:1}
+.ann li::before{content:"";position:absolute;left:0;top:.6em;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.bday-panel{display:flex;flex-direction:column;gap:12px;border-color:var(--accent)}
+.bday-row{border-color:var(--accent)}
+a.btn{text-decoration:none}
+.email-addr{margin:0;font-size:13px;user-select:all;overflow-wrap:anywhere}
+.msgs{gap:8px}
+.msg{display:flex;gap:10px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px}
+.msg-body{min-width:0;flex:1}
+.msg-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.msg-top span{color:var(--muted);font-size:12.5px;white-space:nowrap}
+.msg p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg-del{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:6px}
+.linkbtn{background:none;border:none;padding:4px 0;margin-top:4px;color:var(--muted);font-size:13px;font-weight:600;text-decoration:underline}
+.linkbtn.danger{color:var(--bad)}
+.wall-form{margin-bottom:10px}
+.wall-emoji{font-size:30px;width:52px;text-align:center;flex:none}
+.bday-row .av{width:52px;height:52px}
+.no-service{display:flex;align-items:center;gap:8px;background:var(--bad-soft);color:var(--bad);border:1px solid var(--bad);border-radius:var(--r);padding:10px 14px;font-weight:700;margin-bottom:10px}
+.bday-msg{margin:0;font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:.02em;text-align:center}
+.announce .thanks{margin-top:8px;font-weight:600}
+.empty{color:var(--muted);background:var(--surface);border:1px dashed var(--line);border-radius:var(--r);padding:16px;text-align:center}
+
+/* Cue card: one assignment */
+.list{display:flex;flex-direction:column;gap:10px}
+.cue{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);display:grid;grid-template-columns:64px 1fr;overflow:hidden}
+.cue.pending{border-color:var(--accent)}
+.when{background:var(--surface-2);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;text-align:center}
+.cue.pending .when{background:var(--accent);color:var(--accent-ink)}
+.when .dow{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.14em;text-transform:uppercase;opacity:.8}
+.when .day{font-family:var(--display);font-weight:700;font-size:30px;line-height:1}
+.when .mon{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.14em;text-transform:uppercase;opacity:.8}
+.cue-body{padding:12px 14px;min-width:0;display:flex;flex-direction:column;gap:6px}
+.cue-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.role{font-weight:700;font-size:16.5px}
+.cat{color:var(--muted);font-size:13.5px}
+.times{display:flex;gap:2px 18px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.times b{font-weight:600;color:var(--fg);font-size:13px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.btn{border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:7px 14px;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:6px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.danger{color:var(--bad);background:transparent}
+.btn.danger.solid{background:var(--bad);border-color:var(--bad);color:var(--surface)}
+.btn.accept{background:var(--go);border-color:var(--go);color:#FFFFFF}
+.btn.decline{background:var(--stop);border-color:var(--stop);color:#FFFFFF}
+.btn.decline-soft{color:var(--bad)}
+.btn.blue{background:var(--blue);border-color:var(--blue);color:#FFFFFF}
+.btn:disabled{opacity:.55;cursor:default}
+.btn.block{width:100%;justify-content:center;padding:11px 14px}
+.confirm-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;color:var(--muted)}
+
+.pill{font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.pill.reply{background:var(--stop);color:#FFFFFF}
+.pill.neutral{background:var(--surface-2);color:var(--muted)}
+
+/* Calendar */
+.cal-head{display:flex;align-items:center;gap:6px}
+.cal-head h2{font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:.02em;margin:0;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.grid7{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.dowh{font-family:var(--display);font-weight:600;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-align:center;padding:2px 0}
+.dcell{height:44px;max-width:100%;border:none;background:transparent;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:14.5px;font-weight:500;color:var(--fg);padding:0}
+.dcell.out{color:var(--muted);opacity:.45}
+.dcell.today{box-shadow:inset 0 0 0 1.5px var(--accent)}
+.dcell.sel{background:var(--accent);color:var(--accent-ink)}
+.dots{display:flex;align-items:center;gap:3px;height:12px}
+.dots i{width:5px;height:5px;border-radius:50%;background:var(--accent)}
+.dots .cake{font-size:11px;line-height:1}
+.dcell.sel .dots i{background:var(--accent-ink)}
+.cal-panel{display:flex;flex-direction:column;gap:6px;padding:12px}
+.day-h{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+.day-h .section-label{margin:0;flex:1}
+.iconbtn.notes-btn{color:var(--accent);border-color:var(--accent)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block}
+
+/* Roster: square photo tiles */
+.roster{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:0;overflow:hidden;text-align:left;display:flex;flex-direction:column;width:100%;min-width:0}
+.tile .av{width:100%;height:auto;aspect-ratio:1/1;border-radius:0;font-size:28px}
+.tile .meta{padding:8px 10px 10px;min-width:0;display:flex;flex-direction:column;gap:2px}
+.tile .meta b{font-weight:700;font-size:13.5px;line-height:1.25;overflow-wrap:anywhere}
+.tile .meta small{color:var(--muted);font-size:12.5px;line-height:1.3}
+/* People rows */
+.person{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;width:100%;text-align:left}
+.person .meta{min-width:0;flex:1}
+.person .meta b{display:block;font-weight:700}
+.person .meta small{color:var(--muted);font-size:13.5px}
+.person .chev{color:var(--muted);width:18px;height:18px;flex:none}
+.av{width:44px;height:44px;border-radius:50%;flex:none;background:var(--surface-2);color:var(--fg);display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:.03em;overflow:hidden;position:relative}
+.av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.av.lg{width:104px;height:104px;font-size:36px}
+.av.sm{width:50px;height:50px;font-size:16px}
+
+/* Notes */
+.notes{overflow-x:auto}
+.notes-date{margin-top:-12px;font-size:19px;font-weight:600;color:var(--fg)}
+.notes :where(h1,h2,h3,h4){font-family:var(--display);letter-spacing:.02em;margin:.6em 0 .3em}
+.notes p,.notes div{margin:0 0 .5em}
+.notes ul,.notes ol{padding-left:1.3em}
+.notes table{border-collapse:collapse}
+.notes td,.notes th{border:1px solid var(--line);padding:4px 8px}
+.notes a{color:var(--accent)}
+
+/* Forms */
+form.stack{display:flex;flex-direction:column;gap:14px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-weight:600;font-size:14px}
+.field .hint{color:var(--muted);font-size:13px}
+.field .label{font-weight:600;font-size:14px}
+.serve-list{display:flex;flex-wrap:wrap;gap:8px}
+.serve{background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-weight:600;font-size:14px}
+.serve-pick{display:flex;flex-wrap:wrap;gap:8px}
+.serve-opt{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:7px 12px;font-weight:600;font-size:13.5px}
+.serve-opt[aria-pressed="true"]{background:var(--blue);border-color:var(--blue);color:#FFFFFF}
+.serve-opt[aria-pressed="true"]::before{content:"✓ "}
+.dcell:disabled{opacity:.3;cursor:default}
+.picked{display:flex;flex-wrap:wrap;gap:6px;min-height:30px;align-items:center}
+.chip{border:1px solid var(--accent);background:var(--accent-soft);color:var(--fg);border-radius:999px;padding:4px 10px;font-size:13px;font-weight:600}
+.iconbtn:disabled{opacity:.35;cursor:default}
+.field input,.field select,.field textarea{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;width:100%;min-width:0}
+.field textarea{min-height:96px;resize:vertical}
+.field input:disabled{opacity:.6;cursor:not-allowed}
+.field input[type="date"]{-webkit-appearance:none;appearance:none;display:block;max-width:100%;min-height:44px;text-align:left}
+.field input[type="date"]::-webkit-date-and-time-value{text-align:left}
+.profile-hero{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
+.profile-hero h2{font-family:var(--display);font-size:28px;margin:0;letter-spacing:.02em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:10px 18px;margin:0}
+.kv dt{color:var(--muted);font-size:13.5px}
+.kv dd{margin:0;font-weight:600;min-width:0;overflow-wrap:anywhere;user-select:text}
+.done{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:28px 16px}
+.done .check{width:56px;height:56px;border-radius:50%;background:var(--ok-soft);color:var(--ok);display:grid;place-items:center}
+.done .check svg{width:28px;height:28px}
+
+/* Bottom nav */
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav.tabs .wrap{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;padding-block:2px}
+nav.tabs button{background:none;border:none;border-radius:8px;display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 2px;color:var(--muted);font-family:var(--display);font-weight:600;font-size:11px;letter-spacing:.02em;text-transform:uppercase;min-width:0}
+nav.tabs button span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+nav.tabs button svg{width:20px;height:20px}
+nav.tabs button[aria-current="page"]{color:var(--accent)}
+
+.center-screen{min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center}
+.center-screen h1{font-family:var(--display);font-size:34px;margin:0;letter-spacing:.02em}
+.center-screen p{color:var(--muted);max-width:42ch;margin:0}
+.err{color:var(--bad);font-family:var(--mono);font-size:12.5px;background:var(--bad-soft);padding:8px 10px;border-radius:8px;max-width:100%;overflow-wrap:anywhere;text-align:left}
+.spinner{width:28px;height:28px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--accent);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.spinner{animation-duration:3s}}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:20;background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:14px;max-width:calc(100% - 32px);box-shadow:0 6px 24px rgba(0,0,0,.25)}
+.toast.bad{background:var(--bad);color:var(--surface)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+/* ============================================================
+   CONFIGURATION — fill these in after registering the app in
+   Microsoft Entra ID (see the setup guide). Leave clientId empty
+   to run the app in demo mode with sample data.
+   ============================================================ */
+const CONFIG = {
+  clientId: "cd20cb76-a6e8-47fa-9abf-c8e17fb5594d",   // Application (client) ID from Entra ID — "RCI Productions"
+  tenantId: "4351910e-4abe-4ff8-a519-ce7ac8cad567",   // Directory (tenant) ID — required so guest (outside) users sign in to your org
+  // Addresses the app may be hosted at; anywhere else it opens in demo mode.
+  // An entry starting with "." matches any address ending in it (".github.io" = GitHub Pages).
+  appHosts: ["productions.therampchurch.com", ".github.io", "rci-productions.netlify.app"],
+  siteHost: "xb3hc3233xdwtuxk4m6un8xymmy.sharepoint.com",
+  sitePath: "/sites/RCIProductions",
+  listId:   "01c57f63-f693-4a25-bd83-18ef8c5b6ecd",   // the "Serving Schedule" list
+  profileCategory: "🎂 Birthday",
+  noServiceCategory: "No Service",  // Service Category marking a date with no service  // Service Category used for each person's profile row
+  notesRole: "Production Director",// role whose Notes hold the run sheet / set list
+  notesMarker: "SET LIST",         // notes are shown from this text onward
+  // Home-screen announcements come from the "Announcements" SharePoint list on the same site.
+  announcementsListId: "35549622-4738-4fff-9b07-15e0255df762",
+  messagesListId: "2d7c1b51-ef21-4cdd-8c00-023193bc7833",   // "Birthday Messages" list
+  // Only these sign-ins see the pencil to add or remove announcements.
+  announcementEditors: ["ashley.stmacary@therampchurch.com", "ward.shaquille93@gmail.com", "morgandmosby@gmail.com"],
+  wallDays: 30,                    // birthday wall: open for posting and visible for this many days
+  guidelinesUrl: ""                // optional link shown under announcements
+};
+
+const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
+const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
+const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad = n => String(n).padStart(2, "0");
+const keyOf = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const fromKey = k => { const [y,m,d] = k.split("-").map(Number); return new Date(y, m-1, d); };
+const spDate = v => v ? keyOf(new Date(v)) : "";              // SharePoint returns UTC instants for date-only columns
+const toSp = k => k ? fromKey(k).toISOString() : null;        // local midnight → instant SharePoint stores as that date
+const todayKey = () => keyOf(new Date());
+const addDays = (k, n) => { const d = fromKey(k); d.setDate(d.getDate()+n); return keyOf(d); };
+const fmtLong = k => fromKey(k).toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric", year:"numeric"});
+const fmtShort = k => fromKey(k).toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"});
+const initials = n => (n||"?").split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join("");
+const firstOf = n => (n||"").trim().split(/\s+/)[0] || "";
+const lc = s => (s||"").toLowerCase();
+
+const ICON = {
+  home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>',
+  list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg>',
+  cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  away:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M9.5 13.5l5 5M14.5 13.5l-5 5"/></svg>',
+  user:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>',
+  back:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
+  next:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>',
+  moon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
+  sun:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  out:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>',
+  notes:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>',
+  team:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.9-3.4 3.4-5.5 6.5-5.5s5.6 2.1 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16.5 14.6c2.5.2 4.3 2 5 4.9"/></svg>',
+  mail:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>',
+  pencil:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+};
+
+let toastTimer;
+function toast(msg, bad=false){
+  const t = $("#toast"); t.textContent = msg; t.className = "toast" + (bad ? " bad" : ""); t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=>{ t.hidden = true; }, bad ? 6000 : 3200);
+}
+
+/* ---------- theme toggle (the original app's dark-mode switch) ---------- */
+function currentDark(){
+  const t = document.documentElement.getAttribute("data-theme");
+  if (t) return t === "dark";
+  return matchMedia("(prefers-color-scheme: dark)").matches;
+}
+function toggleTheme(){
+  const next = currentDark() ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  try { localStorage.setItem("rci-theme", next); } catch(e){}
+  render();
+}
+try { const saved = localStorage.getItem("rci-theme"); if (saved) document.documentElement.setAttribute("data-theme", saved); } catch(e){}
+
+/* ============================================================
+   DATA LAYER — Graph (live) or in-memory sample (demo)
+   ============================================================ */
+function normalize(id, f, emailById){
+  return {
+    id: String(id),
+    role: f.Title || "",
+    date: spDate(f.ServiceDates),
+    category: f.ServiceCategory || "",
+    call: f.CallTime || "",
+    svcTime: f.ServiceTime || "",
+    fullName: f.ChoiceNames || "",
+    email: lc(emailById ? emailById[f.PersonLookupId] : f.email),
+    status: f.Status || "",
+    published: f.Published || "",
+    notes: f.Notes || "",
+    first: f.Name || "",
+    timeOff: spDate(f.TimeOffDate),
+    birthday: spDate(f.Birthday),
+    phone: f.PhoneNumber || "",
+    photoRaw: f.Photo || "",
+    serving: Array.isArray(f.Serving) ? f.Serving.slice() : []
+  };
+}
+
+const LiveAPI = {
+  msal: null, account: null, siteId: null, cache: new Map(),
+  async init(){
+    const msal = await import("https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.27.0/+esm");
+    this.msal = new msal.PublicClientApplication({
+      auth: { clientId: CONFIG.clientId,
+              authority: "https://login.microsoftonline.com/" + (CONFIG.tenantId || "organizations"),
+              redirectUri: location.origin + location.pathname },
+      cache: { cacheLocation: "localStorage" }
+    });
+    await this.msal.initialize();
+    const r = await this.msal.handleRedirectPromise();
+    this.account = r?.account || this.msal.getAllAccounts()[0] || null;
+    if (this.account) this.msal.setActiveAccount(this.account);
+    return !!this.account;
+  },
+  signIn(){ return this.msal.loginRedirect({ scopes: SCOPES }); },
+  signOut(){ return this.msal.logoutRedirect({ account: this.account }); },
+  async token(){
+    try { return (await this.msal.acquireTokenSilent({ scopes: SCOPES, account: this.account })).accessToken; }
+    catch(e){ await this.msal.acquireTokenRedirect({ scopes: SCOPES }); throw e; }
+  },
+  async g(path, opts={}){
+    const url = path.startsWith("https://") ? path : "https://graph.microsoft.com/v1.0" + path;
+    const res = await fetch(url, { ...opts, headers: { Authorization: "Bearer " + await this.token(), ...(opts.headers||{}) } });
+    if (!res.ok){
+      let detail = ""; try { detail = (await res.json()).error?.message || ""; } catch(e){}
+      const err = new Error(`${res.status} ${detail || res.statusText}`); err.status = res.status; throw err;
+    }
+    return opts.raw ? res : (res.status === 204 ? null : res.json());
+  },
+  async all(path){
+    let out = [], next = path;
+    while (next){ const j = await this.g(next); out = out.concat(j.value || []); next = j["@odata.nextLink"]; }
+    return out;
+  },
+  async load(){
+    const me = await this.g("/me?$select=displayName,mail,userPrincipalName");
+    const site = await this.g(`/sites/${CONFIG.siteHost}:${CONFIG.sitePath}`);
+    this.siteId = site.id;
+    const base = `/sites/${this.siteId}/lists`;
+    // Person column only returns a lookup id; the site's hidden user list maps it to an email.
+    let emailById = {};
+    try {
+      const users = await this.all(`${base}/${encodeURIComponent("User Information List")}/items?$expand=fields($select=EMail,UserName,Title)&$top=999`);
+      users.forEach(u => { emailById[u.id] = u.fields.EMail || u.fields.UserName || ""; });
+    } catch(e){ console.warn("Could not read User Information List; matching by name instead.", e); }
+    const sel = "Title,ServiceDates,ServiceCategory,CallTime,ServiceTime,ChoiceNames,PersonLookupId,Status,Published,Notes,Name,TimeOffDate,Birthday,Photo,PhoneNumber,Serving";
+    const rows = await this.all(`${base}/${CONFIG.listId}/items?$expand=fields($select=${sel})&$top=500`);
+    let names = [], servingChoices = [];
+    try {
+      const cols = await this.g(`${base}/${CONFIG.listId}/columns?$select=name,choice`);
+      names = (cols.value.find(c => c.name === "ChoiceNames")?.choice?.choices) || [];
+      servingChoices = (cols.value.find(c => c.name === "Serving")?.choice?.choices) || [];
+    } catch(e){}
+    return {
+      me: { name: me.displayName || this.account.name || "", emails: [me.mail, me.userPrincipalName, this.account.username].filter(Boolean).map(lc) },
+      items: rows.map(r => normalize(r.id, r.fields, emailById)),
+      names, servingChoices,
+      messages: await this.messages(),
+      announcements: await this.announcements()
+    };
+  },
+  async messages(){
+    try {
+      const rows = await this.all(`/sites/${this.siteId}/lists/${CONFIG.messagesListId}/items?$expand=fields($select=Title,ToId,Message)&$top=500`);
+      return rows.map(r => ({ id: String(r.id), toId: String(r.fields.ToId ?? ""), text: r.fields.Message || "",
+        fromName: r.createdBy?.user?.displayName || "", fromEmail: lc(r.createdBy?.user?.email || ""), at: r.createdDateTime }));
+    } catch(e){ console.warn("Couldn't read the Birthday Messages list.", e); return []; }
+  },
+  async postMessage(to, text){
+    const r = await this.g(`/sites/${this.siteId}/lists/${CONFIG.messagesListId}/items`, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: { Title: to.fullName, ToId: Number(to.id), Message: text } }) });
+    return { id: String(r.id), toId: String(to.id), text, fromName: S.me.name, fromEmail: S.me.emails[0] || "", at: r.createdDateTime || new Date().toISOString() };
+  },
+  async deleteMessage(id){
+    await this.g(`/sites/${this.siteId}/lists/${CONFIG.messagesListId}/items/${id}`, { method: "DELETE" });
+  },
+  async announcements(){
+    try {
+      const rows = await this.all(`/sites/${this.siteId}/lists/${CONFIG.announcementsListId}/items?$expand=fields($select=Title,ShowUntil,Flyer)&$top=200`);
+      return rows.map(r => ({ id: Number(r.id), text: r.fields.Title || "", until: spDate(r.fields.ShowUntil), flyer: r.fields.Flyer || "" }));
+    } catch(e){ console.warn("Couldn't read the Announcements list.", e); return []; }
+  },
+  async update(id, fields){
+    await this.g(`/sites/${this.siteId}/lists/${CONFIG.listId}/items/${id}/fields`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(fields) });
+  },
+  /* SharePoint's own API is needed for photos stored as row attachments (Graph can't read those). */
+  spOff: false,
+  async spToken(){
+    if (this.spOff) return null;
+    try { return (await this.msal.acquireTokenSilent({ scopes: [`https://${CONFIG.siteHost}/AllSites.Read`], account: this.account })).accessToken; }
+    catch(e){ console.warn("SharePoint photo access isn't approved yet (AllSites.Read).", e); this.spOff = true; return null; }
+  },
+  flyer(a){
+    const k = "flyer|" + a.id + "|" + a.flyer;
+    if (!this.cache.has(k)) this.cache.set(k, (async () => {
+      try {
+        const f = JSON.parse(a.flyer), q = v => encodeURIComponent(String(v).replace(/'/g, "''"));
+        if (f.serverRelativeUrl) return await this.spBlob(`GetFileByServerRelativeUrl('${q(f.serverRelativeUrl)}')/$value`);
+        if (f.fileName) return await this.spBlob(`lists(guid'${CONFIG.announcementsListId}')/items(${a.id})/AttachmentFiles('${q(f.fileName)}')/$value`);
+      } catch(e){}
+      return null;
+    })());
+    return this.cache.get(k);
+  },
+  async spBlob(path){
+    const tok = await this.spToken(); if (!tok) throw new Error("no SharePoint token");
+    const res = await fetch(`https://${CONFIG.siteHost}${CONFIG.sitePath}/_api/web/${path}`, { headers: { Authorization: "Bearer " + tok } });
+    if (!res.ok) throw new Error(res.status);
+    return URL.createObjectURL(await res.blob());
+  },
+  photo(profile, email){
+    const k = (profile?.id || "") + "|" + (profile?.photoRaw || "") + "|" + (email || "");
+    if (!this.cache.has(k)) this.cache.set(k, (async () => {
+      if (profile?.photoRaw){
+        try {
+          const p = JSON.parse(profile.photoRaw);
+          const q = v => encodeURIComponent(String(v).replace(/'/g, "''"));
+          if (p.serverRelativeUrl) return await this.spBlob(`GetFileByServerRelativeUrl('${q(p.serverRelativeUrl)}')/$value`);
+          if (p.fileName) return await this.spBlob(`lists(guid'${CONFIG.listId}')/items(${profile.id})/AttachmentFiles('${q(p.fileName)}')/$value`);
+        } catch(e){}
+      }
+      if (email){
+        try { const res = await this.g(`/users/${encodeURIComponent(email)}/photo/$value`, { raw: true }); return URL.createObjectURL(await res.blob()); }
+        catch(e){}
+      }
+      return null;
+    })());
+    return this.cache.get(k);
+  },
+  /* Upload an image to the site's Site Assets library (where SharePoint keeps image-column files) and return the column value. */
+  async assetImage(listId, fileName, blob){
+    const drives = await this.g(`/sites/${this.siteId}/drives?$select=id,name,webUrl`);
+    const assets = drives.value.find(d => /\/SiteAssets$/i.test(d.webUrl)) || drives.value.find(d => /site assets/i.test(d.name));
+    if (!assets) throw new Error("Couldn't find the site's Site Assets library.");
+    const up = await this.g(`/drives/${assets.id}/root:/Lists/${listId}/${fileName}:/content`, {
+      method: "PUT", headers: { "Content-Type": "image/jpeg" }, body: blob });
+    const u = new URL(up.webUrl);
+    return JSON.stringify({ type: "thumbnail", fileName, serverUrl: u.origin, serverRelativeUrl: decodeURIComponent(u.pathname) });
+  },
+  async uploadPhoto(profile, blob){
+    const raw = await this.assetImage(CONFIG.listId, `profile_${profile.id}_${Date.now()}.jpg`, blob);
+    await this.update(profile.id, { Photo: raw });
+    return raw;
+  },
+  async addAnnouncement({ text, until, flyer }){
+    const base = `/sites/${this.siteId}/lists/${CONFIG.announcementsListId}/items`;
+    const fields = { Title: text };
+    if (until) fields.ShowUntil = until + "T12:00:00Z";      // noon UTC keeps the same calendar date everywhere
+    const item = await this.g(base, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fields }) });
+    const a = { id: Number(item.id), text, until: until || "", flyer: "" };
+    if (flyer){
+      try {
+        const raw = await this.assetImage(CONFIG.announcementsListId, `flyer_${item.id}_${Date.now()}.jpg`, flyer);
+        await this.g(`${base}/${item.id}/fields`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ Flyer: raw }) });
+        a.flyer = raw;
+      } catch(e){ a.flyerError = e.message; }
+    }
+    return a;
+  },
+  async removeAnnouncement(id){
+    await this.g(`/sites/${this.siteId}/lists/${CONFIG.announcementsListId}/items/${id}`, { method: "DELETE" });
+  }
+};
+
+const DemoAPI = {
+  async init(){ return true; },
+  signOut(){ toast("Demo mode has no account to sign out of."); },
+  async load(){
+    const t = todayKey(), d = fromKey(t);
+    const sun = n => addDays(t, ((7 - d.getDay()) % 7) + 7*n);   // n-th upcoming Sunday (0 = this week)
+    const wed = n => addDays(t, ((3 - d.getDay() + 7) % 7) + 7*n);
+    const people = [
+      ["Jordan Ellis","jordan.ellis@example.org","434-555-0142"],["Maya Thompson","maya.thompson@example.org","434-555-0187"],
+      ["Caleb Okafor","caleb.okafor@example.org","434-555-0123"],["Priya Raman","priya.raman@example.org","434-555-0164"],
+      ["Sam Whitaker","sam.whitaker@example.org","434-555-0109"],["Grace Lindqvist","grace.lindqvist@example.org","434-555-0171"],
+      ["Marcus Bell","marcus.bell@example.org","434-555-0158"],["Hannah Cole","hannah.cole@example.org","434-555-0135"]
+    ];
+    const bdays = [addDays(t,2), "1991-03-14","1988-07-02", t,"1995-12-19", addDays(t,9),"1990-05-27","1993-09-08"];
+    let id = 1; const items = [];
+    people.forEach(([n,e,ph],i) => items.push(normalize(id++, {
+      Title: n, ServiceCategory: CONFIG.profileCategory, ChoiceNames: n, email: e, Name: firstOf(n),
+      Birthday: bdays[i].length === 10 && bdays[i].startsWith("19") ? bdays[i] : bdays[i].replace(/^\d{4}/, "1992"),
+      PhoneNumber: ph })));
+    // spDate expects instants; demo keys are already local keys, so fix birthdays after normalize
+    items.forEach((it,i) => { it.birthday = bdays[i].startsWith("19") ? bdays[i] : bdays[i].replace(/^\d{4}/,"1992"); });
+    const notes = `<p><strong>Run of show</strong></p><ul><li>7:30 Call — line check, camera white balance</li><li>8:15 Full run-through with band</li><li>8:45 Doors / countdown on stream</li></ul><p><strong>SET LIST</strong></p><ol><li>Holy, Holy, Holy — key of D</li><li>Come Thou Fount — key of G</li><li>Be Thou My Vision — key of E♭</li><li>Message — lower thirds for scripture slides</li><li>It Is Well — key of C, slow outro into prayer</li></ol><p>Camera 2: stay wide during the outro. Stream goes to slate at 10:20.</p>`;
+    const A = (date, role, who, status, pub, extra={}) => {
+      const p = people[who];
+      const it = normalize(id++, { Title: role, ServiceCategory: extra.cat || "Sunday Service", CallTime: extra.call || "7:30 AM",
+        ServiceTime: extra.time || "9:00 AM", ChoiceNames: p[0], email: p[1], Status: status, Published: pub, Notes: extra.notes || "" });
+      it.date = date; items.push(it);
+    };
+    A(sun(0),"Production Director",1,"Accepted","Request Approved",{notes});
+    A(sun(0),"Camera 1",0,"Accepted","Request Approved");
+    A(sun(0),"Audio",2,"Accepted","Request Approved",{call:"7:00 AM"});
+    A(sun(0),"ProPresenter",3,"Accepted","Request Approved");
+    A(sun(0),"Lighting",6,"Accepted","Request Approved");
+    A(wed(0) < t ? wed(1) : wed(0),"Stream Producer",0,"Pending","Request Sent",{cat:"Midweek Service",call:"6:00 PM",time:"7:00 PM"});
+    A(sun(1),"Production Director",5,"Accepted","Request Approved",{notes: notes.replace("Holy, Holy, Holy","Crown Him with Many Crowns")});
+    A(sun(1),"Camera 2",0,"Pending","Request Sent");
+    A(sun(1),"Audio",4,"Accepted","Request Approved",{call:"7:00 AM"});
+    A(sun(1),"Camera 1",7,"Pending","Request Sent");
+    A(sun(2),"Lighting",0,"Declined","Request Denied");
+    A(sun(2),"Camera 1",2,"Accepted","Request Approved");
+    A(sun(3),"ProPresenter",0,"Accepted","Request Approved",{time:"11:00 AM",call:"9:30 AM"});
+    { const ns = normalize(id++, { ServiceCategory: CONFIG.noServiceCategory }); ns.date = addDays(wed(0) < t ? wed(1) : wed(0), 7); items.push(ns); }
+    const announcements = [
+      { id: 1, text: "There is no Bible Study on Wednesday, October 21st.", until: "2026-10-21" },
+      { id: 2, text: "On Sunday, November 1st, we are going to Reach Out Tabernacle. There is no Sunday morning service at The Ramp.", until: "2026-11-01", flyer: "demo" }
+    ];
+    const servingChoices = ["Production Director","FOH Audio Engineer","Lighting Technician","Broadcast Audio Engineer","Propresenter Technician","Creative Director","Broadcast Switcher Operator","Camera 2 Operator","Gimbal Operator"];
+    items.filter(isProfile).forEach((p, n) => { p.serving = servingChoices.filter((_, j) => (j + n) % 3 === 0); });
+    const bdayP = items.find(i => isProfile(i) && i.birthday.slice(5) === t.slice(5));
+    const messages = bdayP ? [
+      { id: "m1", toId: bdayP.id, text: "Happy birthday! Thanks for always keeping the slides on cue. 🎉", fromName: people[1][0], fromEmail: people[1][1], at: new Date(Date.now() - 3600e3).toISOString() },
+      { id: "m2", toId: bdayP.id, text: "Have the best day! 🎂", fromName: people[6][0], fromEmail: people[6][1], at: new Date(Date.now() - 7200e3).toISOString() }
+    ] : [];
+    return { me: { name: people[0][0], emails: [people[0][1]] }, items, names: people.map(p=>p[0]), servingChoices, announcements, messages };
+  },
+  async update(id, fields){
+    await new Promise(r => setTimeout(r, 250));
+  },
+  photo(){ return Promise.resolve(null); },
+  async postMessage(to, text){ return { id: "d" + Date.now(), toId: String(to.id), text, fromName: S.me.name, fromEmail: S.me.emails[0], at: new Date().toISOString() }; },
+  async deleteMessage(){},
+  async addAnnouncement({ text, until, flyer }){ return { id: Date.now(), text, until: until || "", flyer: flyer ? "demo-upload" : "", flyerUrl: flyer ? URL.createObjectURL(flyer) : "" }; },
+  async removeAnnouncement(){},
+  async uploadPhoto(profile, blob){ return JSON.stringify({ demo: URL.createObjectURL(blob) }); }
+};
+const API = DEMO ? DemoAPI : LiveAPI;
+
+/* ============================================================
+   STATE + SELECTORS
+   ============================================================ */
+const S = { phase: "boot", error: "", me: null, items: [], names: [], view: "home", arg: null, stack: [],
+            cal: { month: null, sel: null }, confirm: null, busy: new Set(), absenceDone: false, demoPhotos: {} };
+
+const isProfile = i => i.category === CONFIG.profileCategory;
+const mine = i => (i.email && S.me.emails.includes(i.email)) || (!i.email && i.fullName && lc(i.fullName) === lc(S.me.name));
+const myProfile = () => S.items.find(i => isProfile(i) && mine(i));
+const profileOf = i => S.items.find(p => isProfile(p) && ((i.email && p.email === i.email) || (p.fullName && p.fullName === i.fullName)));
+const approved = i => i.status === "Accepted" && i.published === "Request Approved";
+const pending  = i => i.status === "Pending" && i.published === "Request Sent";
+const byDate = (a,b) => a.date.localeCompare(b.date) || a.role.localeCompare(b.role);
+const assignments = () => S.items.filter(i => !isProfile(i) && i.date);
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function avatar(person, size=""){
+  const prof = person && (isProfile(person) ? person : profileOf(person));
+  const name = person?.fullName || person?.role || "";
+  const key = prof ? prof.id : "";
+  return `<span class="av ${size}" data-photo="${esc(key)}" data-email="${esc(person?.email||"")}" aria-hidden="true">${esc(initials(name))}</span>`;
+}
+const DEMO_FLYER = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 750"><rect width="600" height="750" fill="#072442"/><rect x="30" y="30" width="540" height="690" fill="none" stroke="#D2B07C" stroke-width="4"/><text x="300" y="300" fill="#D2B07C" font-family="Arial" font-size="40" font-weight="700" text-anchor="middle">SAMPLE FLYER</text><text x="300" y="380" fill="#fff" font-family="Arial" font-size="32" text-anchor="middle">Sunday, November 1</text><text x="300" y="430" fill="#fff" font-family="Arial" font-size="28" text-anchor="middle">Reach Out Tabernacle · 11 AM</text></svg>');
+function hydrateFlyers(){
+  document.querySelectorAll("[data-flyer]").forEach(async el => {
+    const a = (S.announcements || []).find(x => String(x.id) === el.dataset.flyer);
+    const url = a && a.flyerUrl ? a.flyerUrl : DEMO ? DEMO_FLYER : (a ? await LiveAPI.flyer(a) : null);
+    if (!el.isConnected) return;
+    if (!url){ el.remove(); return; }
+    el.dataset.url = url;
+    el.innerHTML = `<img alt="Flyer: ${esc(a ? a.text : "")}" src="${url}">`;
+  });
+}
+function openLightbox(url, alt){
+  const box = document.createElement("div");
+  box.className = "lightbox"; box.setAttribute("role", "dialog"); box.setAttribute("aria-label", "Flyer");
+  box.innerHTML = `<button class="lb-close" aria-label="Close">×</button><img alt="${esc(alt || "")}" src="${url}">`;
+  const close = () => { box.remove(); document.removeEventListener("keydown", onKey); };
+  const onKey = e => { if (e.key === "Escape") close(); };
+  box.addEventListener("click", close); document.addEventListener("keydown", onKey);
+  document.body.appendChild(box); box.querySelector(".lb-close").focus();
+}
+
+function hydratePhotos(){
+  document.querySelectorAll("[data-photo]").forEach(async el => {
+    const prof = S.items.find(i => i.id === el.dataset.photo);
+    if (DEMO){ const u = prof && S.demoPhotos[prof.id]; if (u) el.insertAdjacentHTML("beforeend", `<img alt="" src="${u}">`); return; }
+    const url = await API.photo(prof, el.dataset.email);
+    if (url && el.isConnected && !el.querySelector("img")) { const img = new Image(); img.alt = ""; img.src = url; el.appendChild(img); }
+  });
+}
+
+function tile(person, line, act, id){
+  return `<button class="tile" data-act="${act}" data-id="${id}">${avatar(person)}<span class="meta"><b>${esc(person.fullName)}</b><small>${esc(line)}</small></span></button>`;
+}
+
+/* Profiles whose birthday is today (Feb 29 birthdays show on Feb 28 in other years). */
+function birthdaysToday(){
+  const t = todayKey(), md = t.slice(5), y = Number(t.slice(0,4));
+  const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+  return S.items.filter(i => isProfile(i) && i.birthday && (i.birthday.slice(5) === md || (!leap && md === "02-28" && i.birthday.slice(5) === "02-29")))
+    .sort((a,b) => a.fullName.localeCompare(b.fullName));
+}
+
+/* Confetti: phones only, once per day per device, skipped for reduced motion. */
+function maybeConfetti(){
+  if (!birthdaysToday().length) return;
+  if (!matchMedia("(pointer: coarse)").matches && innerWidth > 820) return;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const key = "rci-confetti-" + todayKey();
+  try { if (localStorage.getItem(key)) return; localStorage.setItem(key, "1"); } catch(e){}
+  const c = document.createElement("canvas");
+  c.setAttribute("aria-hidden", "true");
+  c.style.cssText = "position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:50";
+  document.body.appendChild(c);
+  const ctx = c.getContext("2d"), dpr = Math.min(devicePixelRatio || 1, 2);
+  const W = c.width = innerWidth * dpr, H = c.height = innerHeight * dpr;
+  const colors = ["#D2B07C", "#BD9863", "#072442", "#FFFFFF", "#1E8A52", "#C62828", "#4A90D9"];
+  const bits = Array.from({ length: 160 }, () => ({
+    x: W/2 + (Math.random() - .5) * W * .3, y: H * .35,
+    vx: (Math.random() - .5) * 16 * dpr, vy: (-Math.random() * 18 - 6) * dpr,
+    w: (6 + Math.random() * 6) * dpr, h: (8 + Math.random() * 8) * dpr,
+    r: Math.random() * Math.PI, vr: (Math.random() - .5) * .3, col: colors[Math.floor(Math.random() * colors.length)]
+  }));
+  const start = performance.now();
+  (function frame(now){
+    const age = now - start;
+    ctx.clearRect(0, 0, W, H);
+    bits.forEach(b => {
+      b.vy += .45 * dpr; b.vx *= .99; b.x += b.vx; b.y += b.vy; b.r += b.vr;
+      ctx.save(); ctx.globalAlpha = Math.max(0, 1 - Math.max(0, age - 2600) / 900);
+      ctx.translate(b.x, b.y); ctx.rotate(b.r); ctx.fillStyle = b.col;
+      ctx.fillRect(-b.w/2, -b.h/2, b.w, b.h * Math.abs(Math.cos(b.r * 2)) + 2); ctx.restore();
+    });
+    if (age < 3500) requestAnimationFrame(frame); else c.remove();
+  })(start);
+}
+
+/* Birthday wall: open from the person's birthday through CONFIG.wallDays days after; messages show for CONFIG.wallDays days. */
+function lastBirthday(p){
+  if (!p || !p.birthday) return null;
+  const t = todayKey(), y = Number(t.slice(0,4)), md = p.birthday.slice(5);
+  const occ = yr => { const leap = (yr % 4 === 0 && yr % 100 !== 0) || yr % 400 === 0; return `${yr}-${md === "02-29" && !leap ? "02-28" : md}`; };
+  const k = occ(y);
+  return k <= t ? k : occ(y - 1);
+}
+function wallOpen(p){ const b = lastBirthday(p); return !!b && addDays(b, CONFIG.wallDays) >= todayKey(); }
+function wallMessages(p){
+  const cutoff = Date.now() - CONFIG.wallDays * 864e5;
+  return (S.messages || []).filter(m => m.toId === String(p.id) && m.text && new Date(m.at).getTime() >= cutoff).sort((a,b) => b.at.localeCompare(a.at));
+}
+function ago(iso){
+  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return "just now"; if (mins < 60) return `${mins} min ago`;
+  const h = Math.round(mins / 60); if (h < 24) return `${h} hr ago`;
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+function wallSection(p){
+  const msgs = wallMessages(p), open = wallOpen(p), own = myProfile()?.id === p.id;
+  if (!open && !msgs.length) return "";
+  const myEmails = S.me.emails;
+  const list = msgs.map(m => {
+    const sender = S.items.find(i => isProfile(i) && m.fromEmail && i.email === m.fromEmail) || { fullName: m.fromName, email: m.fromEmail };
+    const mine = m.fromEmail && myEmails.includes(m.fromEmail);
+    const del = mine ? (S.confirmMsg === m.id
+      ? `<span class="msg-del">Delete this message? <button class="linkbtn danger" data-act="msg-delete" data-id="${m.id}">Yes, Delete</button> <button class="linkbtn" data-act="msg-keep">Keep It</button></span>`
+      : `<button class="linkbtn" data-act="msg-ask" data-id="${m.id}">Delete</button>`) : "";
+    return `<article class="msg">${avatar(sender, "sm")}<div class="msg-body"><div class="msg-top"><b>${esc(sender.fullName || "Team member")}</b><span>${esc(ago(m.at))}</span></div><p>${esc(m.text)}</p>${del}</div></article>`;
+  }).join("");
+  const compose = open && !own ? `<form class="panel stack wall-form" id="wallForm" data-id="${p.id}">
+      <div class="field"><label for="wall-text">Write ${esc(p.first || firstOf(p.fullName))} a birthday message</label>
+        <textarea id="wall-text" maxlength="500" placeholder="Happy birthday! 🎉" required></textarea></div>
+      <button class="btn blue block" type="submit" id="wall-send">Post Message</button></form>` : "";
+  return `<section id="wall"><h2 class="section-label">🎂 Birthday Wall ${msgs.length ? `<span class="count">${msgs.length}</span>` : ""}</h2>
+    ${compose}
+    ${list ? `<div class="list msgs">${list}</div>` : `<div class="empty">${own ? "No birthday messages yet." : "Be the first to leave a birthday message."}</div>`}
+  </section>`;
+}
+
+/* ---------- announcement editing (editors only) ---------- */
+function isEditor(){
+  if (DEMO) return true;                       // demo lets anyone try the editor
+  const ed = CONFIG.announcementEditors.map(lc);
+  return !!S.me && S.me.emails.some(e => ed.includes(lc(e)));
+}
+function annEditBtn(){
+  if (!isEditor()) return "";
+  return S.annEdit
+    ? `<button class="iconbtn edit-on" data-act="ann-edit" aria-label="Done editing announcements" title="Done">${ICON.check}</button>`
+    : `<button class="iconbtn" data-act="ann-edit" aria-label="Edit announcements" title="Edit announcements">${ICON.pencil}</button>`;
+}
+function annEditLine(a){
+  const until = a.until ? `Shows until ${fromKey(a.until).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : "No end date";
+  const ctl = S.annConfirm === a.id
+    ? `Remove this announcement? <button class="linkbtn danger" data-act="ann-remove" data-id="${a.id}">Yes, Remove</button> <button class="linkbtn" data-act="ann-keep">Keep It</button>`
+    : `<button class="linkbtn danger" data-act="ann-ask" data-id="${a.id}">Remove</button>`;
+  return `<span class="ann-meta">${esc(until)} · ${ctl}</span>`;
+}
+function annForm(){
+  const d = S.annDraft || {};
+  return `<form class="stack ann-form" id="annForm">
+    <h3 class="ann-form-h">New Announcement</h3>
+    <div class="field"><label for="ann-text">Announcement</label><textarea id="ann-text" maxlength="255" required placeholder="e.g. Nov. 15 – Founder's Day">${esc(d.text || "")}</textarea></div>
+    <div class="field"><label for="ann-until">Show Until <span class="hint">(optional)</span></label><input id="ann-until" type="date" min="${todayKey()}" value="${esc(d.until || "")}"></div>
+    <div class="field"><span class="label">Flyer <span class="hint">(optional)</span></span>
+      <label class="btn" for="ann-flyer" style="cursor:pointer;align-self:flex-start">${d.file ? "Change Flyer" : "Add a Flyer"}</label>
+      <input id="ann-flyer" type="file" accept="image/*" hidden>
+      ${d.file ? `<span class="flyer-picked">${d.preview ? `<img src="${d.preview}" alt="">` : ""}<span>${esc(d.file.name)}</span><button type="button" class="linkbtn" data-act="ann-flyer-clear">Remove Flyer</button></span>` : ""}</div>
+    <button class="btn blue block" type="submit" id="ann-add">Add Announcement</button></form>`;
+}
+
+function bdayRow(p, line, act){
+  return `<button class="person bday-row" data-act="${act || "member"}" data-id="${p.id}">${avatar(p)}<span class="meta"><b>${esc(p.fullName)}</b><small>${esc(line)}</small></span><span class="chev">${ICON.next}</span></button>`;
+}
+
+function statusPill(i){
+  if (approved(i)) return `<span class="pill ok">CONFIRMED</span>`;
+  if (pending(i)) return `<span class="pill reply">Needs Reply</span>`;
+  if (i.status === "Declined") return `<span class="pill bad">Declined</span>`;
+  return `<span class="pill neutral">${esc(i.status || "Draft")}</span>`;
+}
+
+function cue(i, opts={}){
+  const d = fromKey(i.date);
+  const isPending = pending(i);
+  const busy = S.busy.has(i.id);
+  let actions = "";
+  if (S.confirm === i.id && (isPending || approved(i))){
+    actions = `<div class="confirm-row">Decline ${esc(i.role)} on ${esc(fmtShort(i.date))}?
+      <button class="btn decline-soft" data-act="decline" data-id="${i.id}" ${busy?"disabled":""}>Yes, Decline</button>
+      <button class="btn" data-act="cancel">Keep It</button></div>`;
+  } else if (isPending){
+    actions = `<div class="actions">
+      <button class="btn accept" data-act="accept" data-id="${i.id}" ${busy?"disabled":""}>${busy?"Saving…":"Accept"}</button>
+      <button class="btn decline" data-act="ask-decline" data-id="${i.id}" ${busy?"disabled":""}>Decline</button></div>`;
+  } else if (approved(i)){
+    actions = `<div class="actions">
+      <button class="btn" data-act="notes" data-date="${i.date}">Notes</button>
+      <button class="btn" data-act="team" data-date="${i.date}">Team</button>
+      <button class="btn" data-act="ask-decline" data-id="${i.id}" ${busy?"disabled":""}>Decline</button></div>`;
+  }
+  return `<article class="cue ${isPending?"pending":""}">
+    <div class="when"><span class="dow">${d.toLocaleDateString(undefined,{weekday:"short"})}</span><span class="day">${d.getDate()}</span><span class="mon">${d.toLocaleDateString(undefined,{month:"short"})}</span></div>
+    <div class="cue-body">
+      <div class="cue-top"><span class="role">${esc(i.role)}</span>${opts.pill ? statusPill(i) : ""}</div>
+      <div class="cat">${esc(i.category)}</div>
+      <div class="times">${i.call ? `<span>Call Time <b>${esc(i.call)}</b></span>` : ""}${i.svcTime ? `<span>Service Time <b>${esc(i.svcTime)}</b></span>` : ""}</div>
+      ${actions}
+    </div></article>`;
+}
+
+function viewHome(){
+  const t = todayKey(), wk = addDays(t, 7);
+  const pend = assignments().filter(i => mine(i) && pending(i) && i.date >= t).sort(byDate);
+  const up = assignments().filter(i => mine(i) && approved(i) && i.date >= t && i.date <= wk).sort(byDate);
+  const first = myProfile()?.first || firstOf(S.me.name);
+  // Soonest "Show Until" first; announcements with no end date go last, oldest first.
+  const anns = (S.announcements || []).filter(a => a.text && (!a.until || a.until >= t))
+    .sort((a,b) => (a.until || "9999-12-31").localeCompare(b.until || "9999-12-31") || a.id - b.id);
+  const bdays = birthdaysToday();
+  const myWall = myProfile() ? wallMessages(myProfile()) : [];
+  return `
+    <div><h1 class="greet">Welcome ${esc(first)}</h1><p class="sub">${esc(fmtLong(t))}</p></div>
+    <section><div class="day-h"><h2 class="section-label">Announcements</h2>${annEditBtn()}</div>
+      <div class="panel announce">${anns.length ? `<ul class="ann">${anns.map(a => `<li><span>${esc(a.text)}${S.annEdit ? annEditLine(a) : ""}</span>${a.flyer ? `<button class="flyer" data-act="flyer-open" data-flyer="${a.id}" aria-label="Open the flyer"><span class="flyer-load">Loading…</span></button>` : ""}</li>`).join("")}</ul>` : `<p>We have no upcoming announcements at this time.</p>`}
+      ${S.annEdit ? annForm() : ""}
+      ${CONFIG.guidelinesUrl ? `<p style="margin-top:10px"><a href="${esc(CONFIG.guidelinesUrl)}" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600">Read the team guidelines</a></p>` : ""}</div></section>
+    ${bdays.length ? `<section><h2 class="section-label">Birthdays</h2>
+      <div class="panel bday-panel"><p class="bday-msg">🎉 Happy Birthday! 🎂</p>
+        <div class="list">${bdays.map(p => bdayRow(p, myProfile()?.id === p.id ? "That's you! Happy Birthday 🎂" : "Tap to wish them Happy Birthday 🎂", "wall")).join("")}</div></div></section>` : ""}
+    ${myWall.length ? `<section><button class="person bday-row" data-act="wall" data-id="${myProfile().id}"><span class="wall-emoji" aria-hidden="true">💌</span><span class="meta"><b>You have ${myWall.length} birthday message${myWall.length > 1 ? "s" : ""}</b><small>Tap to read your Birthday Wall</small></span><span class="chev">${ICON.next}</span></button></section>` : ""}
+    <section><h2 class="section-label">Pending Requests <span class="count ${pend.length?"hot":""}">${pend.length}</span></h2>
+      ${pend.length ? `<div class="list">${pend.map(i=>cue(i)).join("")}</div>` : `<div class="empty">You have no pending requests right now.</div>`}</section>
+    <section><h2 class="section-label">Next 7 Days <span class="count">${up.length}</span></h2>
+      ${up.length ? `<div class="list">${up.map(i=>cue(i,{pill:true})).join("")}</div>` : `<div class="empty">You have no confirmed assignments this week.</div>`}</section>`;
+}
+
+function viewSchedule(){
+  const t = todayKey();
+  const list = assignments().filter(i => mine(i) && i.date >= t).sort(byDate);
+  return `<div class="page-h"><h1>My Schedule</h1></div>
+    ${list.length ? `<div class="list">${list.map(i=>cue(i,{pill:true})).join("")}</div>` : `<div class="empty">Nothing on your schedule yet. New requests will show up here.</div>`}`;
+}
+
+function eventsOn(k){
+  const md = k.slice(5);
+  const a = assignments().filter(i => approved(i) && i.date === k).sort(byDate);
+  const b = S.items.filter(i => isProfile(i) && i.birthday && i.birthday.slice(5) === md);
+  const none = S.items.some(i => i.date === k && lc(i.category) === lc(CONFIG.noServiceCategory));
+  return { a, b, none };
+}
+function viewCalendar(){
+  const m = S.cal.month, sel = S.cal.sel, t = todayKey();
+  const first = new Date(m.getFullYear(), m.getMonth(), 1);
+  const dim = new Date(m.getFullYear(), m.getMonth()+1, 0).getDate();
+  const weeks = Math.ceil((first.getDay() + dim) / 7);
+  const start = keyOf(new Date(m.getFullYear(), m.getMonth(), 1 - first.getDay()));
+  let cells = "";
+  for (let n = 0; n < weeks*7; n++){
+    const k = addDays(start, n), d = fromKey(k), ev = eventsOn(k);
+    const dots = (ev.none ? '<span class="cake" aria-hidden="true">❌</span>' : "") + (ev.a.length ? '<span class="cake" aria-hidden="true">⛪</span>' : "") + (ev.b.length ? '<span class="cake" aria-hidden="true">🎂</span>' : "");
+    cells += `<button class="dcell ${d.getMonth()!==m.getMonth()?"out":""} ${k===t?"today":""} ${k===sel?"sel":""}" data-act="pick" data-date="${k}" aria-label="${esc(fmtLong(k))}${ev.none?", no service":""}${ev.a.length?`, ${ev.a.length} assignments`:""}${ev.b.length?", birthday":""}"><span>${d.getDate()}</span><span class="dots">${dots}</span></button>`;
+  }
+  const ev = eventsOn(sel);
+  const team = ev.a.map(i => tile(i, i.role, "member-of", i.id)).join("");
+  const bdayRows = ev.b.map(p => bdayRow(p, "Birthday 🎂")).join("");
+  const hasNotes = S.items.some(i => i.date === sel && i.role === CONFIG.notesRole && i.notes);
+  return `<section class="panel cal-panel">
+      <div class="cal-head"><h2>${m.toLocaleDateString(undefined,{month:"long",year:"numeric"})}</h2>
+        <button class="btn" data-act="cal-today" style="padding:6px 10px">Today</button>
+        <button class="iconbtn" data-act="cal-prev" aria-label="Previous month">${ICON.back}</button>
+        <button class="iconbtn" data-act="cal-next" aria-label="Next month">${ICON.next}</button></div>
+      <div class="grid7">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(x=>`<div class="dowh">${x}</div>`).join("")}${cells}</div>
+      <div class="legend"><span><span aria-hidden="true">⛪</span>Service</span><span><span aria-hidden="true">❌</span>No Service</span><span><span aria-hidden="true">🎂</span>Birthday</span></div>
+    </section>
+    <section><div class="day-h"><h2 class="section-label">${esc(fmtLong(sel))}</h2>
+        ${hasNotes ? `<button class="iconbtn notes-btn" data-act="notes" data-date="${sel}" aria-label="Production Notes for this day" title="Production Notes">${ICON.notes}</button>` : ""}</div>
+      ${ev.none ? `<div class="no-service"><span aria-hidden="true">❌</span> No Service</div>` : ""}
+      ${bdayRows ? `<div class="list" style="margin-bottom:10px">${bdayRows}</div>` : ""}
+      ${team ? `<div class="roster">${team}</div>` : (bdayRows || ev.none ? "" : `<div class="empty">No events scheduled.</div>`)}
+    </section>`;
+}
+
+/* Rich-text notes from SharePoint: keep structure, drop scripts, styles and attributes. */
+const KEEP = new Set(["P","DIV","BR","B","STRONG","I","EM","U","UL","OL","LI","H1","H2","H3","H4","TABLE","THEAD","TBODY","TR","TD","TH","SPAN","A","HR","BLOCKQUOTE"]);
+function cleanHtml(raw){
+  const doc = new DOMParser().parseFromString(`<div>${raw}</div>`, "text/html");
+  const walk = node => {
+    [...node.childNodes].forEach(n => {
+      if (n.nodeType === 3) return;
+      if (n.nodeType !== 1 || /^(SCRIPT|STYLE|IFRAME|OBJECT|EMBED|NOSCRIPT|TEMPLATE)$/.test(n.tagName)){ n.remove(); return; }
+      walk(n);
+      if (!KEEP.has(n.tagName)){ n.replaceWith(...n.childNodes); return; }
+      const href = n.tagName === "A" ? n.getAttribute("href") : null;
+      [...n.attributes].forEach(a => n.removeAttribute(a.name));
+      if (href && /^https?:\/\//i.test(href)){ n.setAttribute("href", href); n.setAttribute("target","_blank"); n.setAttribute("rel","noopener"); }
+    });
+  };
+  const root = doc.body.firstChild; walk(root);
+  return root.innerHTML;
+}
+
+function backBar(title){ return `<div class="page-h"><button class="back" data-act="back">${ICON.back}Back</button></div><div class="page-h"><h1>${esc(title)}</h1></div>`; }
+
+function viewNotes(){
+  const k = S.arg;
+  const rec = S.items.find(i => i.date === k && i.role === CONFIG.notesRole);
+  let html = "";
+  if (rec && rec.notes){
+    const at = rec.notes.indexOf(CONFIG.notesMarker);
+    const raw = at >= 0 ? rec.notes.slice(at) : rec.notes;
+    html = cleanHtml(raw);
+  }
+  return `${backBar("Production Notes")}<p class="sub notes-date">${esc(fmtLong(k))}</p>
+    ${html ? `<div class="panel notes">${html}</div>` : `<div class="empty">No Production Notes for this date yet.</div>`}`;
+}
+
+function viewTeam(){
+  const k = S.arg;
+  const list = assignments().filter(i => i.date === k && approved(i)).sort(byDate);
+  return `${backBar("Serving Team")}<p class="sub" style="margin-top:-12px">${esc(fmtLong(k))}</p>
+    ${list.length ? `<div class="roster">${list.map(i => tile(i, i.role, "member-of", i.id)).join("")}</div>`
+      : `<div class="empty">No one is confirmed for this date yet.</div>`}`;
+}
+
+function viewMember(){
+  const p = S.items.find(i => i.id === S.arg);
+  if (!p) return `${backBar("Team Member")}<div class="empty">This person doesn't have a profile in the list yet.</div>`;
+  const bd = p.birthday ? fromKey(p.birthday).toLocaleDateString(undefined,{month:"long",day:"numeric"}) : "—";
+  const t = todayKey();
+  const next = assignments().filter(i => i.date >= t && approved(i) && ((p.email && i.email === p.email) || i.fullName === p.fullName)).sort(byDate).slice(0,3);
+  return `${backBar("About " + (p.first || firstOf(p.fullName)))}
+    <section class="panel profile-hero">${avatar(p,"lg")}<h2>${esc(p.fullName)}</h2>
+      ${p.email && myProfile()?.id !== p.id ? `<a class="btn blue" href="mailto:${esc(p.email)}">${ICON.mail}Email Me</a><span class="sub email-addr">${esc(p.email)}</span>` : ""}</section>
+    <section class="panel"><dl class="kv">
+      <dt>First Name</dt><dd>${esc(p.first || "—")}</dd>
+      <dt>Birthday</dt><dd>${esc(bd)}</dd>
+    </dl></section>
+    <section><h2 class="section-label">Places I Serve</h2>
+      ${p.serving.length ? `<div class="panel serve-list">${p.serving.map(x => `<span class="serve">${esc(x)}</span>`).join("")}</div>` : `<div class="empty">No serving areas listed yet.</div>`}</section>
+    ${wallSection(p)}
+    ${next.length ? `<section><h2 class="section-label">Serving Next</h2><div class="list">${next.map(i=>`<div class="panel" style="padding:10px 14px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>${esc(i.role)}</b><span class="sub" style="margin:0">${esc(fmtShort(i.date))}</span></div>`).join("")}</div></section>` : ""}`;
+}
+
+function noProfileMsg(){
+  return `<div class="empty">We couldn't find your profile row in the Serving Schedule list. Ask the schedule admin to add a “${esc(CONFIG.profileCategory)}” row with your name and email.</div>`;
+}
+
+function absState(){
+  if (!S.abs){
+    const p = myProfile(), t = todayKey(), now = new Date();
+    S.abs = { month: new Date(now.getFullYear(), now.getMonth(), 1), sel: new Set(p && p.timeOff && p.timeOff >= t ? [p.timeOff] : []), notes: "", sent: [] };
+  }
+  return S.abs;
+}
+function viewAbsence(){
+  const p = myProfile(), A = absState();
+  if (S.absenceDone) return `<div class="page-h"><h1>Time Off</h1></div>
+    <div class="panel done"><span class="check">${ICON.check}</span><h2 style="font-family:var(--display);font-size:26px;margin:0">Absence Submitted</h2>
+    <p class="sub" style="margin:0">${A.sent.map(k => esc(fmtShort(k))).join(" · ")}</p>
+    <p class="sub" style="margin:0">The schedule team will plan around it.</p><button class="btn" data-act="absence-again">Submit More Dates</button></div>`;
+  if (!p) return `<div class="page-h"><h1>Time Off</h1></div>${noProfileMsg()}`;
+  const m = A.month, t = todayKey();
+  const first = new Date(m.getFullYear(), m.getMonth(), 1);
+  const dim = new Date(m.getFullYear(), m.getMonth()+1, 0).getDate();
+  const weeks = Math.ceil((first.getDay() + dim) / 7);
+  const start = keyOf(new Date(m.getFullYear(), m.getMonth(), 1 - first.getDay()));
+  let cells = "";
+  for (let n = 0; n < weeks*7; n++){
+    const k = addDays(start, n), d = fromKey(k), past = k < t, on = A.sel.has(k);
+    cells += `<button type="button" class="dcell ${d.getMonth()!==m.getMonth()?"out":""} ${k===t?"today":""} ${on?"sel":""}" data-act="abs-pick" data-date="${k}" ${past?"disabled":""} aria-pressed="${on}" aria-label="${esc(fmtLong(k))}"><span>${d.getDate()}</span></button>`;
+  }
+  const picked = [...A.sel].sort();
+  const thisMonth = m.getFullYear() === new Date().getFullYear() && m.getMonth() === new Date().getMonth();
+  return `<div class="page-h"><h1>Time Off</h1></div>
+    <p class="sub" style="margin-top:-10px">Tap every day you can't serve. If your plans change, come back and send more dates.</p>
+    <form class="panel stack" id="absenceForm">
+      <div class="field"><span class="label">Dates of Absence</span>
+        <div class="cal-head"><h2>${m.toLocaleDateString(undefined,{month:"long",year:"numeric"})}</h2>
+          <button type="button" class="iconbtn" data-act="abs-prev" aria-label="Previous month" ${thisMonth?"disabled":""}>${ICON.back}</button>
+          <button type="button" class="iconbtn" data-act="abs-next" aria-label="Next month">${ICON.next}</button></div>
+        <div class="grid7">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(x=>`<div class="dowh">${x}</div>`).join("")}${cells}</div>
+        <div class="picked">${picked.length ? picked.map(k => `<button type="button" class="chip" data-act="abs-pick" data-date="${k}" aria-label="Remove ${esc(fmtLong(k))}">${esc(fmtShort(k))} <span aria-hidden="true">×</span></button>`).join("") : `<span class="hint">No dates picked yet.</span>`}</div>
+      </div>
+      <div class="field"><label for="ab-notes">Notes</label><textarea id="ab-notes" placeholder="Anything the schedule team should know (optional).">${esc(A.notes)}</textarea></div>
+      <button class="btn blue block" type="submit" id="ab-submit">Submit Absence${picked.length > 1 ? ` (${picked.length} days)` : ""}</button></form>`;
+}
+
+function viewDirectory(){
+  const people = S.items.filter(isProfile).sort((a,b) => (a.fullName||"").localeCompare(b.fullName||""));
+  return `<div class="page-h"><h1>Team Directory</h1></div>
+    <p class="sub" style="margin-top:-10px">${people.length} team members</p>
+    ${people.length ? `<div class="roster">${people.map(p => `<button class="tile" data-act="member" data-id="${p.id}">${avatar(p)}<span class="meta"><b>${esc(p.fullName)}</b></span></button>`).join("")}</div>` : `<div class="empty">No team members yet.</div>`}`;
+}
+
+function viewProfile(){
+  const p = myProfile();
+  if (!p) return `<div class="page-h"><h1>My Profile</h1></div>${noProfileMsg()}`;
+  const choices = [...new Set([...(S.servingChoices || []), ...p.serving])];
+  return `<div class="page-h"><h1>My Profile</h1><span style="flex:1"></span><button class="btn" data-act="signout">${ICON.out.replace("<svg",'<svg width="16" height="16"')}Sign Out</button></div>
+    <section class="panel profile-hero">${avatar(p,"lg")}
+      <label class="btn" for="pf-photo" style="cursor:pointer">Change Photo</label>
+      <input id="pf-photo" type="file" accept="image/*" hidden>
+      <span class="sub" style="margin:0;font-size:13px">Your teammates see this on the calendar and team list.</span></section>
+    <form class="panel stack" id="profileForm">
+      <div class="field"><label for="pf-full">Full Name</label><input id="pf-full" value="${esc(p.fullName)}" disabled></div>
+      <div class="field"><label for="pf-bday">Birthday</label><input id="pf-bday" type="date" value="${esc(p.birthday)}"></div>
+      <div class="field"><label for="pf-phone">Phone Number</label><input id="pf-phone" type="tel" value="${esc(p.phone)}" maxlength="255"></div>
+      <div class="field"><span class="label">Places I Serve</span>
+        <span class="hint">Tap to add or remove, then save.</span>
+        <div class="serve-pick">${choices.map(x => `<button type="button" class="serve-opt" data-act="serve-toggle" data-value="${esc(x)}" aria-pressed="${p.serving.includes(x)}">${esc(x)}</button>`).join("")}</div></div>
+      <button class="btn blue block" type="submit" id="pf-save">Save Profile</button></form>
+    ${badgePanel()}${installPanel()}`;
+}
+
+/* ---------- red badge on the app icon for pending requests ---------- */
+const pendingCount = () => S.me ? assignments().filter(i => mine(i) && pending(i) && i.date >= todayKey()).length : 0;
+function updateBadge(){
+  if (DEMO || !("setAppBadge" in navigator)) return;
+  const n = pendingCount();
+  (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {});
+}
+function badgePanel(){
+  // iPhones only show the badge after notifications are allowed for the installed app.
+  if (!("setAppBadge" in navigator) || !("Notification" in window) || !isStandalone()) return "";
+  if (Notification.permission === "granted") return "";
+  if (Notification.permission === "denied") return `<section class="panel install"><h2 class="section-label" style="margin:0">App Badge</h2><p>Badges are turned off. To see a red dot on the app icon for pending requests, allow notifications for RCI Productions in your phone's Settings.</p></section>`;
+  return `<section class="panel install"><h2 class="section-label" style="margin:0">App Badge</h2><p>Show a red number on the app icon when you have pending requests.</p><button class="btn blue" data-act="badge-on">Turn On App Badge</button></section>`;
+}
+
+/* ---------- install to home screen ---------- */
+let deferredInstall = null;
+const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+function installPanel(){
+  if (isStandalone()) return "";
+  let body;
+  if (deferredInstall) body = `<p>Add RCI Productions to your home screen so it opens like any other app.</p><button class="btn primary" data-act="install">Install App</button>`;
+  else if (isIOS()) body = `<p>On iPhone: open this page in <b>Safari</b>, tap the <b>Share</b> button, then <b>Add to Home Screen</b>.</p>`;
+  else body = `<p>On Android: open the browser menu (⋮) and tap <b>Install app</b> or <b>Add to Home screen</b>.</p>`;
+  return `<section class="panel install"><h2 class="section-label" style="margin:0">Get the App</h2>${body}</section>`;
+}
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferredInstall = e; if (S.view === "profile") render(); });
+window.addEventListener("appinstalled", () => { deferredInstall = null; toast("Installed. Look for RCI Productions on your home screen."); render(); });
+if ("serviceWorker" in navigator && location.protocol === "https:" && window.top === window.self){
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+
+const TABS = [["home","Home",ICON.home],["calendar","Calendar",ICON.cal],["absence","Absence",ICON.away],["directory","Team",ICON.team],["profile","Profile",ICON.user]];
+
+function render(){
+  const app = $("#app");
+  const themeBtn = `<button class="iconbtn" data-act="theme" aria-label="Switch to ${currentDark()?"light":"dark"} mode">${currentDark()?ICON.sun:ICON.moon}</button>`;
+  const header = `<header class="top"><div class="wrap"><div class="brand"><img class="wm wm-light" src="icons/wordmark.png" alt="RCI Media Productions"><img class="wm wm-dark" src="icons/wordmark-dark.png" alt="RCI Media Productions"></div>${themeBtn}
+    ${S.me ? `<button class="iconbtn" data-act="tab" data-view="profile" aria-label="My Profile" style="padding:0;overflow:hidden;border:none;width:50px;height:50px">${avatar(myProfile() || {fullName:S.me.name, email:S.me.emails[0]}, "sm")}</button>` : ""}</div></header>`;
+  if (S.phase !== "ready"){
+    let body = "";
+    if (S.phase === "boot") body = `<div class="center-screen"><span class="spinner" role="status" aria-label="Loading"></span><p>Loading the schedule…</p></div>`;
+    if (S.phase === "signin") body = `<div class="center-screen"><img class="wm wm-light" src="icons/wordmark.png" alt="RCI Media Productions"><img class="wm wm-dark" src="icons/wordmark-dark.png" alt="RCI Media Productions"><p>Sign in with your church Microsoft account to see your schedule, reply to requests and update your profile.</p><button class="btn primary" data-act="signin">Sign in with Microsoft</button></div>`;
+    if (S.phase === "error") body = `<div class="center-screen"><h1>Can't reach the schedule</h1><p>The app couldn't load the Serving Schedule list. Check that you're a member of the RCI Productions SharePoint site, then try again.</p><div class="err">${esc(S.error)}</div><button class="btn primary" data-act="retry">Try again</button></div>`;
+    app.innerHTML = header + `<main><div class="wrap">${body}</div></main>`;
+    return;
+  }
+  const views = { directory: viewDirectory, home: viewHome, schedule: viewSchedule, calendar: viewCalendar, notes: viewNotes, team: viewTeam, member: viewMember, absence: viewAbsence, profile: viewProfile };
+  const active = ["notes","team","member"].includes(S.view) ? (S.stack[0]?.view || "home") : S.view;
+  const demoBar = DEMO ? `<div class="demo"><span><strong>Demo mode.</strong> Sample people and dates; nothing is saved to SharePoint. Add your app's client ID in the configuration to connect the Serving Schedule list.</span></div>` : "";
+  app.innerHTML = header + `<main><div class="wrap">${demoBar}${views[S.view]()}</div></main>
+    <nav class="tabs" aria-label="Main"><div class="wrap">${TABS.map(([v,l,ic]) => `<button data-act="tab" data-view="${v}" ${v===active?'aria-current="page"':""}>${ic}<span>${l}</span></button>`).join("")}</div></nav>`;
+  hydratePhotos(); hydrateFlyers();
+}
+
+function go(view, arg=null, push=true){
+  if (push) S.stack.push({ view: S.view, arg: S.arg });
+  S.view = view; S.arg = arg; S.confirm = null; render(); window.scrollTo(0,0);
+}
+
+/* ============================================================
+   ACTIONS
+   ============================================================ */
+async function setStatus(item, accept){
+  S.busy.add(item.id); render();
+  const fields = accept ? { Status: "Accepted", Published: "Request Approved" } : { Status: "Declined", Published: "Request Denied" };
+  try {
+    await API.update(item.id, fields);
+    item.status = fields.Status; item.published = fields.Published;
+    toast(accept ? `Accepted: ${item.role}, ${fmtShort(item.date)}` : `Declined: ${item.role}, ${fmtShort(item.date)}`);
+  } catch(e){ toast("Couldn't save your reply. " + e.message, true); }
+  S.busy.delete(item.id); S.confirm = null; render(); updateBadge();
+}
+
+async function resizeImage(file, maxSide){
+  const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); });
+  const max = maxSide || 600, s = Math.min(1, max / Math.max(img.width, img.height));
+  const c = document.createElement("canvas"); c.width = Math.round(img.width*s); c.height = Math.round(img.height*s);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return new Promise(r => c.toBlob(r, "image/jpeg", 0.86));
+}
+
+document.addEventListener("click", async e => {
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const act = b.dataset.act, item = S.items.find(i => i.id === b.dataset.id);
+  switch(act){
+    case "tab": S.stack = []; S.absenceDone = false; S.annEdit = false; S.annConfirm = null; go(b.dataset.view, null, false); break;
+    case "ann-edit": S.annEdit = !S.annEdit; S.annConfirm = null; if (!S.annEdit) S.annDraft = null; render(); break;
+    case "ann-ask": S.annConfirm = Number(b.dataset.id); render(); break;
+    case "ann-keep": S.annConfirm = null; render(); break;
+    case "ann-remove": {
+      const id = Number(b.dataset.id); b.disabled = true;
+      try { await API.removeAnnouncement(id); S.announcements = S.announcements.filter(a => a.id !== id); toast("Announcement removed"); }
+      catch(err){ toast("Couldn't remove the announcement. " + err.message, true); }
+      S.annConfirm = null; render(); break;
+    }
+    case "ann-flyer-clear": annDraftSave(); S.annDraft.file = null; S.annDraft.preview = ""; render(); break;
+    case "back": { const prev = S.stack.pop() || { view: "home" }; go(prev.view, prev.arg, false); break; }
+    case "theme": toggleTheme(); break;
+    case "accept": setStatus(item, true); break;
+    case "ask-decline": S.confirm = item.id; render(); break;
+    case "decline": setStatus(item, false); break;
+    case "cancel": S.confirm = null; render(); break;
+    case "notes": go("notes", b.dataset.date); break;
+    case "team": go("team", b.dataset.date); break;
+    case "member": go("member", b.dataset.id); break;
+    case "member-of": { const p = profileOf(item); go("member", p ? p.id : null); break; }
+    case "pick": S.cal.sel = b.dataset.date; { const d = fromKey(S.cal.sel); if (d.getMonth() !== S.cal.month.getMonth()) S.cal.month = new Date(d.getFullYear(), d.getMonth(), 1); } render(); break;
+    case "cal-prev": S.cal.month = new Date(S.cal.month.getFullYear(), S.cal.month.getMonth()-1, 1); render(); break;
+    case "cal-next": S.cal.month = new Date(S.cal.month.getFullYear(), S.cal.month.getMonth()+1, 1); render(); break;
+    case "cal-today": { const t = new Date(); S.cal.month = new Date(t.getFullYear(), t.getMonth(), 1); S.cal.sel = todayKey(); render(); break; }
+    case "copy": try { await navigator.clipboard.writeText(b.dataset.text); toast("Phone number copied"); } catch(err){ toast("Select the number to copy it", true); } break;
+    case "badge-on": try { const r = await Notification.requestPermission(); if (r === "granted"){ updateBadge(); toast("App badge turned on"); } } catch(err){} render(); break;
+    case "wall": go("member", b.dataset.id); requestAnimationFrame(() => { const w = document.getElementById("wall"); if (w) w.scrollIntoView({ block: "start", behavior: "smooth" }); }); break;
+    case "msg-ask": S.confirmMsg = b.dataset.id; render(); break;
+    case "msg-keep": S.confirmMsg = null; render(); break;
+    case "msg-delete": {
+      const id = b.dataset.id; b.disabled = true;
+      try { await API.deleteMessage(id); S.messages = S.messages.filter(m => m.id !== id); toast("Message deleted"); }
+      catch(err){ toast("Couldn't delete the message. " + err.message, true); }
+      S.confirmMsg = null; render(); break;
+    }
+    case "flyer-open": if (b.dataset.url) openLightbox(b.dataset.url, b.querySelector("img")?.alt); break;
+    case "serve-toggle": b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") === "true" ? "false" : "true"); break;
+    case "absence-again": S.absenceDone = false; S.abs = null; render(); break;
+    case "abs-pick": { const A = absState(), k = b.dataset.date; A.sel.has(k) ? A.sel.delete(k) : A.sel.add(k); render(); break; }
+    case "abs-prev": { const A = absState(); A.month = new Date(A.month.getFullYear(), A.month.getMonth()-1, 1); render(); break; }
+    case "abs-next": { const A = absState(); A.month = new Date(A.month.getFullYear(), A.month.getMonth()+1, 1); render(); break; }
+    case "signin": API.signIn(); break;
+    case "signout": API.signOut(); break;
+    case "retry": start(); break;
+    case "install": if (deferredInstall){ deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall = null; render(); } break;
+  }
+});
+
+document.addEventListener("submit", async e => {
+  e.preventDefault();
+  const p = myProfile(); if (!p) return;
+  if (e.target.id === "absenceForm"){
+    const A = absState(), dates = [...A.sel].sort(), notes = $("#ab-notes").value.trim();
+    if (!dates.length){ toast("Tap the days you'll be away on the calendar.", true); return; }
+    const btn = $("#ab-submit"); btn.disabled = true; btn.textContent = "Submitting…";
+    // Time Off Date holds the first day; every day (and any note) goes in Notes for the schedule team.
+    const html = `<p><strong>Dates of Absence:</strong> ${dates.map(k => esc(fmtShort(k))).join("; ")}</p>` + (notes ? `<p>${esc(notes).replace(/\n/g,"<br>")}</p>` : "");
+    try {
+      await API.update(p.id, { TimeOffDate: toSp(dates[0]), Notes: html });
+      p.timeOff = dates[0]; p.notes = html; A.sent = dates; A.notes = ""; S.absenceDone = true; render();
+    } catch(err){ toast("Couldn't submit your absence. " + err.message, true); btn.disabled = false; btn.textContent = "Submit Absence"; }
+  }
+  if (e.target.id === "annForm"){
+    annDraftSave();
+    const d = S.annDraft;
+    if (!d.text){ toast("Type the announcement first.", true); return; }
+    const btn = $("#ann-add"); btn.disabled = true; btn.textContent = d.file ? "Uploading flyer…" : "Adding…";
+    try {
+      const flyer = d.file ? await resizeImage(d.file, 1600) : null;
+      const a = await API.addAnnouncement({ text: d.text, until: d.until, flyer });
+      S.announcements = [...(S.announcements || []), a];
+      S.annEdit = false; S.annDraft = null; S.annConfirm = null; render();
+      toast(a.flyerError ? "Announcement added, but the flyer couldn't be attached. Add it in SharePoint." : "Announcement added", !!a.flyerError);
+    } catch(err){ toast("Couldn't add the announcement. " + err.message, true); btn.disabled = false; btn.textContent = "Add Announcement"; }
+    return;
+  }
+  if (e.target.id === "wallForm"){
+    const to = S.items.find(i => i.id === e.target.dataset.id), text = $("#wall-text").value.trim();
+    if (!to || !text) return;
+    const btn = $("#wall-send"); btn.disabled = true; btn.textContent = "Posting…";
+    try { const m = await API.postMessage(to, text); S.messages = [m, ...(S.messages || [])]; toast("Birthday message posted 🎉"); render(); }
+    catch(err){ toast("Couldn't post your message. " + err.message, true); btn.disabled = false; btn.textContent = "Post Message"; }
+    return;
+  }
+  if (e.target.id === "profileForm"){
+    const serving = [...document.querySelectorAll('.serve-opt[aria-pressed="true"]')].map(b => b.dataset.value);
+    const f = { Birthday: toSp($("#pf-bday").value), PhoneNumber: $("#pf-phone").value.trim(), "Serving@odata.type": "Collection(Edm.String)", Serving: serving };
+    const btn = $("#pf-save"); btn.disabled = true; btn.textContent = "Saving…";
+    try {
+      await API.update(p.id, f);
+      Object.assign(p, { birthday: $("#pf-bday").value, phone: f.PhoneNumber, serving });
+      toast("Profile updated"); render();
+    } catch(err){ toast("Couldn't save your profile. " + err.message, true); btn.disabled = false; btn.textContent = "Save Profile"; }
+  }
+});
+
+document.addEventListener("input", e => { if (e.target.id === "ab-notes") absState().notes = e.target.value; });
+
+function annDraftSave(){
+  S.annDraft = S.annDraft || {};
+  const t = $("#ann-text"), u = $("#ann-until");
+  if (t) S.annDraft.text = t.value.trim();
+  if (u) S.annDraft.until = u.value;
+}
+document.addEventListener("change", async e => {
+  if (e.target.id === "ann-flyer" && e.target.files[0]){
+    annDraftSave(); S.annDraft.file = e.target.files[0];
+    S.annDraft.preview = URL.createObjectURL(e.target.files[0]); render(); return;
+  }
+  if (e.target.id !== "pf-photo" || !e.target.files[0]) return;
+  const p = myProfile(); if (!p) return;
+  toast("Uploading photo…");
+  try {
+    const blob = await resizeImage(e.target.files[0]);
+    const raw = await API.uploadPhoto(p, blob);
+    p.photoRaw = raw;
+    if (DEMO) S.demoPhotos[p.id] = JSON.parse(raw).demo; else LiveAPI.cache.clear();
+    toast("Photo updated"); render();
+  } catch(err){ toast("Couldn't update your photo. " + err.message, true); }
+});
+
+/* ============================================================
+   START
+   ============================================================ */
+async function start(){
+  S.phase = "boot"; render();
+  try {
+    const signedIn = await API.init();
+    if (!signedIn){ S.phase = "signin"; render(); return; }
+    const data = await API.load();
+    S.me = data.me; S.items = data.items; S.names = data.names; S.servingChoices = data.servingChoices || []; S.announcements = data.announcements || []; S.messages = data.messages || [];
+    const t = new Date(); S.cal.month = new Date(t.getFullYear(), t.getMonth(), 1); S.cal.sel = todayKey();
+    S.phase = "ready"; render(); maybeConfetti(); updateBadge();
+  } catch(e){
+    console.error(e); S.error = e.message || String(e); S.phase = "error"; render();
+  }
+}
+start();
+
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState !== "visible" || S.phase !== "ready" || DEMO) return;
+  try { S.announcements = await LiveAPI.announcements(); S.messages = await LiveAPI.messages(); if (S.view === "home" || S.view === "member") render(); } catch(e){}
+  updateBadge();
+});
+</script>
+</body>
+</html>
