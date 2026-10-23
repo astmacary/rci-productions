@@ -2,7 +2,7 @@
 // Keeps a copy of the app so it opens offline and can be installed, but always
 // asks the server for the newest version first, so updates show up right away.
 // Schedule data and sign-in always go to Microsoft live; they are never cached.
-const CACHE = "rci-productions-v26";
+const CACHE = "rci-productions-v27";
 const SHELL = ["./", "index.html", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png",
   "icons/apple-touch-icon.png", "icons/favicon.png",
@@ -39,5 +39,6 @@ self.addEventListener("fetch", e => {
   if (/\/(index\.html)?$/.test(url.pathname)){ e.respondWith(newestFirst(e.request, "index.html")); return; }
   if (url.pathname.endsWith("manifest.webmanifest")){ e.respondWith(newestFirst(e.request, "manifest.webmanifest")); return; }
   // Icons and logos: saved copy first (they rarely change; a new CACHE version refreshes them).
-  e.respondWith(caches.match(e.request).then(hit => hit || fetch(e.request)));
+  // (Image addresses carry the app version, e.g. wordmark.png?v=27, so a new logo is never mistaken for the old one.)
+  e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(hit => hit || fetch(e.request)));
 });
