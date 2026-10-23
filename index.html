@@ -51,7 +51,7 @@ button{cursor:pointer}
 header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
 header.top .wrap{display:flex;align-items:center;gap:12px;padding-top:16px;padding-bottom:10px}
 .brand{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
-.wm{height:48px;width:auto;max-width:100%;display:block;object-fit:contain;object-position:left center}
+.wm{height:52px;width:auto;max-width:100%;display:block;object-fit:contain;object-position:left center}
 .wm-dark{display:none}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .wm-light{display:none}:root:not([data-theme="light"]) .wm-dark{display:block}}
 :root[data-theme="dark"] .wm-light{display:none}
@@ -294,7 +294,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "25";
+const APP_VERSION = "26";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1090,12 +1090,12 @@ const TABS = [["home","Home",ICON.home],["calendar","Calendar",ICON.cal],["absen
 function render(){
   const app = $("#app");
   const themeBtn = `<button class="iconbtn" data-act="theme" aria-label="Switch to ${currentDark()?"light":"dark"} mode">${currentDark()?ICON.sun:ICON.moon}</button>`;
-  const header = `<header class="top"><div class="wrap"><div class="brand"><img class="wm wm-light" src="icons/wordmark.png" alt="RCI Media Productions"><img class="wm wm-dark" src="icons/wordmark-dark.png" alt="RCI Media Productions"></div>${themeBtn}
+  const header = `<header class="top"><div class="wrap"><div class="brand"><img class="wm wm-light" src="icons/wordmark.png" alt="RCI Productions"><img class="wm wm-dark" src="icons/wordmark-dark.png" alt="RCI Productions"></div>${themeBtn}
     ${S.me ? `<button class="iconbtn" data-act="tab" data-view="profile" aria-label="My Profile" style="padding:0;overflow:hidden;border:none;width:50px;height:50px">${avatar(myProfile() || {fullName:S.me.name, email:S.me.emails[0]}, "sm")}</button>` : ""}</div></header>`;
   if (S.phase !== "ready"){
     let body = "";
     if (S.phase === "boot") body = `<div class="center-screen"><span class="spinner" role="status" aria-label="Loading"></span><p>Loading the schedule…</p></div>`;
-    if (S.phase === "signin") body = `<div class="center-screen"><img class="wm wm-light" src="icons/wordmark.png" alt="RCI Media Productions"><img class="wm wm-dark" src="icons/wordmark-dark.png" alt="RCI Media Productions"><p>Sign in with your church Microsoft account to see your schedule, reply to requests and update your profile.</p><button class="btn primary" data-act="signin">Sign in with Microsoft</button></div>`;
+    if (S.phase === "signin") body = `<div class="center-screen"><img class="wm wm-light" src="icons/wordmark.png" alt="RCI Productions"><img class="wm wm-dark" src="icons/wordmark-dark.png" alt="RCI Productions"><p>Sign in with your church Microsoft account to see your schedule, reply to requests and update your profile.</p><button class="btn primary" data-act="signin">Sign in with Microsoft</button></div>`;
     if (S.phase === "error") body = `<div class="center-screen"><h1>Can't reach the schedule</h1><p>The app couldn't load the Serving Schedule list. Check that you're a member of the RCI Productions SharePoint site, then try again.</p><div class="err">${esc(S.error)}</div><button class="btn primary" data-act="retry">Try again</button></div>`;
     app.innerHTML = header + `<main><div class="wrap">${body}</div></main>`;
     return;
