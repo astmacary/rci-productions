@@ -50,7 +50,7 @@ button{cursor:pointer}
 
 header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
 header.top .wrap{display:flex;align-items:center;gap:12px;padding-top:16px;padding-bottom:10px}
-.brand{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;flex:1;background:none;border:none;padding:0;cursor:pointer;color:inherit}
 .wm{height:52px;width:auto;max-width:100%;display:block;object-fit:contain;object-position:left center}
 .wm-dark{display:none}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .wm-light{display:none}:root:not([data-theme="light"]) .wm-dark{display:block}}
@@ -107,28 +107,31 @@ h1.greet{font-family:var(--display);font-weight:700;font-size:clamp(30px,8vw,40p
 .ann li::before{content:"";position:absolute;left:0;top:.6em;width:6px;height:6px;border-radius:50%;background:var(--accent)}
 .bday-panel{display:flex;flex-direction:column;gap:12px;border-color:var(--accent)}
 .bday-row{border-color:var(--accent)}
-.bday-wrap{display:flex;align-items:center;gap:8px}
-.bday-wrap .person{flex:1;min-width:0}
-.chat-btn{flex:none;width:48px;height:48px;color:var(--accent);border-color:var(--accent)}
-.chat-btn svg{width:22px;height:22px}
+.bday-wrap{position:relative}
+.bday-wrap .person{padding-right:56px}
+.chat-btn{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:34px;height:34px;color:var(--accent);border-color:var(--accent);background:var(--surface)}
+.chat-btn svg{width:17px;height:17px}
 .date-chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:thin}
 .date-chip{flex:none;display:flex;flex-direction:column;align-items:center;min-width:54px;padding:6px 4px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--fg);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
 .date-chip b{font-size:20px;line-height:1.1;letter-spacing:0}
 .date-chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
-.admin-row{display:flex;flex-direction:column;gap:8px;padding:12px}
+.admin-row{display:flex;flex-direction:column;gap:6px;padding:10px 12px}
 .admin-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
 .admin-title{display:flex;flex-direction:column;gap:1px;min-width:0}
 .admin-title .times{margin-top:2px;gap:0 14px}
-.admin-side{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex:none}
+.admin-side{display:flex;flex-direction:row;align-items:center;gap:6px;flex:none}
+.admin-side .iconbtn{width:30px;height:30px}
+.admin-side .iconbtn svg{width:15px;height:15px}
 .save-btn:disabled{opacity:.35;cursor:default}
 .save-btn:not(:disabled){background:var(--accent);color:var(--accent-ink)}
 .save-btn.busy{opacity:.6}
-.admin-title b{font-size:15.5px;line-height:1.25}
+.admin-title b{font-size:15px;line-height:1.25}
+.admin-title .sub{font-size:13px}
 .admin-top .pill{flex:none}
 .admin-row.locked select{opacity:.55}
 .name-pick{display:flex;align-items:center;gap:10px}
 .name-pick select{flex:1;min-width:0}
-.av.face{width:40px;height:40px;font-size:13px}
+.av.face{width:36px;height:36px;font-size:12px}
 .av.face.empty{border:2px dashed var(--line);background:transparent}
 .admin-row.locked .name-pick .av{opacity:.7}
 .inline-check{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--accent-ink);vertical-align:-4px}
@@ -139,11 +142,12 @@ h1.greet{font-family:var(--display);font-weight:700;font-size:clamp(30px,8vw,40p
 .warn-text{color:var(--warn)}
 ol.steps{margin:-6px 0 0;padding:12px 16px 12px 36px;display:flex;flex-direction:column;gap:4px}
 ol.steps li{padding-left:2px}
-.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .admin-grid .field{gap:4px}
 .admin-grid .field.wide{grid-column:1 / -1}
-.admin-grid select{padding:8px 10px}
-.admin-grid label{font-size:13px}
+.admin-grid select{padding:7px 10px;min-height:38px}
+.admin-grid label{font-size:12.5px}
+.admin-grid .field{gap:3px}
 .admin-grid select{font-size:14px}
 a.btn{text-decoration:none}
 .email-addr{margin:0;font-size:13px;user-select:all;overflow-wrap:anywhere}
@@ -351,7 +355,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "31";
+const APP_VERSION = "32";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -892,8 +896,8 @@ function annForm(){
     ${editing ? `<button class="btn block" type="button" data-act="ann-change-cancel">Cancel</button>` : ""}</form>`;
 }
 
-function bdayRow(p, line, act){
-  return `<button class="person bday-row" data-act="${act || "member"}" data-id="${p.id}">${avatar(p)}<span class="meta"><b>${esc(p.fullName)}</b><small>${esc(line)}</small></span><span class="chev">${ICON.next}</span></button>`;
+function bdayRow(p, line, act, noChev){
+  return `<button class="person bday-row" data-act="${act || "member"}" data-id="${p.id}">${avatar(p)}<span class="meta"><b>${esc(p.fullName)}</b><small>${esc(line)}</small></span>${noChev ? "" : `<span class="chev">${ICON.next}</span>`}</button>`;
 }
 
 function statusPill(i){
@@ -989,7 +993,7 @@ function viewCalendar(){
   const bdayRows = ev.b.map(p => {
     const canChat = wallOpen(p) && myProfile()?.id !== p.id;
     return canChat
-      ? `<div class="bday-wrap">${bdayRow(p, "Birthday 🎂")}<button class="iconbtn chat-btn" data-act="wall" data-id="${p.id}" aria-label="Send ${esc(p.first || firstOf(p.fullName))} a birthday message" title="Send a birthday message">${ICON.chat}</button></div>`
+      ? `<div class="bday-wrap">${bdayRow(p, "Birthday 🎂", null, true)}<button class="iconbtn chat-btn" data-act="wall" data-id="${p.id}" aria-label="Send ${esc(p.first || firstOf(p.fullName))} a birthday message" title="Send a birthday message">${ICON.chat}</button></div>`
       : bdayRow(p, "Birthday 🎂");
   }).join("");
   const hasNotes = S.items.some(i => i.date === sel && i.role === CONFIG.notesRole && (i.notes || isEditor()));
@@ -1224,7 +1228,7 @@ function viewAdmin(){
     const dis = locked ? "disabled" : "";
     return `<form class="panel admin-row ${locked ? "locked" : ""}" data-id="${sid}">
       <div class="admin-top">
-        <div class="admin-title"><b>${esc(i.role || "No position")}</b><span class="sub" style="margin:0">${esc(i.category || "")}</span>
+        <div class="admin-title"><b>${esc(i.role || "No position")}</b><span class="sub" style="margin:0">${esc([i.category, fmtShort(i.date)].filter(Boolean).join(" · "))}</span>
 </div>
         <div class="admin-side">${statusPill(i)}${locked
           ? `<button class="iconbtn notes-btn" type="button" data-act="admin-unlock" data-id="${sid}" aria-label="Edit this assignment" title="Edit">${ICON.pencil}</button>`
@@ -1283,7 +1287,7 @@ const TABS = [["home","Home",ICON.home],["calendar","Calendar",ICON.cal],["absen
 function render(){
   const app = $("#app");
   const themeBtn = `<button class="iconbtn" data-act="theme" aria-label="Switch to ${currentDark()?"light":"dark"} mode">${currentDark()?ICON.sun:ICON.moon}</button>`;
-  const header = `<header class="top"><div class="wrap"><div class="brand"><img class="wm wm-light" src="icons/wordmark.png?v=${APP_VERSION}" alt="RCI Productions"><img class="wm wm-dark" src="icons/wordmark-dark.png?v=${APP_VERSION}" alt="RCI Productions"></div>${themeBtn}
+  const header = `<header class="top"><div class="wrap"><button class="brand" data-act="tab" data-view="home" aria-label="RCI Productions, go to Home"><img class="wm wm-light" src="icons/wordmark.png?v=${APP_VERSION}" alt=""><img class="wm wm-dark" src="icons/wordmark-dark.png?v=${APP_VERSION}" alt=""></button>${themeBtn}
     ${S.me ? (() => { const n = S.phase === "ready" ? pendingCount() : 0; return `<button class="iconbtn me-btn" data-act="tab" data-view="profile" aria-label="My Profile${n ? `, ${n} pending request${n > 1 ? "s" : ""}` : ""}">${avatar(myProfile() || {fullName:S.me.name, email:S.me.emails[0]}, "sm")}${n ? '<span class="red-dot" aria-hidden="true"></span>' : ""}</button>`; })() : ""}</div></header>`;
   if (S.phase !== "ready"){
     let body = "";
