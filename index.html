@@ -293,6 +293,8 @@ const CONFIG = {
 };
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
+// Bump together with CACHE in sw.js whenever the app changes.
+const APP_VERSION = "25";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1080,7 +1082,7 @@ function installPanel(){
 window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferredInstall = e; if (S.view === "profile") render(); });
 window.addEventListener("appinstalled", () => { deferredInstall = null; toast("Installed. Look for RCI Productions on your home screen."); render(); });
 if ("serviceWorker" in navigator && location.protocol === "https:" && window.top === window.self){
-  navigator.serviceWorker.register("sw.js").catch(() => {});
+  navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {});
 }
 
 const TABS = [["home","Home",ICON.home],["calendar","Calendar",ICON.cal],["absence","Absence",ICON.away],["directory","Team",ICON.team],["profile","Profile",ICON.user]];
@@ -1304,7 +1306,25 @@ async function start(){
 }
 start();
 
+/* When someone comes back to an app that's already open, check for a newer version and refresh to it,
+   unless they're in the middle of editing something. */
+let lastVersionCheck = 0;
+async function checkForUpdate(){
+  if (DEMO || Date.now() - lastVersionCheck < 30000) return;
+  lastVersionCheck = Date.now();
+  try {
+    const text = await fetch("index.html?v=" + Date.now(), { cache: "no-store" }).then(r => r.ok ? r.text() : "");
+    const live = (text.match(/APP_VERSION = "([^"]+)"/) || [])[1];
+    if (!live || live === APP_VERSION) return;
+    const busy = S.annEdit || S.notesEdit || document.querySelector("#wall-text, #ab-notes, #ann-text")?.value;
+    if (busy){ toast("A new version of the app is ready. It will load next time you open it."); return; }
+    navigator.serviceWorker?.getRegistration().then(r => r && r.update()).catch(() => {});
+    location.reload();
+  } catch(e){}
+}
+
 document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState === "visible") checkForUpdate();
   if (document.visibilityState !== "visible" || S.phase !== "ready" || DEMO) return;
   try { S.announcements = await LiveAPI.announcements(); S.messages = await LiveAPI.messages(); if (S.view === "home" || S.view === "member") render(); } catch(e){}
   updateBadge();
