@@ -199,6 +199,10 @@ a.btn{text-decoration:none}
 /* Notes */
 .notes{overflow-x:auto}
 .notes-date{margin-top:-12px;font-size:19px;font-weight:600;color:var(--fg)}
+.notes-tools{display:flex;gap:6px;flex-wrap:wrap}
+.tool{border:1px solid var(--line);background:var(--surface-2);color:var(--fg);border-radius:8px;padding:6px 12px;font-size:14px;font-weight:600;min-width:44px}
+.notes-editor{min-height:240px;outline:none;border-color:var(--blue);line-height:1.55}
+.notes-editor:focus{box-shadow:0 0 0 2px var(--blue)}
 .notes :where(h1,h2,h3,h4){font-family:var(--display);letter-spacing:.02em;margin:.6em 0 .3em}
 .notes p,.notes div{margin:0 0 .5em}
 .notes ul,.notes ol{padding-left:1.3em}
@@ -282,8 +286,8 @@ const CONFIG = {
   // Home-screen announcements come from the "Announcements" SharePoint list on the same site.
   announcementsListId: "35549622-4738-4fff-9b07-15e0255df762",
   messagesListId: "2d7c1b51-ef21-4cdd-8c00-023193bc7833",   // "Birthday Messages" list
-  // Only these sign-ins see the pencil to add or remove announcements.
-  announcementEditors: ["ashley.stmacary@therampchurch.com", "ward.shaquille93@gmail.com", "morgandmosby@gmail.com"],
+  // Only these sign-ins see the pencil to edit Announcements and Production Notes.
+  editors: ["ashley.stmacary@therampchurch.com", "ward.shaquille93@gmail.com", "morgandmosby@gmail.com"],
   wallDays: 30,                    // birthday wall: open for posting and visible for this many days
   guidelinesUrl: ""                // optional link shown under announcements
 };
@@ -749,7 +753,7 @@ function wallSection(p){
 /* ---------- announcement editing (editors only) ---------- */
 function isEditor(){
   if (DEMO) return true;                       // demo lets anyone try the editor
-  const ed = CONFIG.announcementEditors.map(lc);
+  const ed = CONFIG.editors.map(lc);
   return !!S.me && S.me.emails.some(e => ed.includes(lc(e)));
 }
 function annEditBtn(){
@@ -873,7 +877,7 @@ function viewCalendar(){
   const ev = eventsOn(sel);
   const team = ev.a.map(i => tile(i, i.role, "member-of", i.id)).join("");
   const bdayRows = ev.b.map(p => bdayRow(p, "Birthday 🎂")).join("");
-  const hasNotes = S.items.some(i => i.date === sel && i.role === CONFIG.notesRole && i.notes);
+  const hasNotes = S.items.some(i => i.date === sel && i.role === CONFIG.notesRole && (i.notes || isEditor()));
   return `<section class="panel cal-panel">
       <div class="cal-head"><h2>${m.toLocaleDateString(undefined,{month:"long",year:"numeric"})}</h2>
         <button class="btn" data-act="cal-today" style="padding:6px 10px">Today</button>
@@ -911,17 +915,41 @@ function cleanHtml(raw){
 
 function backBar(title){ return `<div class="page-h"><button class="back" data-act="back">${ICON.back}Back</button></div><div class="page-h"><h1>${esc(title)}</h1></div>`; }
 
+function notesRecord(k){ return S.items.find(i => i.date === k && i.role === CONFIG.notesRole); }
+/* Notes show from the "SET LIST" marker on; editing changes that part and keeps anything before it. */
+function notesParts(rec){
+  const all = (rec && rec.notes) || "";
+  const at = all.indexOf(CONFIG.notesMarker);
+  return at >= 0 ? { before: all.slice(0, at), shown: all.slice(at) } : { before: "", shown: all };
+}
 function viewNotes(){
-  const k = S.arg;
-  const rec = S.items.find(i => i.date === k && i.role === CONFIG.notesRole);
-  let html = "";
-  if (rec && rec.notes){
-    const at = rec.notes.indexOf(CONFIG.notesMarker);
-    const raw = at >= 0 ? rec.notes.slice(at) : rec.notes;
-    html = cleanHtml(raw);
+  const k = S.arg, rec = notesRecord(k);
+  const { shown } = notesParts(rec);
+  const html = shown ? cleanHtml(shown) : "";
+  const canEdit = isEditor() && rec;
+  const editing = canEdit && S.notesEdit === k;
+  const pencil = canEdit ? (editing
+      ? `<button class="iconbtn edit-on" data-act="notes-cancel" aria-label="Stop editing" title="Stop editing">${ICON.check}</button>`
+      : `<button class="iconbtn" data-act="notes-edit" aria-label="Edit Production Notes" title="Edit Production Notes">${ICON.pencil}</button>`) : "";
+  const head = `<div class="page-h"><button class="back" data-act="back">${ICON.back}Back</button></div>
+    <div class="page-h"><h1>Production Notes</h1><span style="flex:1"></span>${pencil}</div>
+    <p class="sub notes-date">${esc(fmtLong(k))}</p>`;
+  if (editing){
+    const start = html || `<p><strong>${esc(CONFIG.notesMarker)}</strong></p><ol><li></li></ol>`;
+    return `${head}
+      <div class="notes-tools" role="toolbar" aria-label="Formatting">
+        <button type="button" class="tool" data-act="fmt" data-cmd="bold" aria-label="Bold"><b>B</b></button>
+        <button type="button" class="tool" data-act="fmt" data-cmd="italic" aria-label="Italic"><i>I</i></button>
+        <button type="button" class="tool" data-act="fmt" data-cmd="insertUnorderedList" aria-label="Bulleted list">• List</button>
+        <button type="button" class="tool" data-act="fmt" data-cmd="insertOrderedList" aria-label="Numbered list">1. List</button>
+      </div>
+      <div class="panel notes notes-editor" id="notes-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Production Notes">${start}</div>
+      <div class="actions"><button class="btn blue" data-act="notes-save" data-date="${k}" id="notes-save">Save Notes</button><button class="btn" data-act="notes-cancel">Cancel</button></div>`;
   }
-  return `${backBar("Production Notes")}<p class="sub notes-date">${esc(fmtLong(k))}</p>
-    ${html ? `<div class="panel notes">${html}</div>` : `<div class="empty">No Production Notes for this date yet.</div>`}`;
+  const empty = isEditor() && !rec
+    ? `No ${esc(CONFIG.notesRole)} is scheduled for this date, so there's no row to save notes on yet.`
+    : `No Production Notes for this date yet.${canEdit ? " Tap the pencil to add them." : ""}`;
+  return `${head}${html ? `<div class="panel notes">${html}</div>` : `<div class="empty">${empty}</div>`}`;
 }
 
 function viewTeam(){
@@ -1109,7 +1137,26 @@ document.addEventListener("click", async e => {
   const b = e.target.closest("[data-act]"); if (!b) return;
   const act = b.dataset.act, item = S.items.find(i => i.id === b.dataset.id);
   switch(act){
-    case "tab": S.stack = []; S.absenceDone = false; S.annEdit = false; S.annConfirm = null; go(b.dataset.view, null, false); break;
+    case "tab": S.stack = []; S.absenceDone = false; S.notesEdit = null; S.annEdit = false; S.annConfirm = null; go(b.dataset.view, null, false); break;
+    case "notes-edit": S.notesEdit = S.arg; render(); setTimeout(() => $("#notes-editor")?.focus(), 0); break;
+    case "notes-cancel": S.notesEdit = null; render(); break;
+    case "fmt": {
+      const ed = $("#notes-editor"); if (!ed) break;
+      ed.focus();
+      if (notesRange){ const sel = getSelection(); sel.removeAllRanges(); sel.addRange(notesRange); }
+      try { document.execCommand(b.dataset.cmd, false, null); } catch(err){}
+      break;
+    }
+    case "notes-save": {
+      const k = b.dataset.date, rec = notesRecord(k), ed = $("#notes-editor");
+      if (!rec || !ed) break;
+      const body = cleanHtml(ed.innerHTML).trim();
+      const html = notesParts(rec).before + body;
+      b.disabled = true; b.textContent = "Saving…";
+      try { await API.update(rec.id, { Notes: html }); rec.notes = html; S.notesEdit = null; render(); toast("Production Notes saved"); }
+      catch(err){ toast("Couldn't save the notes. " + err.message, true); b.disabled = false; b.textContent = "Save Notes"; }
+      break;
+    }
     case "ann-edit": S.annEdit = !S.annEdit; S.annConfirm = null; if (!S.annEdit) S.annDraft = null; render(); break;
     case "ann-ask": S.annConfirm = Number(b.dataset.id); render(); break;
     case "ann-keep": S.annConfirm = null; render(); break;
@@ -1120,7 +1167,7 @@ document.addEventListener("click", async e => {
       S.annConfirm = null; render(); break;
     }
     case "ann-flyer-clear": annDraftSave(); S.annDraft.file = null; S.annDraft.preview = ""; render(); break;
-    case "back": { const prev = S.stack.pop() || { view: "home" }; go(prev.view, prev.arg, false); break; }
+    case "back": { S.notesEdit = null; const prev = S.stack.pop() || { view: "home" }; go(prev.view, prev.arg, false); break; }
     case "theme": toggleTheme(); break;
     case "accept": setStatus(item, true); break;
     case "ask-decline": S.confirm = item.id; render(); break;
@@ -1207,6 +1254,14 @@ document.addEventListener("submit", async e => {
 });
 
 document.addEventListener("input", e => { if (e.target.id === "ab-notes") absState().notes = e.target.value; });
+
+/* Remember where the cursor was in the notes editor, so the formatting buttons apply there. */
+let notesRange = null;
+document.addEventListener("selectionchange", () => {
+  const ed = document.getElementById("notes-editor"), sel = getSelection();
+  if (ed && sel.rangeCount && ed.contains(sel.anchorNode)) notesRange = sel.getRangeAt(0).cloneRange();
+});
+document.addEventListener("mousedown", e => { if (e.target.closest(".tool")) e.preventDefault(); });
 
 function annDraftSave(){
   S.annDraft = S.annDraft || {};

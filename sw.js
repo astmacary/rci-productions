@@ -1,7 +1,7 @@
 // RCI Productions — service worker.
 // Caches the app's own files so it opens instantly and can be installed.
 // Schedule data and sign-in always go to Microsoft live; they are never cached.
-const CACHE = "rci-productions-v23";
+const CACHE = "rci-productions-v24";
 const SHELL = ["./", "index.html", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png",
   "icons/apple-touch-icon.png", "icons/favicon.png",
