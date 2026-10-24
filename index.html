@@ -124,6 +124,13 @@ h1.greet{font-family:var(--display);font-weight:700;font-size:clamp(30px,8vw,40p
 .admin-side{display:flex;flex-direction:row;align-items:center;gap:6px;flex:none}
 .admin-side .iconbtn{width:30px;height:30px}
 .admin-side .iconbtn svg{width:15px;height:15px}
+.iconbtn.del-btn{color:var(--bad);border-color:var(--bad);background:transparent}
+.del-ask{display:flex;flex-wrap:wrap;align-items:center;gap:8px;color:var(--bad);font-weight:600;font-size:14px}
+.del-ask .btn{padding:6px 12px}
+.del-ask .yes{background:var(--bad);border-color:var(--bad);color:#FFFFFF}
+.no-service .del-btn{margin-left:auto;width:30px;height:30px;flex:none}
+.no-service .del-btn svg{width:15px;height:15px}
+.ns-wrap{display:flex;flex-direction:column;gap:8px}
 .save-btn:disabled{opacity:.35;cursor:default}
 .save-btn:not(:disabled){background:var(--accent);color:var(--accent-ink)}
 .save-btn.busy{opacity:.6}
@@ -403,7 +410,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "43";
+const APP_VERSION = "44";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -424,6 +431,7 @@ const firstOf = n => (n||"").trim().split(/\s+/)[0] || "";
 const lc = s => (s||"").toLowerCase();
 
 const ICON = {
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
   home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>',
   list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg>',
   cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
@@ -1322,7 +1330,14 @@ function adminDayHeader(k, rows){
 }
 /* The No Service notice (at the top of the day's roster), or the red button that marks the day. */
 function adminNoService(k, rows){
-  if (rows.some(isNoService)) return `<div class="no-service" style="margin:0"><span aria-hidden="true">❌</span> No Service</div>`;
+  const ns = rows.filter(isNoService);
+  if (ns.length){
+    const ask = S.delAsk === "ns:" + k;
+    return `<div class="ns-wrap"><div class="no-service" style="margin:0"><span aria-hidden="true">❌</span> No Service${ask ? "" : `<button class="iconbtn del-btn" type="button" data-act="del-ask" data-id="ns:${k}" aria-label="Remove No Service for ${esc(fmtShort(k))}" title="Remove No Service">${ICON.trash}</button>`}</div>
+      ${ask ? `<div class="no-svc-ask del-ask"><span>Remove No Service for ${esc(fmtShort(k))}?</span>
+        <button class="btn yes" type="button" data-act="del-yes" data-ids="${ns.map(i => esc(i.id)).join(",")}" data-done="No Service removed for ${esc(fmtShort(k))}" ${S.delBusy ? "disabled" : ""}>${S.delBusy ? "Removing…" : "Yes, Remove"}</button>
+        <button class="btn" type="button" data-act="del-keep" ${S.delBusy ? "disabled" : ""}>Cancel</button></div>` : ""}</div>`;
+  }
   if (S.noSvcAsk === k) return `<div class="no-svc-ask"><span>Mark ${esc(fmtShort(k))} as No Service?</span>
     <button class="btn yes" data-act="no-service-yes" data-date="${k}" ${S.noSvcBusy ? "disabled" : ""}>${S.noSvcBusy ? "Saving…" : "Yes, No Service"}</button>
     <button class="btn" data-act="no-service-keep" ${S.noSvcBusy ? "disabled" : ""}>Cancel</button></div>`;
@@ -1364,6 +1379,14 @@ function adminAbsent(rows){
       return `<div class="absent-row">${faceFor(i.personId, i.fullName)}<span><b>${esc(name || i.fullName || "Someone")}</b> is absent</span></div>`;
     }).join("")}</div></div>`;
 }
+/* Inline "Delete this position?" check on an Edit Schedule card. */
+function delAsk(i){
+  if (S.delAsk !== i.id) return "";
+  const what = [i.role || "this position", i.fullName ? `(${i.fullName})` : ""].filter(Boolean).join(" ");
+  return `<div class="del-ask"><span>Delete ${esc(what)} on ${esc(fmtShort(i.date))}? This removes the row from SharePoint.</span>
+    <button class="btn yes" type="button" data-act="del-yes" data-ids="${esc(i.id)}" data-done="${esc((i.role || "Position") + " deleted")}" ${S.delBusy ? "disabled" : ""}>${S.delBusy ? "Deleting…" : "Yes, Delete"}</button>
+    <button class="btn" type="button" data-act="del-keep" ${S.delBusy ? "disabled" : ""}>Cancel</button></div>`;
+}
 /* A date chip that opens a date picker, for days that aren't on the schedule yet. */
 function adminPickChip(){
   return `<button class="date-chip pick ${S.pickOpen ? "on" : ""}" type="button" data-act="admin-pick-open" aria-expanded="${!!S.pickOpen}" title="Pick another date"><span>Other</span><b>+</b><span>Date</span></button>`;
@@ -1392,8 +1415,8 @@ function viewAdmin(){
 </div>
         <div class="admin-side">${statusPill(i)}${locked
           ? `<button class="iconbtn notes-btn" type="button" data-act="admin-unlock" data-id="${sid}" aria-label="Edit this assignment" title="Edit">${ICON.pencil}</button>`
-          : saveIcon()}</div>
-      </div>
+          : saveIcon()}<button class="iconbtn del-btn" type="button" data-act="del-ask" data-id="${sid}" aria-label="Delete this position" title="Delete">${ICON.trash}</button></div>
+      </div>${delAsk(i)}
       <div class="admin-grid">
         <div class="field wide"><label for="ad-name-${sid}">Full Name</label>
           <div class="name-pick"><span data-face>${faceFor(i.personId, i.fullName)}</span><select id="ad-name-${sid}" data-f="ChoiceNames" ${dis}>${opts(S.names, i.fullName, "— Not assigned —")}</select></div>
@@ -1520,6 +1543,18 @@ document.addEventListener("click", async e => {
       catch(err){ toast("Couldn't save the notes. " + err.message, true); b.disabled = false; b.textContent = "Save Notes"; }
       break;
     }
+    case "del-ask": S.delAsk = b.dataset.id; render(); break;
+    case "del-keep": S.delAsk = null; render(); break;
+    case "del-yes": {
+      if (!isEditor() || S.delBusy) break;
+      const ids = (b.dataset.ids || "").split(",").filter(Boolean), done = b.dataset.done;
+      S.delBusy = true; render();
+      try {
+        for (const id of ids){ await API.deleteItem(id); S.items = S.items.filter(i => i.id !== id); }
+        S.delAsk = null; toast(done || "Deleted");
+      } catch(err){ toast("Couldn't delete it. " + err.message, true); }
+      S.delBusy = false; render(); break;
+    }
     case "admin-unlock": {
       const row = b.closest(".admin-row");
       (S.adminUnlocked = S.adminUnlocked || new Set()).add(b.dataset.id);
@@ -1568,7 +1603,7 @@ document.addEventListener("click", async e => {
       } catch(err){ toast(`Added ${added} of ${miss.length}. ` + err.message, true); }
       S.tplBusy = null; render(); break;
     }
-    case "admin-date": S.tplAsk = null; S.catEdit = null; S.noSvcAsk = null; S.pickOpen = false; S.adminDate = b.dataset.date; render(); document.querySelector(`[data-act="admin-date"][data-date="${S.adminDate}"]`)?.scrollIntoView({ inline: "center", block: "nearest" }); break;
+    case "admin-date": S.delAsk = null; S.tplAsk = null; S.catEdit = null; S.noSvcAsk = null; S.pickOpen = false; S.adminDate = b.dataset.date; render(); document.querySelector(`[data-act="admin-date"][data-date="${S.adminDate}"]`)?.scrollIntoView({ inline: "center", block: "nearest" }); break;
     case "ann-edit": S.annEdit = !S.annEdit; S.annConfirm = null; if (!S.annEdit) S.annDraft = null; render(); break;
     case "ann-ask": S.annConfirm = Number(b.dataset.id); render(); break;
     case "ann-change": {
