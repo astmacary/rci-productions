@@ -410,7 +410,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "48";
+const APP_VERSION = "49";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -786,6 +786,22 @@ const byDate = (a,b) => a.date.localeCompare(b.date) || a.role.localeCompare(b.r
 const isAbsent = i => lc(i.category || "") === lc(CONFIG.absentCategory);
 const assignments = () => S.items.filter(i => !isProfile(i) && !isAbsent(i) && i.date);
 const myAbsences = () => S.items.filter(i => isAbsent(i) && i.date && mine(i));
+/* Absence page: admins can enter time off for another team member (S.absFor = that person's profile id). */
+const samePerson = (i, p) => !!p && ((!!p.email && i.email === p.email) || (!!i.fullName && !!p.fullName && lc(i.fullName) === lc(p.fullName)));
+const absencesOf = p => p ? S.items.filter(i => isAbsent(i) && i.date && samePerson(i, p)) : [];
+function absPerson(){
+  const me = myProfile();
+  if (!isEditor() || !S.absFor) return me;
+  return S.items.find(i => i.id === S.absFor && isProfile(i)) || me;
+}
+function absWhoField(p){
+  if (!isEditor()) return "";
+  const me = myProfile();
+  const people = S.items.filter(isProfile).filter(x => x.fullName).sort((a, b) => a.fullName.localeCompare(b.fullName));
+  return `<div class="field abs-who"><label for="abs-for">Absence for</label>
+    <select id="abs-for">${p ? "" : `<option value="" selected disabled>Choose a team member</option>`}${people.map(x => `<option value="${esc(x.id)}" ${p && x.id === p.id ? "selected" : ""}>${esc(x.fullName)}${me && x.id === me.id ? " (you)" : ""}</option>`).join("")}</select>
+    <span class="hint">Admins can send time off for anyone on the team.</span></div>`;
+}
 
 /* ============================================================
    RENDER
@@ -1196,14 +1212,14 @@ function absState(){
   return S.abs;
 }
 function viewAbsence(){
-  const p = myProfile(), A = absState();
+  const p = absPerson(), A = absState(), me = myProfile(), other = !!p && (!me || p.id !== me.id), pFirst = p ? (p.first || firstOf(p.fullName)) : "";
   if (S.absenceDone) return `<div class="page-h"><h1>Time Off</h1></div>
-    <div class="panel done"><span class="check">${ICON.check}</span><h2 style="font-family:var(--display);font-size:26px;margin:0">Absence Submitted</h2>
+    <div class="panel done"><span class="check">${ICON.check}</span><h2 style="font-family:var(--display);font-size:26px;margin:0">Absence Submitted</h2>${A.sentFor ? `<p class="sub" style="margin:0"><b>${esc(A.sentFor)}</b></p>` : ""}
     <p class="sub" style="margin:0">${A.sent.map(k => esc(fmtShort(k))).join(" · ")}</p>
     <p class="sub" style="margin:0">The schedule team will plan around it.</p><button class="btn" data-act="absence-again">Submit More Dates</button></div>`;
-  if (!p) return `<div class="page-h"><h1>Time Off</h1></div>${noProfileMsg()}`;
+  if (!p) return isEditor() ? `<div class="page-h"><h1>Time Off</h1></div><div class="panel stack">${absWhoField(null)}</div>` : `<div class="page-h"><h1>Time Off</h1></div>${noProfileMsg()}`;
   const m = A.month, t = todayKey();
-  const already = new Set(myAbsences().map(i => i.date));
+  const already = new Set(absencesOf(p).map(i => i.date));
   const upcoming = [...already].filter(k => k >= t).sort();
   const first = new Date(m.getFullYear(), m.getMonth(), 1);
   const dim = new Date(m.getFullYear(), m.getMonth()+1, 0).getDate();
@@ -1219,6 +1235,7 @@ function viewAbsence(){
   return `<div class="page-h"><h1>Time Off</h1></div>
     <p class="sub" style="margin-top:-10px">Tap every day you can't serve, then submit. To cancel a day you've already sent, tap it under Already Sent.</p>
     <form class="panel stack abs-form" id="absenceForm">
+      ${absWhoField(p)}
       <div class="field abs-cal">
         <div class="cal-head"><h2>${m.toLocaleDateString(undefined,{month:"long",year:"numeric"})}</h2>
           <button type="button" class="iconbtn" data-act="abs-prev" aria-label="Previous month" ${thisMonth?"disabled":""}>${ICON.back}</button>
@@ -1226,8 +1243,8 @@ function viewAbsence(){
         <div class="grid7">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(x=>`<div class="dowh">${x}</div>`).join("")}${cells}</div>
         <div class="picked">${picked.length ? picked.map(k => `<button type="button" class="chip" data-act="abs-pick" data-date="${k}" aria-label="Remove ${esc(fmtLong(k))}">${esc(fmtShort(k))} <span aria-hidden="true">×</span></button>`).join("") : `<span class="hint">No dates picked yet.</span>`}</div>
       </div>
-      ${upcoming.length ? `<div class="field"><span class="label">Already Sent</span><div class="picked">${upcoming.map(k => { const r = myAbsences().find(i => i.date === k); return `<button type="button" class="chip sent" data-act="abs-cancel" data-id="${esc(r.id)}" aria-label="Cancel time off on ${esc(fmtLong(k))}">${esc(fmtShort(k))} <span aria-hidden="true">×</span></button>`; }).join("")}</div>
-      ${S.absConfirm && myAbsences().some(i => i.id === S.absConfirm) ? (() => { const r = myAbsences().find(i => i.id === S.absConfirm), busy = S.busy.has(r.id); return `<div class="abs-confirm">Cancel your time off on ${esc(fmtShort(r.date))}?
+      ${upcoming.length ? `<div class="field"><span class="label">Already Sent</span><div class="picked">${upcoming.map(k => { const r = absencesOf(p).find(i => i.date === k); return `<button type="button" class="chip sent" data-act="abs-cancel" data-id="${esc(r.id)}" aria-label="Cancel time off on ${esc(fmtLong(k))}">${esc(fmtShort(k))} <span aria-hidden="true">×</span></button>`; }).join("")}</div>
+      ${S.absConfirm && absencesOf(p).some(i => i.id === S.absConfirm) ? (() => { const r = absencesOf(p).find(i => i.id === S.absConfirm), busy = S.busy.has(r.id); return `<div class="abs-confirm">Cancel ${other ? esc(pFirst) + "’s" : "your"} time off on ${esc(fmtShort(r.date))}?
         <button type="button" class="btn decline-soft" data-act="abs-cancel-yes" data-id="${esc(r.id)}" ${busy?"disabled":""}>${busy ? "Canceling…" : "Yes, Cancel It"}</button>
         <button type="button" class="btn" data-act="abs-cancel-keep">Keep It</button></div>`; })() : ""}</div>` : ""}
       <div class="field"><label for="ab-notes">Notes</label><textarea id="ab-notes" placeholder="Anything the schedule team should know (optional).">${esc(A.notes)}</textarea></div>
@@ -1525,7 +1542,7 @@ document.addEventListener("click", async e => {
   const b = e.target.closest("[data-act]"); if (!b) return;
   const act = b.dataset.act, item = S.items.find(i => i.id === b.dataset.id);
   switch(act){
-    case "tab": S.stack = []; S.absenceDone = false; S.absConfirm = null; S.notesEdit = null; S.annEdit = false; S.annConfirm = null; go(b.dataset.view, null, false); break;
+    case "tab": S.stack = []; S.absenceDone = false; S.absConfirm = null; if (b.dataset.view === "absence"){ S.absFor = null; S.abs = null; } S.notesEdit = null; S.annEdit = false; S.annConfirm = null; go(b.dataset.view, null, false); break;
     case "notes-edit": S.notesEdit = S.arg; render(); setTimeout(() => $("#notes-editor")?.focus(), 0); break;
     case "notes-cancel": S.notesEdit = null; render(); break;
     case "fmt": {
@@ -1630,7 +1647,7 @@ document.addEventListener("click", async e => {
     case "abs-cancel": S.absConfirm = b.dataset.id; render(); break;
     case "abs-cancel-keep": S.absConfirm = null; render(); break;
     case "abs-cancel-yes": {
-      if (!item || !isAbsent(item) || !mine(item)) break;
+      if (!item || !isAbsent(item) || !(mine(item) || isEditor())) break;
       S.busy.add(item.id); render();
       try {
         await API.deleteItem(item.id);
@@ -1688,13 +1705,14 @@ document.addEventListener("submit", async e => {
     } catch(err){ toast("Couldn't change it. " + err.message, true); btn.disabled = false; btn.classList.remove("busy"); render(); }
     return;
   }
-  const p = myProfile(); if (!p) return;
   if (e.target.id === "absenceForm"){
-    const A = absState(), have = new Set(myAbsences().map(i => i.date)), dates = [...A.sel].filter(k => !have.has(k)).sort(), notes = $("#ab-notes").value.trim();
+    const p = absPerson(); if (!p) return;
+    const me = myProfile(), other = !me || p.id !== me.id;
+    const A = absState(), have = new Set(absencesOf(p).map(i => i.date)), dates = [...A.sel].filter(k => !have.has(k)).sort(), notes = $("#ab-notes").value.trim();
     if (!dates.length){ toast("Tap the days you'll be away on the calendar.", true); return; }
     const btn = $("#ab-submit"); btn.disabled = true; btn.textContent = "Submitting…";
     // One "Absent" row per day (Service Date and Time Off Date both set, so it shows in the list's Time Off view).
-    const html = `<p><strong>Dates of Absence:</strong> ${dates.map(k => esc(fmtShort(k))).join("; ")}</p>` + (notes ? `<p>${esc(notes).replace(/\n/g,"<br>")}</p>` : "");
+    const html = `<p><strong>Dates of Absence:</strong> ${dates.map(k => esc(fmtShort(k))).join("; ")}</p>` + (notes ? `<p>${esc(notes).replace(/\n/g,"<br>")}</p>` : "") + (other ? `<p><em>Entered by ${esc(S.me.name)}</em></p>` : "");
     const saved = [];
     try {
       for (const k of dates){
@@ -1705,19 +1723,20 @@ document.addEventListener("submit", async e => {
         S.items.push(row); saved.push(k);
       }
     } catch(err){
-      toast(`Couldn't submit ${saved.length ? "all of " : ""}your absence. ` + err.message, true);
+      toast(`Couldn't submit ${saved.length ? "all of " : ""}the absence. ` + err.message, true);
       if (!saved.length){ btn.disabled = false; btn.textContent = "Submit Absence"; return; }
     }
-    A.sent = saved; A.sel = new Set(); A.notes = ""; S.absenceDone = true; render();
+    A.sent = saved; A.sentFor = other ? p.fullName : ""; A.sel = new Set(); A.notes = ""; S.absenceDone = true; render();
     // Reload from SharePoint so every screen shows exactly what was saved.
     if (!DEMO) try {
       const data = await API.load();
       S.items = data.items;
-      const missing = saved.filter(k => !myAbsences().some(i => i.date === k));
+      const missing = saved.filter(k => !absencesOf(S.items.find(i => i.id === p.id) || p).some(i => i.date === k));
       if (missing.length) toast("Some dates didn't show up in SharePoint: " + missing.map(fmtShort).join(", "), true);
       render();
     } catch(e){}
   }
+  const p = myProfile(); if (!p) return;
   if (e.target.classList.contains("admin-row")){
     const item = S.items.find(i => i.id === e.target.dataset.id); if (!item) return;
     const get = f => e.target.querySelector(`[data-f="${f}"]`).value;
@@ -1805,6 +1824,7 @@ function annDraftSave(){
   if (u) S.annDraft.until = u.value;
 }
 document.addEventListener("change", async e => {
+  if (e.target.id === "abs-for"){ S.absFor = e.target.value || null; S.abs = null; S.absConfirm = null; S.absenceDone = false; render(); return; }
   if (e.target.id === "admin-pick"){ if (e.target.value){ S.adminExtra = e.target.value; S.adminDate = e.target.value; S.catEdit = null; S.noSvcAsk = null; S.pickOpen = false; render(); } return; }
   const row = e.target.closest(".admin-row");
   if (row){
