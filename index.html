@@ -343,6 +343,10 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 .no-svc-ask{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--bad-soft);color:var(--bad);border:1px solid var(--bad);border-radius:var(--r);padding:10px 14px;font-weight:600}
 .no-svc-ask .btn{padding:6px 12px}
 .no-svc-ask .yes{background:var(--bad);border-color:var(--bad);color:#FFFFFF}
+.tpl-btn{width:100%;justify-content:center;background:transparent;border:2px solid var(--accent);color:var(--accent);font-weight:700;margin-top:8px}
+.tpl-ask{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--accent-soft);border:1px solid var(--accent);border-radius:var(--r);padding:10px 14px;font-weight:600;margin-top:8px}
+.tpl-ask .btn{padding:6px 12px}
+.tpl-ask .yes{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 </style>
 </head>
 <body>
@@ -365,6 +369,11 @@ const CONFIG = {
   sitePath: "/sites/RCIProductions",
   listId:   "01c57f63-f693-4a25-bd83-18ef8c5b6ecd",   // the "Serving Schedule" list
   profileCategory: "🎂 Birthday",
+  // Edit Schedule template: one row per position, added in this order (same names as the list's Title column).
+  templatePositions: ["Production Director", "FOH Audio Engineer", "Lighting Technician", "Broadcast Audio Engineer",
+    "Propresenter Technician", "Creative Director", "Broadcast Switcher Operator", "Camera 2 Operator",
+    "Gimbal 1 Operator", "Gimbal 2 Operator", "Gimbal 3 Operator"],
+  templateDefaultCategory: "Sunday Morning",   // used when the date has no Service Category yet
   noServiceCategory: "No Service",  // Service Category marking a date with no service  // Service Category used for each person's profile row
   notesRole: "Production Director",// role whose Notes hold the run sheet / set list
   notesMarker: "SET LIST",         // notes are shown from this text onward
@@ -379,7 +388,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "41";
+const APP_VERSION = "42";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -558,8 +567,8 @@ const LiveAPI = {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(fields) });
   },
   /* Adds a schedule row for a date (used for "No Service" days). */
-  async addRow(k, cat){
-    const f = { ServiceDates: toSp(k), ServiceCategory: cat };
+  async addRow(k, cat, extra){
+    const f = { ServiceDates: toSp(k), ServiceCategory: cat, ...(extra || {}) };
     const r = await this.g(`/sites/${this.siteId}/lists/${CONFIG.listId}/items`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fields: f }) });
     return String(r.id);
   },
@@ -1277,6 +1286,30 @@ function adminNoService(k, rows){
     <button class="btn" data-act="no-service-keep" ${S.noSvcBusy ? "disabled" : ""}>Cancel</button></div>`;
   return `<button class="btn no-svc-btn" data-act="no-service" data-date="${k}">❌ Mark ${esc(fmtShort(k))} as No Service</button>`;
 }
+/* Template: add a row for each standard position the date doesn't have yet. */
+function templateCategory(rows){
+  const n = {};
+  rows.filter(i => !isNoService(i) && svcFilled(i.category) && !NOT_A_SERVICE.includes(i.category)).forEach(i => { n[i.category] = (n[i.category] || 0) + 1; });
+  return Object.keys(n).sort((a, b) => n[b] - n[a])[0] || CONFIG.templateDefaultCategory;
+}
+const templateMissing = rows => {
+  const have = new Set(rows.filter(i => !isNoService(i)).map(i => lc(i.role || "")));
+  return (CONFIG.templatePositions || []).filter(r => !have.has(lc(r)));
+};
+function adminTemplate(k, rows){
+  if (rows.some(isNoService)) return "";
+  const miss = templateMissing(rows);
+  if (!miss.length) return "";
+  const all = miss.length === (CONFIG.templatePositions || []).length;
+  const what = all ? `the ${miss.length} positions` : `the ${miss.length} missing position${miss.length === 1 ? "" : "s"}`;
+  if (S.tplAsk === k){
+    const cat = templateCategory(rows);
+    return `<div class="tpl-ask"><span>Add ${what} to ${esc(fmtShort(k))} as ${esc(cat)}?</span>
+      <button class="btn yes" data-act="tpl-yes" data-date="${k}" ${S.tplBusy ? "disabled" : ""}>${S.tplBusy ? `Adding ${S.tplBusy}…` : "Yes, add them"}</button>
+      <button class="btn" data-act="tpl-keep" ${S.tplBusy ? "disabled" : ""}>Cancel</button></div>`;
+  }
+  return `<button class="btn tpl-btn" data-act="tpl" data-date="${k}">＋ Add ${what}</button>`;
+}
 /* A date chip that opens a date picker, for days that aren't on the schedule yet. */
 function adminPickChip(){
   return `<button class="date-chip pick ${S.pickOpen ? "on" : ""}" type="button" data-act="admin-pick-open" aria-expanded="${!!S.pickOpen}" title="Pick another date"><span>Other</span><b>+</b><span>Date</span></button>`;
@@ -1321,6 +1354,7 @@ function viewAdmin(){
     ${adminPickField()}
     ${adminDayHeader(k, dayRows)}
     ${adminNoService(k, dayRows)}
+    ${adminTemplate(k, dayRows)}
     ${rows.length ? `<div class="list">${cards}</div>` : `<div class="empty">Nothing else is scheduled on this date.</div>`}`;
 }
 
@@ -1459,7 +1493,27 @@ document.addEventListener("click", async e => {
       } catch(err){ toast("Couldn't mark it. " + err.message, true); }
       S.noSvcBusy = false; render(); break;
     }
-    case "admin-date": S.catEdit = null; S.noSvcAsk = null; S.pickOpen = false; S.adminDate = b.dataset.date; render(); document.querySelector(`[data-act="admin-date"][data-date="${S.adminDate}"]`)?.scrollIntoView({ inline: "center", block: "nearest" }); break;
+    case "tpl": S.tplAsk = b.dataset.date; render(); break;
+    case "tpl-keep": S.tplAsk = null; render(); break;
+    case "tpl-yes": {
+      if (!isEditor() || S.tplBusy) break;
+      const k = b.dataset.date;
+      const rows = S.items.filter(i => !isProfile(i) && i.date === k);
+      const miss = templateMissing(rows), cat = templateCategory(rows);
+      let added = 0;
+      try {
+        for (const role of miss){   // one at a time, so the rows keep the template's order in SharePoint
+          S.tplBusy = `${added + 1} of ${miss.length}`; render();
+          const fields = { Title: role, ServiceCategory: cat, Status: "Pending", Published: "--" };
+          const id = await API.addRow(k, cat, { Title: role, Status: "Pending", Published: "--" });
+          const it = normalize(id, fields); it.date = k; it.archived = false;
+          S.items.push(it); added++;
+        }
+        S.tplAsk = null; toast(`Added ${added} position${added === 1 ? "" : "s"} to ${fmtShort(k)}`);
+      } catch(err){ toast(`Added ${added} of ${miss.length}. ` + err.message, true); }
+      S.tplBusy = null; render(); break;
+    }
+    case "admin-date": S.tplAsk = null; S.catEdit = null; S.noSvcAsk = null; S.pickOpen = false; S.adminDate = b.dataset.date; render(); document.querySelector(`[data-act="admin-date"][data-date="${S.adminDate}"]`)?.scrollIntoView({ inline: "center", block: "nearest" }); break;
     case "ann-edit": S.annEdit = !S.annEdit; S.annConfirm = null; if (!S.annEdit) S.annDraft = null; render(); break;
     case "ann-ask": S.annConfirm = Number(b.dataset.id); render(); break;
     case "ann-change": {
