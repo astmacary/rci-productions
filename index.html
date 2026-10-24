@@ -410,7 +410,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "47";
+const APP_VERSION = "48";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1727,9 +1727,11 @@ document.addEventListener("submit", async e => {
     if (next.published !== item.published) fields.Published = next.published || null;
     const btn = e.target.querySelector('button[type="submit"]');
     if (!Object.keys(fields).length){ btn.disabled = true; return; }
-    // Any change to a position sends it back to Pending, so the person confirms again.
-    if (item.status !== "Pending"){ fields.Status = "Pending"; }
-    next.status = "Pending";
+    // Published set to Request Approved / Request Denied sets Status to Accepted / Declined.
+    // Any other change sends the position back to Pending, so the person confirms again.
+    const pubStatus = { "request approved": "Accepted", "request denied": "Declined" };
+    next.status = ("Published" in fields && pubStatus[lc(next.published || "")]) || "Pending";
+    if (item.status !== next.status) fields.Status = next.status;
     btn.disabled = true; btn.classList.add("busy");
     try {
       await API.updateAssignment(item.id, fields);
