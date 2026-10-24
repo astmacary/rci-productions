@@ -331,7 +331,7 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 .cat-btn svg{width:13px;height:13px;flex:none;opacity:.8}
 .cat-form{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .cat-form{flex:1 1 220px;flex-direction:row;gap:8px;margin:0}
-.cat-form input{flex:1;min-width:0;padding:7px 10px;min-height:38px;font-size:14px}
+.cat-form input,.cat-form select{flex:1;min-width:0;padding:7px 10px;min-height:38px;font-size:14px}
 .cat-form .linkbtn{margin-top:0}
 .date-chip.pick{cursor:pointer;border-style:dashed}
 .pick-field{margin:0}
@@ -343,6 +343,20 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 .no-svc-ask{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--bad-soft);color:var(--bad);border:1px solid var(--bad);border-radius:var(--r);padding:10px 14px;font-weight:600}
 .no-svc-ask .btn{padding:6px 12px}
 .no-svc-ask .yes{background:var(--bad);border-color:var(--bad);color:#FFFFFF}
+/* Absences: one row per day */
+.abs-cal .dcell.sent{background:var(--bad-soft);color:var(--bad);opacity:1}
+.chip.sent{background:var(--bad-soft);color:var(--bad);border-color:transparent}
+.cue.abs .when{padding:6px 4px}
+.cue.abs .cue-body{padding:10px 14px;justify-content:center}
+.abs-grid{display:flex;align-items:center;gap:10px}
+.abs-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.pill-stack{display:flex;flex-direction:column;align-items:stretch;gap:6px;margin-left:auto}
+.pill-stack .pill{text-align:center}
+.pill-btn{background:transparent;color:var(--bad);border:1px solid var(--bad);font-family:inherit;line-height:inherit;cursor:pointer;padding:1px 8px}
+.pill-btn:hover{background:var(--bad-soft)}
+.abs-confirm{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;color:var(--muted)}
+.absent-list{margin:0}
+.absent-row{display:flex;align-items:center;gap:10px;font-size:15px}
 .tpl-btn{width:100%;justify-content:center;background:transparent;border:2px solid var(--accent);color:var(--accent);font-weight:700;margin-top:8px}
 .tpl-ask{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--accent-soft);border:1px solid var(--accent);border-radius:var(--r);padding:10px 14px;font-weight:600;margin-top:8px}
 .tpl-ask .btn{padding:6px 12px}
@@ -374,6 +388,7 @@ const CONFIG = {
     "Propresenter Technician", "Creative Director", "Broadcast Switcher Operator", "Camera 2 Operator",
     "Gimbal 1 Operator", "Gimbal 2 Operator", "Gimbal 3 Operator"],
   templateDefaultCategory: "Sunday Morning",   // used when the date has no Service Category yet
+  absentCategory: "Absent",          // Service Category of the row the Absence tab adds for each day off
   noServiceCategory: "No Service",  // Service Category marking a date with no service  // Service Category used for each person's profile row
   notesRole: "Production Director",// role whose Notes hold the run sheet / set list
   notesMarker: "SET LIST",         // notes are shown from this text onward
@@ -388,7 +403,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "42";
+const APP_VERSION = "43";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -399,7 +414,7 @@ const pad = n => String(n).padStart(2, "0");
 const keyOf = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const fromKey = k => { const [y,m,d] = k.split("-").map(Number); return new Date(y, m-1, d); };
 const spDate = v => v ? keyOf(new Date(v)) : "";              // SharePoint returns UTC instants for date-only columns
-const toSp = k => k ? fromKey(k).toISOString() : null;        // local midnight → instant SharePoint stores as that date
+const toSp = k => k ? `${k}T12:00:00Z` : null;                // noon UTC: the same calendar day in every US time zone (the site is set to Pacific)
 const todayKey = () => keyOf(new Date());
 const addDays = (k, n) => { const d = fromKey(k); d.setDate(d.getDate()+n); return keyOf(d); };
 const fmtLong = k => fromKey(k).toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric", year:"numeric"});
@@ -567,6 +582,7 @@ const LiveAPI = {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(fields) });
   },
   /* Adds a schedule row for a date (used for "No Service" days). */
+  async deleteItem(id){ await this.g(`/sites/${this.siteId}/lists/${CONFIG.listId}/items/${id}`, { method: "DELETE" }); },
   async addRow(k, cat, extra){
     const f = { ServiceDates: toSp(k), ServiceCategory: cat, ...(extra || {}) };
     const r = await this.g(`/sites/${this.siteId}/lists/${CONFIG.listId}/items`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fields: f }) });
@@ -732,7 +748,8 @@ const DemoAPI = {
     await new Promise(r => setTimeout(r, 250));
   },
   photo(){ return Promise.resolve(null); },
-  async addRow(){ await new Promise(r => setTimeout(r, 250)); return "d" + Date.now(); },
+  async addRow(){ await new Promise(r => setTimeout(r, 150)); return "d" + Date.now() + Math.random().toString(36).slice(2, 6); },
+  async deleteItem(){ await new Promise(r => setTimeout(r, 150)); },
   async postMessage(to, text){ return { id: "d" + Date.now(), toId: String(to.id), text, fromName: S.me.name, fromEmail: S.me.emails[0], at: new Date().toISOString() }; },
   async deleteMessage(){},
   async addAnnouncement({ text, until, flyer }){ return { id: Date.now(), text, until: until || "", flyer: flyer ? "demo-upload" : "", flyerUrl: flyer ? URL.createObjectURL(flyer) : "" }; },
@@ -756,7 +773,9 @@ const profileOf = i => S.items.find(p => isProfile(p) && ((i.email && p.email ==
 const approved = i => i.status === "Accepted" && i.published === "Request Approved";
 const pending  = i => i.status === "Pending" && i.published === "Request Sent";
 const byDate = (a,b) => a.date.localeCompare(b.date) || a.role.localeCompare(b.role);
-const assignments = () => S.items.filter(i => !isProfile(i) && i.date);
+const isAbsent = i => lc(i.category || "") === lc(CONFIG.absentCategory);
+const assignments = () => S.items.filter(i => !isProfile(i) && !isAbsent(i) && i.date);
+const myAbsences = () => S.items.filter(i => isAbsent(i) && i.date && mine(i));
 
 /* ============================================================
    RENDER
@@ -947,6 +966,21 @@ function statusPill(i){
   return `<span class="pill neutral">${esc(i.status || "Draft")}</span>`;
 }
 
+/* A day off from the Absence tab, shown like an assignment card, with Cancel under the TIME OFF pill. */
+function absentCue(i){
+  const d = fromKey(i.date), busy = S.busy.has(i.id);
+  const actions = S.absConfirm === i.id
+    ? `<div class="abs-confirm">Cancel your time off on ${esc(fmtShort(i.date))}?
+        <button class="btn decline-soft" data-act="abs-cancel-yes" data-id="${i.id}" ${busy?"disabled":""}>${busy ? "Canceling…" : "Yes, Cancel It"}</button>
+        <button class="btn" data-act="abs-cancel-keep">Keep It</button></div>`
+    : "";
+  return `<article class="cue abs">
+    <div class="when"><span class="dow">${d.toLocaleDateString(undefined,{weekday:"short"})}</span><span class="day">${d.getDate()}</span><span class="mon">${d.toLocaleDateString(undefined,{month:"short"})}</span></div>
+    <div class="cue-body"><div class="abs-grid">
+        <div class="abs-text"><span class="role">Absent</span><div class="cat">You sent an absence for this day.</div></div>
+        <span class="pill-stack"><span class="pill bad">TIME OFF</span>${S.absConfirm === i.id ? "" : `<button class="pill pill-btn" data-act="abs-cancel" data-id="${i.id}">CANCEL</button>`}</span></div>
+      ${actions}</div></article>`;
+}
 function cue(i, opts={}){
   const d = fromKey(i.date);
   const isPending = pending(i);
@@ -979,7 +1013,8 @@ function cue(i, opts={}){
 function viewHome(){
   const t = todayKey(), wk = addDays(t, 7);
   const pend = assignments().filter(i => mine(i) && pending(i) && i.date >= t).sort(byDate);
-  const up = assignments().filter(i => mine(i) && approved(i) && i.date >= t && i.date <= wk).sort(byDate);
+  const up = [...assignments().filter(i => mine(i) && approved(i) && i.date >= t && i.date <= wk),
+              ...myAbsences().filter(i => i.date >= t && i.date <= wk)].sort(byDate);
   const first = myProfile()?.first || firstOf(S.me.name);
   // Soonest "Show Until" first; announcements with no end date go last, oldest first.
   const anns = (S.announcements || []).filter(a => a.text && (!a.until || a.until >= t))
@@ -999,7 +1034,7 @@ function viewHome(){
     <section><h2 class="section-label">Pending Requests <span class="count ${pend.length?"hot":""}">${pend.length}</span></h2>
       ${pend.length ? `<div class="list">${pend.map(i=>cue(i)).join("")}</div>` : `<div class="empty">You have no pending requests right now.</div>`}</section>
     <section><h2 class="section-label">Next 7 Days <span class="count">${up.length}</span></h2>
-      ${up.length ? `<div class="list">${up.map(i=>cue(i,{pill:true})).join("")}</div>` : `<div class="empty">You have no confirmed assignments this week.</div>`}</section>`;
+      ${up.length ? `<div class="list">${up.map(i => isAbsent(i) ? absentCue(i) : cue(i,{pill:true})).join("")}</div>` : `<div class="empty">You have no confirmed assignments this week.</div>`}</section>`;
 }
 
 function viewSchedule(){
@@ -1146,7 +1181,7 @@ function noProfileMsg(){
 function absState(){
   if (!S.abs){
     const p = myProfile(), t = todayKey(), now = new Date();
-    S.abs = { month: new Date(now.getFullYear(), now.getMonth(), 1), sel: new Set(p && p.timeOff && p.timeOff >= t ? [p.timeOff] : []), notes: "", sent: [] };
+    S.abs = { month: new Date(now.getFullYear(), now.getMonth(), 1), sel: new Set(), notes: "", sent: [] };
   }
   return S.abs;
 }
@@ -1158,19 +1193,21 @@ function viewAbsence(){
     <p class="sub" style="margin:0">The schedule team will plan around it.</p><button class="btn" data-act="absence-again">Submit More Dates</button></div>`;
   if (!p) return `<div class="page-h"><h1>Time Off</h1></div>${noProfileMsg()}`;
   const m = A.month, t = todayKey();
+  const already = new Set(myAbsences().map(i => i.date));
+  const upcoming = [...already].filter(k => k >= t).sort();
   const first = new Date(m.getFullYear(), m.getMonth(), 1);
   const dim = new Date(m.getFullYear(), m.getMonth()+1, 0).getDate();
   const weeks = Math.ceil((first.getDay() + dim) / 7);
   const start = keyOf(new Date(m.getFullYear(), m.getMonth(), 1 - first.getDay()));
   let cells = "";
   for (let n = 0; n < weeks*7; n++){
-    const k = addDays(start, n), d = fromKey(k), past = k < t, on = A.sel.has(k);
-    cells += `<button type="button" class="dcell ${d.getMonth()!==m.getMonth()?"out":""} ${k===t?"today":""} ${on?"sel":""}" data-act="abs-pick" data-date="${k}" ${past?"disabled":""} aria-pressed="${on}" aria-label="${esc(fmtLong(k))}"><span>${d.getDate()}</span></button>`;
+    const k = addDays(start, n), d = fromKey(k), past = k < t, on = A.sel.has(k), sent = already.has(k);
+    cells += `<button type="button" class="dcell ${d.getMonth()!==m.getMonth()?"out":""} ${k===t?"today":""} ${on?"sel":""} ${sent?"sent":""}" data-act="abs-pick" data-date="${k}" ${past || sent ?"disabled":""} aria-pressed="${on}" aria-label="${esc(fmtLong(k))}${sent ? ", absence already sent" : ""}"><span>${d.getDate()}</span></button>`;
   }
   const picked = [...A.sel].sort();
   const thisMonth = m.getFullYear() === new Date().getFullYear() && m.getMonth() === new Date().getMonth();
   return `<div class="page-h"><h1>Time Off</h1></div>
-    <p class="sub" style="margin-top:-10px">Tap every day you can't serve. If your plans change, come back and send more dates.</p>
+    <p class="sub" style="margin-top:-10px">Tap every day you can't serve, then submit. To cancel a day you've already sent, tap it under Already Sent.</p>
     <form class="panel stack abs-form" id="absenceForm">
       <div class="field abs-cal">
         <div class="cal-head"><h2>${m.toLocaleDateString(undefined,{month:"long",year:"numeric"})}</h2>
@@ -1179,6 +1216,10 @@ function viewAbsence(){
         <div class="grid7">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(x=>`<div class="dowh">${x}</div>`).join("")}${cells}</div>
         <div class="picked">${picked.length ? picked.map(k => `<button type="button" class="chip" data-act="abs-pick" data-date="${k}" aria-label="Remove ${esc(fmtLong(k))}">${esc(fmtShort(k))} <span aria-hidden="true">×</span></button>`).join("") : `<span class="hint">No dates picked yet.</span>`}</div>
       </div>
+      ${upcoming.length ? `<div class="field"><span class="label">Already Sent</span><div class="picked">${upcoming.map(k => { const r = myAbsences().find(i => i.date === k); return `<button type="button" class="chip sent" data-act="abs-cancel" data-id="${esc(r.id)}" aria-label="Cancel time off on ${esc(fmtLong(k))}">${esc(fmtShort(k))} <span aria-hidden="true">×</span></button>`; }).join("")}</div>
+      ${S.absConfirm && myAbsences().some(i => i.id === S.absConfirm) ? (() => { const r = myAbsences().find(i => i.id === S.absConfirm), busy = S.busy.has(r.id); return `<div class="abs-confirm">Cancel your time off on ${esc(fmtShort(r.date))}?
+        <button type="button" class="btn decline-soft" data-act="abs-cancel-yes" data-id="${esc(r.id)}" ${busy?"disabled":""}>${busy ? "Canceling…" : "Yes, Cancel It"}</button>
+        <button type="button" class="btn" data-act="abs-cancel-keep">Keep It</button></div>`; })() : ""}</div>` : ""}
       <div class="field"><label for="ab-notes">Notes</label><textarea id="ab-notes" placeholder="Anything the schedule team should know (optional).">${esc(A.notes)}</textarea></div>
       <button class="btn blue block" type="submit" id="ab-submit">Submit Absence${picked.length > 1 ? ` (${picked.length} days)` : ""}</button></form>`;
 }
@@ -1265,12 +1306,13 @@ function serviceChoices(){
 }
 /* Date heading with the day's Service Category beside it (tap to change it for every row on that date). */
 function adminDayHeader(k, rows){
-  const svc = rows.filter(i => !isNoService(i));
+  const svc = rows.filter(i => !isNoService(i) && !isAbsent(i));
   const cats = [...new Set(svc.filter(i => svcFilled(i.category)).map(i => i.category))];
   let cat = "";
   if (S.catEdit === k && svc.length){
     const cur = cats.length === 1 ? cats[0] : "";
-    cat = `<form class="cat-form field" id="catForm" data-date="${k}" data-cur="${esc(cur)}"><input id="cat-pick" type="text" maxlength="80" autocomplete="off" value="${esc(cur)}" placeholder="Type the Service Category" aria-label="Service Category">
+    const list = serviceChoices(); if (cur && !list.includes(cur)) list.unshift(cur);
+    cat = `<form class="cat-form field" id="catForm" data-date="${k}" data-cur="${esc(cur)}"><select id="cat-pick" aria-label="Service Category">${cur ? "" : `<option value="" selected disabled>Choose a Service Category</option>`}${list.map(c => `<option ${c === cur ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>
       <button class="iconbtn notes-btn save-btn" type="submit" disabled aria-label="Save Service Category" title="Save">${ICON.check}</button>
       <button class="linkbtn" type="button" data-act="cat-cancel">Cancel</button></form>`;
   } else if (svc.length){
@@ -1293,7 +1335,7 @@ function templateCategory(rows){
   return Object.keys(n).sort((a, b) => n[b] - n[a])[0] || CONFIG.templateDefaultCategory;
 }
 const templateMissing = rows => {
-  const have = new Set(rows.filter(i => !isNoService(i)).map(i => lc(i.role || "")));
+  const have = new Set(rows.filter(i => !isNoService(i) && !isAbsent(i)).map(i => lc(i.role || "")));
   return (CONFIG.templatePositions || []).filter(r => !have.has(lc(r)));
 };
 function adminTemplate(k, rows){
@@ -1308,7 +1350,19 @@ function adminTemplate(k, rows){
       <button class="btn yes" data-act="tpl-yes" data-date="${k}" ${S.tplBusy ? "disabled" : ""}>${S.tplBusy ? `Adding ${S.tplBusy}…` : "Yes, add them"}</button>
       <button class="btn" data-act="tpl-keep" ${S.tplBusy ? "disabled" : ""}>Cancel</button></div>`;
   }
-  return `<button class="btn tpl-btn" data-act="tpl" data-date="${k}">＋ Add ${what}</button>`;
+  return `<button class="btn tpl-btn" data-act="tpl" data-date="${k}">＋ Add Positions</button>`;
+}
+/* People who sent an absence for this date (Absence tab), so admins don't schedule them. */
+function adminAbsent(rows){
+  const abs = rows.filter(isAbsent);
+  if (!abs.length) return "";
+  const firsts = abs.map(i => firstOf(i.fullName));
+  return `<div class="panel absent-list"><h2 class="section-label" style="margin:0 0 6px">Absent <span class="count">${abs.length}</span></h2>
+    <div class="list">${abs.map((i, n) => {
+      const dup = firsts.filter(f => f === firsts[n]).length > 1;
+      const name = dup ? i.fullName : firsts[n];
+      return `<div class="absent-row">${faceFor(i.personId, i.fullName)}<span><b>${esc(name || i.fullName || "Someone")}</b> is absent</span></div>`;
+    }).join("")}</div></div>`;
 }
 /* A date chip that opens a date picker, for days that aren't on the schedule yet. */
 function adminPickChip(){
@@ -1326,7 +1380,7 @@ function viewAdmin(){
   if (!dates.includes(S.adminDate)) dates.push(S.adminDate);
   const k = S.adminDate;
   const dayRows = S.items.filter(i => !isProfile(i) && i.date === k);
-  const rows = dayRows.filter(i => !isNoService(i)).sort((x, y) => Number(x.id) - Number(y.id));   // same order as the SharePoint list
+  const rows = dayRows.filter(i => !isNoService(i) && !isAbsent(i)).sort((x, y) => Number(x.id) - Number(y.id));   // same order as the SharePoint list
   const chips = dates.map(d => { const x = fromKey(d); return `<button class="date-chip ${d === k ? "on" : ""}" data-act="admin-date" data-date="${d}" aria-pressed="${d === k}"><span>${x.toLocaleDateString(undefined,{weekday:"short"})}</span><b>${x.getDate()}</b><span>${x.toLocaleDateString(undefined,{month:"short"})}</span></button>`; }).join("");
   const cards = rows.map(i => {
     const sid = esc(i.id);
@@ -1354,8 +1408,9 @@ function viewAdmin(){
     ${adminPickField()}
     ${adminDayHeader(k, dayRows)}
     ${adminNoService(k, dayRows)}
+    ${adminAbsent(dayRows)}
     ${adminTemplate(k, dayRows)}
-    ${rows.length ? `<div class="list">${cards}</div>` : `<div class="empty">Nothing else is scheduled on this date.</div>`}`;
+    ${rows.length ? `<div class="list">${cards}</div>` : `<div class="empty">There is no schedule for this date.</div>`}`;
 }
 
 /* ---------- red badge on the app icon for pending requests ---------- */
@@ -1445,7 +1500,7 @@ document.addEventListener("click", async e => {
   const b = e.target.closest("[data-act]"); if (!b) return;
   const act = b.dataset.act, item = S.items.find(i => i.id === b.dataset.id);
   switch(act){
-    case "tab": S.stack = []; S.absenceDone = false; S.notesEdit = null; S.annEdit = false; S.annConfirm = null; go(b.dataset.view, null, false); break;
+    case "tab": S.stack = []; S.absenceDone = false; S.absConfirm = null; S.notesEdit = null; S.annEdit = false; S.annConfirm = null; go(b.dataset.view, null, false); break;
     case "notes-edit": S.notesEdit = S.arg; render(); setTimeout(() => $("#notes-editor")?.focus(), 0); break;
     case "notes-cancel": S.notesEdit = null; render(); break;
     case "fmt": {
@@ -1479,7 +1534,7 @@ document.addEventListener("click", async e => {
       const f = $("#admin-pick"); if (f){ f.focus(); try { f.showPicker(); } catch(_){} }
       break;
     }
-    case "cat-edit": S.catEdit = b.dataset.date; render(); { const f = $("#cat-pick"); if (f){ f.focus(); f.select(); } } break;
+    case "cat-edit": S.catEdit = b.dataset.date; render(); { const f = $("#cat-pick"); if (f){ f.focus(); try { f.showPicker(); } catch(_){} } } break;
     case "cat-cancel": S.catEdit = null; render(); break;
     case "no-service": S.noSvcAsk = b.dataset.date; render(); break;
     case "no-service-keep": S.noSvcAsk = null; render(); break;
@@ -1535,6 +1590,18 @@ document.addEventListener("click", async e => {
     case "back": { S.notesEdit = null; const prev = S.stack.pop() || { view: "home" }; go(prev.view, prev.arg, false); break; }
     case "theme": toggleTheme(); break;
     case "accept": setStatus(item, true); break;
+    case "abs-cancel": S.absConfirm = b.dataset.id; render(); break;
+    case "abs-cancel-keep": S.absConfirm = null; render(); break;
+    case "abs-cancel-yes": {
+      if (!item || !isAbsent(item) || !mine(item)) break;
+      S.busy.add(item.id); render();
+      try {
+        await API.deleteItem(item.id);
+        S.items = S.items.filter(i => i.id !== item.id);
+        toast(`Time off canceled: ${fmtShort(item.date)}`);
+      } catch(err){ toast("Couldn't cancel your time off. " + err.message, true); }
+      S.busy.delete(item.id); S.absConfirm = null; render(); break;
+    }
     case "ask-decline": S.confirm = item.id; render(); break;
     case "decline": setStatus(item, false); break;
     case "cancel": S.confirm = null; render(); break;
@@ -1575,7 +1642,7 @@ document.addEventListener("submit", async e => {
   if (e.target.id === "catForm"){
     if (!isEditor()) return;
     const k = e.target.dataset.date, v = $("#cat-pick").value.trim().replace(/\s+/g, " "); if (!v) return;
-    const list = S.items.filter(i => !isProfile(i) && i.date === k && !isNoService(i) && i.category !== v);
+    const list = S.items.filter(i => !isProfile(i) && i.date === k && !isNoService(i) && !isAbsent(i) && i.category !== v);
     const btn = e.target.querySelector('button[type="submit"]'); btn.disabled = true; btn.classList.add("busy");
     try {
       for (let n = 0; n < list.length; n += 6)   // a few rows at a time
@@ -1586,15 +1653,33 @@ document.addEventListener("submit", async e => {
   }
   const p = myProfile(); if (!p) return;
   if (e.target.id === "absenceForm"){
-    const A = absState(), dates = [...A.sel].sort(), notes = $("#ab-notes").value.trim();
+    const A = absState(), have = new Set(myAbsences().map(i => i.date)), dates = [...A.sel].filter(k => !have.has(k)).sort(), notes = $("#ab-notes").value.trim();
     if (!dates.length){ toast("Tap the days you'll be away on the calendar.", true); return; }
     const btn = $("#ab-submit"); btn.disabled = true; btn.textContent = "Submitting…";
-    // Time Off Date holds the first day; every day (and any note) goes in Notes for the schedule team.
+    // One "Absent" row per day (Service Date and Time Off Date both set, so it shows in the list's Time Off view).
     const html = `<p><strong>Dates of Absence:</strong> ${dates.map(k => esc(fmtShort(k))).join("; ")}</p>` + (notes ? `<p>${esc(notes).replace(/\n/g,"<br>")}</p>` : "");
+    const saved = [];
     try {
-      await API.update(p.id, { TimeOffDate: toSp(dates[0]), Notes: html });
-      p.timeOff = dates[0]; p.notes = html; A.sent = dates; A.notes = ""; S.absenceDone = true; render();
-    } catch(err){ toast("Couldn't submit your absence. " + err.message, true); btn.disabled = false; btn.textContent = "Submit Absence"; }
+      for (const k of dates){
+        const f = { Title: "Time Off", TimeOffDate: toSp(k), Status: "Unavailable", Published: "--", ChoiceNames: p.fullName || null, Notes: html };
+        if (p.personId) f.PersonLookupId = String(p.personId);
+        const id = await API.addRow(k, CONFIG.absentCategory, f);
+        const row = normalize(id, {}); Object.assign(row, { role: "Time Off", date: k, timeOff: k, category: CONFIG.absentCategory, status: "Unavailable", published: "--", fullName: p.fullName, email: p.email, personId: p.personId, notes: html, first: p.first });
+        S.items.push(row); saved.push(k);
+      }
+    } catch(err){
+      toast(`Couldn't submit ${saved.length ? "all of " : ""}your absence. ` + err.message, true);
+      if (!saved.length){ btn.disabled = false; btn.textContent = "Submit Absence"; return; }
+    }
+    A.sent = saved; A.sel = new Set(); A.notes = ""; S.absenceDone = true; render();
+    // Reload from SharePoint so every screen shows exactly what was saved.
+    if (!DEMO) try {
+      const data = await API.load();
+      S.items = data.items;
+      const missing = saved.filter(k => !myAbsences().some(i => i.date === k));
+      if (missing.length) toast("Some dates didn't show up in SharePoint: " + missing.map(fmtShort).join(", "), true);
+      render();
+    } catch(e){}
   }
   if (e.target.classList.contains("admin-row")){
     const item = S.items.find(i => i.id === e.target.dataset.id); if (!item) return;
