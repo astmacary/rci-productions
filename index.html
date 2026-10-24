@@ -410,7 +410,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "45";
+const APP_VERSION = "46";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1042,7 +1042,7 @@ function viewHome(){
     <section><h2 class="section-label">Pending Requests <span class="count ${pend.length?"hot":""}">${pend.length}</span></h2>
       ${pend.length ? `<div class="list">${pend.map(i=>cue(i)).join("")}</div>` : `<div class="empty">You have no pending requests right now.</div>`}</section>
     <section><h2 class="section-label">Next 7 Days <span class="count">${up.length}</span></h2>
-      ${up.length ? `<div class="list">${[...up.filter(isAbsent), ...up.filter(i => !isAbsent(i))].map(i => isAbsent(i) ? absentCue(i) : cue(i,{pill:true})).join("")}</div>` : `<div class="empty">You have no confirmed assignments this week.</div>`}</section>`;
+      ${up.length ? `<div class="list">${up.map(i => isAbsent(i) ? absentCue(i) : cue(i,{pill:true})).join("")}</div>` : `<div class="empty">You have no confirmed assignments this week.</div>`}</section>`;
 }
 
 function viewSchedule(){
@@ -1430,9 +1430,9 @@ function viewAdmin(){
     <div class="date-chips" role="group" aria-label="Service dates">${chips}${adminPickChip()}</div>
     ${adminPickField()}
     ${adminDayHeader(k, dayRows)}
-    ${adminAbsent(dayRows)}
     ${adminNoService(k, dayRows)}
     ${adminTemplate(k, dayRows)}
+    ${adminAbsent(dayRows)}
     ${rows.length ? `<div class="list">${cards}</div>` : `<div class="empty">There is no schedule for this date.</div>`}`;
 }
 
