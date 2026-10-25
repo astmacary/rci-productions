@@ -278,6 +278,26 @@ a.btn{text-decoration:none}
 .btn.accept{background:var(--go);border-color:var(--go);color:#FFFFFF}
 .btn.decline{background:var(--stop);border-color:var(--stop);color:#FFFFFF}
 .btn.decline-soft{color:var(--bad)}
+.today-hero{position:relative;display:flex;flex-direction:column;gap:10px;padding:16px 16px 14px;border-radius:var(--r);border:2px solid var(--accent);background:linear-gradient(135deg,var(--accent-soft),var(--surface) 70%);box-shadow:0 6px 22px -10px var(--accent)}
+.today-h{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.today-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 0 var(--accent);animation:todayPulse 1.8s ease-out infinite}
+@keyframes todayPulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 60%,transparent)}100%{box-shadow:0 0 0 10px transparent}}
+@media (prefers-reduced-motion:reduce){.today-dot{animation:none}}
+.today-item{display:flex;flex-direction:column;gap:2px}
+.today-item + .today-item{border-top:1px solid var(--line);padding-top:10px}
+.today-role{font-family:var(--display);font-weight:700;font-size:30px;line-height:1.05;letter-spacing:.01em;color:var(--fg);overflow-wrap:anywhere}
+.today-meta{font-size:14px;color:var(--muted)}
+.today-meta b{color:var(--fg)}
+.today-act{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
+.pill.pending-pill{background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent)}
+.today-team{align-self:flex-start;border-color:var(--accent);color:var(--accent);font-weight:700}
+
+.admin-flag{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.seg-btn{background:transparent;border:none;padding:7px 14px;font-weight:600;font-size:14px;color:var(--muted)}
+.seg-btn + .seg-btn{border-left:1px solid var(--line)}
+.seg-btn.on[data-value="Active"]{background:var(--ok-soft);color:var(--ok)}
+.seg-btn.on[data-value="Non Active"]{background:var(--bad-soft);color:var(--bad)}
 .wait-row{display:flex;align-items:center;gap:12px;padding:10px 12px;flex-wrap:wrap}
 .wait-info{flex:1;min-width:140px;display:flex;flex-direction:column;gap:2px;overflow-wrap:anywhere}
 .wait-btns{display:flex;gap:6px}
@@ -507,7 +527,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "61";
+const APP_VERSION = "63";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -591,6 +611,7 @@ function normalize(id, f, emailById){
     photoRaw: f.Photo || "",
     serving: Array.isArray(f.Serving) ? f.Serving.slice() : [],
     gone: lc(f.ArchiveStatus) === "archived",
+    active: f.ActiveStatus || "",
     pendingEmail: f.PersonLookupId == null ? (((f.Notes || "").match(/^Pending sign-in: (\S+@\S+)/) || [])[1] || "") : ""
   };
 }
@@ -646,7 +667,7 @@ const LiveAPI = {
         if (email && email.includes("@")) users.push({ id: String(u.id), email: lc(email), name: u.fields.Title || email });
       });
     } catch(e){ console.warn("Could not read User Information List; matching by name instead.", e); }
-    const sel = "Title,ServiceDates,ServiceCategory,CallTime,ServiceTime,ChoiceNames,PersonLookupId,Status,Published,Notes,Name,TimeOffDate,Birthday,Photo,PhoneNumber,Serving,ArchiveStatus";
+    const sel = "Title,ServiceDates,ServiceCategory,CallTime,ServiceTime,ChoiceNames,PersonLookupId,Status,Published,Notes,Name,TimeOffDate,Birthday,Photo,PhoneNumber,Serving,ArchiveStatus,ActiveStatus";
     const rows = await this.all(`${base}/${CONFIG.listId}/items?$expand=fields($select=${sel})&$top=500`);
     let names = [], servingChoices = [], choices = {};
     try {
@@ -1135,6 +1156,21 @@ function cue(i, opts={}){
     </div></article>`;
 }
 
+/* Home: a highlighted "Serving Today" card for the signed-in person (everyone, not just admins). */
+function todayHero(){
+  const t = todayKey();
+  const list = assignments().filter(i => mine(i) && i.date === t && (approved(i) || pending(i))).sort((a, b) => Number(a.id) - Number(b.id));
+  if (!list.length) return "";
+  const roleOf = i => (typeof roleText === "function" ? roleText(i) : i.role) || "Serving";
+  return `<section class="today-hero" aria-label="Where you're serving today">
+    <div class="today-h"><span class="today-dot" aria-hidden="true"></span>You're Serving Today</div>
+    ${list.map(i => `<div class="today-item">
+      <div class="today-role">${esc(roleOf(i))}</div>
+      <div class="today-meta">${esc(i.category || "")}${i.call ? ` · Call Time <b>${esc(i.call)}</b>` : ""}${i.svcTime ? ` · Service <b>${esc(i.svcTime)}</b>` : ""}</div>
+      ${pending(i) ? `<div class="today-act"><span class="pill pending-pill">Needs your reply</span><button class="btn accept" data-act="accept" data-id="${esc(i.id)}" ${S.busy.has(i.id) ? "disabled" : ""}>${S.busy.has(i.id) ? "Saving…" : "Accept"}</button></div>` : ""}
+    </div>`).join("")}
+    <button class="btn today-team" data-act="team" data-date="${t}">See Today's Team</button></section>`;
+}
 function viewHome(){
   const t = todayKey(), wk = addDays(t, 7);
   const pend = assignments().filter(i => mine(i) && pending(i) && i.date >= t).sort(byDate);
@@ -1148,6 +1184,7 @@ function viewHome(){
   const myWall = myProfile() ? wallMessages(myProfile()) : [];
   return `
     <div><h1 class="greet">Welcome ${esc(first)}</h1><p class="sub">${esc(fmtLong(t))}</p></div>
+    ${todayHero()}
     <section><div class="day-h"><h2 class="section-label">Announcements</h2>${annEditBtn()}</div>
       ${anns.length ? `<div class="list">${anns.map(a => annCard(a)).join("")}</div>` : `<div class="empty">We have no upcoming announcements at this time.</div>`}
       ${S.annEdit ? `<div class="panel" style="margin-top:10px">${annForm()}</div>` : ""}
@@ -1296,9 +1333,14 @@ function viewMember(){
     </dl></section>
     ${isEditor() ? (() => { const choices = [...new Set([...(S.servingChoices || []), ...p.serving])];
       return `<section><h2 class="section-label">Places They Serve</h2>
-      <form class="panel stack" id="memberServeForm" data-id="${esc(p.id)}"><span class="hint">Admins: check the places ${esc(p.first || firstOf(p.fullName))} serves, then save. These decide which names Edit Schedule offers for each position.</span>
+      <form class="panel stack" id="memberServeForm" data-id="${esc(p.id)}">
+        ${(() => { const act = lc(p.active) === "non active" ? "Non Active" : lc(p.active) === "active" ? "Active" : ""; return `<div class="admin-flag"><span class="section-label" style="margin:0">Team Member</span>
+          <div class="seg" role="group" aria-label="Active status">${["Active", "Non Active"].map(v => `<button type="button" class="seg-btn ${act === v ? "on" : ""}" data-act="ma-active" data-value="${v}" aria-pressed="${act === v}">${v}</button>`).join("")}</div>
+          <input type="hidden" id="ma-active" value="${esc(act)}"></div>
+        <span class="hint" style="margin-top:-4px">Only admins see this. Non Active people aren't offered in the Edit Schedule name lists.</span>`; })()}
+        <span class="hint">Admins: check the places ${esc(p.first || firstOf(p.fullName))} serves, then save. These decide which names Edit Schedule offers for each position.</span>
         <div class="checklist">${choices.map(x => `<button type="button" class="serve-opt" data-act="serve-toggle" data-value="${esc(x)}" aria-pressed="${p.serving.includes(x)}"><span class="box" aria-hidden="true">${ICON.check}</span>${esc(x)}</button>`).join("")}</div>
-        <button class="btn blue block" type="submit" id="ms-save">Save Places They Serve</button></form></section>`; })()
+        <button class="btn blue block" type="submit" id="ms-save">Save Places &amp; Status</button></form></section>`; })()
     : `<section><h2 class="section-label">Places I Serve</h2>
       ${p.serving.length ? `<ul class="panel rows">${p.serving.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<div class="empty">No serving areas listed yet.</div>`}</section>`}
     ${wallSection(p)}
@@ -1537,7 +1579,7 @@ function bySection(list, html, scope = "admin"){
    "Gimbal Operator" tag). Archived people are left out. The name already on the row is always kept. */
 function namesForRole(role, current){
   const r = lc((role || "").trim()), r2 = r.replace(/\s+\d+\b/g, "");
-  const tagged = S.items.filter(p => isProfile(p) && !p.gone && p.fullName && (p.serving || []).some(t => { const x = lc(t); return x === r || x === r2; }))
+  const tagged = S.items.filter(p => isProfile(p) && !p.gone && lc(p.active) !== "non active" && p.fullName && (p.serving || []).some(t => { const x = lc(t); return x === r || x === r2; }))
     .map(p => p.fullName).sort((a, b) => a.localeCompare(b));
   const list = [...new Set(tagged)];
   if (current && !list.includes(current)) list.unshift(current);
@@ -1850,6 +1892,11 @@ document.addEventListener("click", async e => {
       catch(err){ toast("Couldn't link it. " + err.message, true); b.disabled = false; b.textContent = "Link Account"; }
       break;
     }
+    case "ma-active": {
+      const cur = $("#ma-active"), v = cur.value === b.dataset.value ? "" : b.dataset.value; cur.value = v;
+      document.querySelectorAll('[data-act="ma-active"]').forEach(x => { const on = x.dataset.value === v; x.classList.toggle("on", on); x.setAttribute("aria-pressed", on); });
+      break;
+    }
     case "np-active": { const h = $("#np-active"); h.value = b.dataset.value; document.querySelectorAll('[data-act="np-active"]').forEach(x => { const on = x === b; x.classList.toggle("on", on); x.setAttribute("aria-pressed", on); }); break; }
     case "accept": setStatus(item, true); break;
     case "abs-cancel": S.absConfirm = b.dataset.id; render(); break;
@@ -1941,9 +1988,10 @@ document.addEventListener("submit", async e => {
     const serving = [...e.target.querySelectorAll('.serve-opt[aria-pressed="true"]')].map(b => b.dataset.value);
     const btn = $("#ms-save"); btn.disabled = true; btn.textContent = "Saving…";
     try {
-      await API.update(person.id, { "Serving@odata.type": "Collection(Edm.String)", Serving: serving });
-      person.serving = serving; toast(`Saved places for ${person.first || firstOf(person.fullName)}`); render();
-    } catch(err){ toast("Couldn't save. " + err.message, true); btn.disabled = false; btn.textContent = "Save Places They Serve"; }
+      const act = $("#ma-active")?.value || "";
+      await API.update(person.id, { "Serving@odata.type": "Collection(Edm.String)", Serving: serving, ActiveStatus: act || null });
+      person.serving = serving; person.active = act; toast(`Saved places for ${person.first || firstOf(person.fullName)}`); render();
+    } catch(err){ toast("Couldn't save. " + err.message, true); btn.disabled = false; btn.textContent = "Save Places & Status"; }
     return;
   }
   if (e.target.id === "absenceForm"){
