@@ -436,7 +436,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "51";
+const APP_VERSION = "52";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1428,7 +1428,7 @@ function adminAbsent(rows){
 function delAsk(i){
   if (S.delAsk !== i.id) return "";
   const what = [i.role || "this position", i.fullName ? `(${i.fullName})` : ""].filter(Boolean).join(" ");
-  return `<div class="del-ask"><span>Delete ${esc(what)} on ${esc(fmtShort(i.date))}? This removes the row from SharePoint.</span>
+  return `<div class="del-ask"><span>Delete ${esc(what)} on ${esc(fmtShort(i.date))}?</span>
     <button class="btn yes" type="button" data-act="del-yes" data-ids="${esc(i.id)}" data-done="${esc((i.role || "Position") + " deleted")}" ${S.delBusy ? "disabled" : ""}>${S.delBusy ? "Deleting…" : "Yes, Delete"}</button>
     <button class="btn" type="button" data-act="del-keep" ${S.delBusy ? "disabled" : ""}>Cancel</button></div>`;
 }
