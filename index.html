@@ -507,7 +507,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "61";
+const APP_VERSION = "62";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1527,7 +1527,8 @@ function sectionOfRole(role){
 function bySection(list, html, scope = "admin"){
   const order = new Map(list.map((i, n) => [i.id, n]));
   const sorted = list.slice().sort((a, b) => (posRank(a.role) - posRank(b.role)) || (order.get(a.id) - order.get(b.id)));
-  return [...CONFIG.sections.map(([h]) => h), "Other"].map(h => {
+  const heads = [...CONFIG.sections.map(([h]) => h).filter(Boolean), "Other"].sort((a, b) => a.localeCompare(b));
+  return [...CONFIG.sections.map(([h]) => h).filter(h => !h), ...heads].map(h => {   // unnamed group (Production Director) first, then A–Z
     const part = sorted.filter(i => sectionOfRole(i.role) === h);
     if (!part.length) return "";
     return h ? secBlock(`${scope}:${h}`, h, part.length, html(part)) : `<section class="role-sec">${html(part)}</section>`;
