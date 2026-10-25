@@ -139,10 +139,13 @@ h1.greet{font-family:var(--display);font-weight:700;font-size:clamp(30px,8vw,40p
 .tile-fields{display:flex;flex-direction:column;gap:5px}
 .tile-f{display:flex;flex-direction:column;gap:2px;min-width:0}
 .tile-f > span{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
-.tile-f select{width:100%;min-width:0;padding:5px 8px;min-height:34px;font-size:13px}
+.tile-f select{width:100%;min-width:0;padding:5px 8px;min-height:34px;font-size:13px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px}
 .tile-f .field-tag{display:flex;justify-content:center;margin-top:3px}
 .tile-f .hint{font-size:11px}
 .admin-tile.locked select{opacity:.55}
+.abs-tile{border-color:var(--bad);background:var(--bad-soft)}
+.abs-tile .tile-bar{justify-content:center}
+.role-sec{display:flex;flex-direction:column;gap:8px}
 .admin-tile.locked .tile-who .av{opacity:.7}
 .admin-tile .del-ask{flex-direction:column;align-items:stretch;gap:6px;font-size:13px;background:var(--bad-soft);border-radius:8px;padding:8px}
 .admin-tile .del-ask .btn{justify-content:center;padding:6px 8px}
@@ -433,7 +436,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "50";
+const APP_VERSION = "51";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1336,6 +1339,7 @@ function faceFor(personId, fullName){
 function saveIcon(){ return `<button class="iconbtn notes-btn save-btn" type="submit" disabled aria-label="Save changes" title="Save changes">${ICON.check}</button>`; }
 /* Name Email is hidden: it's set from Full Name. Only say something when no matching person was found. */
 function whoWarn(personId, fullName){
+  return "";   // the "No team member found…" note is turned off
   if (!fullName || personId) return "";
   return personForName(fullName) ? "" : "No team member found for this name, so Name Email will be left blank.";
 }
@@ -1413,13 +1417,12 @@ function adminTemplate(k, rows){
 function adminAbsent(rows){
   const abs = rows.filter(isAbsent);
   if (!abs.length) return "";
-  const firsts = abs.map(i => firstOf(i.fullName));
-  return `<div class="panel absent-list"><h2 class="section-label" style="margin:0 0 6px">Absent <span class="count">${abs.length}</span></h2>
-    <div class="list">${abs.map((i, n) => {
-      const dup = firsts.filter(f => f === firsts[n]).length > 1;
-      const name = dup ? i.fullName : firsts[n];
-      return `<div class="absent-row">${faceFor(i.personId, i.fullName)}<span><b>${esc(name || i.fullName || "Someone")}</b> is absent</span></div>`;
-    }).join("")}</div></div>`;
+  return `<section class="role-sec"><h2 class="section-label">Absent <span class="count">${abs.length}</span></h2>
+    <div class="admin-tiles">${abs.map(i => `<div class="panel admin-tile abs-tile">
+      <div class="tile-bar"><span class="pill bad">ABSENT</span></div>
+      <div class="tile-who"><span>${faceFor(i.personId, i.fullName)}</span>
+        <b class="tile-name">${esc(i.fullName || "Someone")}</b>
+        <span class="tile-sub">${esc(fmtShort(i.date))}</span></div></div>`).join("")}</div></section>`;
 }
 /* Inline "Delete this position?" check on an Edit Schedule card. */
 function delAsk(i){
