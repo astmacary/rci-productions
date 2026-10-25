@@ -17,6 +17,11 @@
 #ptr span{padding:0 0 12px}
 #ptr.ready{color:var(--accent)}
 .pill.new-pill{background:var(--accent);color:var(--accent-ink);font-size:10.5px;padding:1px 7px;vertical-align:2px;margin-right:4px}
+.add-tile{border-style:dashed;border-color:var(--accent)}
+.add-tile .add-av{background:var(--accent-soft);color:var(--accent);font-size:30px;font-weight:400;display:grid;place-items:center}
+.add-tile .meta b{color:var(--accent)}
+.access-panel{border-color:var(--accent);background:var(--accent-soft)}
+.access-panel .actions{display:flex;gap:8px;flex-wrap:wrap}
 </style>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -183,6 +188,8 @@ h1.greet{font-family:var(--display);font-weight:700;font-size:clamp(30px,8vw,40p
 .name-pick{display:flex;align-items:center;gap:10px}
 .name-pick select{flex:1;min-width:0}
 .av.face{width:36px;height:36px;font-size:12px}
+.admin-row .name-pick .av.face{width:52px;height:52px;font-size:16px}
+.admin-row .name-pick{gap:12px}
 .av.face.empty{border:2px dashed var(--line);background:transparent}
 .admin-row.locked .name-pick .av{opacity:.7}
 .inline-check{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--accent);background:transparent;color:var(--accent);vertical-align:-5px;box-sizing:border-box}
@@ -459,7 +466,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "57";
+const APP_VERSION = "58";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -631,7 +638,7 @@ const LiveAPI = {
   async announcements(){
     try {
       const rows = await this.all(`/sites/${this.siteId}/lists/${CONFIG.announcementsListId}/items?$expand=fields($select=Title,Announcements,ShowUntil,Flyer)&$top=200`);
-      return rows.map(r => ({ id: Number(r.id), text: annText(r.fields.Announcements) || r.fields.Title || "", until: spDate(r.fields.ShowUntil), flyer: r.fields.Flyer || "" }));
+      return rows.map(r => ({ id: Number(r.id), created: r.createdDateTime || "", text: annText(r.fields.Announcements) || r.fields.Title || "", until: spDate(r.fields.ShowUntil), flyer: r.fields.Flyer || "" }));
     } catch(e){ console.warn("Couldn't read the Announcements list.", e); return []; }
   },
   async update(id, fields){
@@ -1236,7 +1243,7 @@ function viewMember(){
   const bd = p.birthday ? fromKey(p.birthday).toLocaleDateString(undefined,{month:"long",day:"numeric"}) : "—";
   const t = todayKey();
   const next = assignments().filter(i => i.date >= t && approved(i) && ((p.email && i.email === p.email) || i.fullName === p.fullName)).sort(byDate).slice(0,3);
-  return `${backBar("About " + (p.first || firstOf(p.fullName)))}
+  return `${backBar("About " + (p.first || firstOf(p.fullName)))}${accessPanel(p)}
     <section class="panel profile-hero">${avatar(p,"lg")}<h2>${esc(p.fullName)}</h2>
       ${p.email && myProfile()?.id !== p.id ? `<a class="btn blue" href="mailto:${esc(p.email)}">${ICON.mail}Email Me</a><span class="sub email-addr">${esc(p.email)}</span>` : ""}</section>
     <section class="panel"><dl class="kv">
@@ -1305,7 +1312,7 @@ function viewDirectory(){
   return `<div class="page-h"><h1>Team Directory</h1></div>
     ${isEditor() ? newPersonForm() : ""}
     <p class="sub" style="margin-top:-10px">${people.length} team members</p>
-    ${people.length ? `<div class="roster">${people.map(p => `<button class="tile" data-act="member" data-id="${p.id}">${avatar(p)}<span class="meta"><b>${esc(p.fullName)}</b></span></button>`).join("")}</div>` : `<div class="empty">No team members yet.</div>`}`;
+    ${people.length ? `<div class="roster">${people.map(p => `<button class="tile" data-act="member" data-id="${p.id}">${avatar(p)}<span class="meta"><b>${esc(p.fullName)}</b></span></button>`).join("")}${isEditor() && !S.addPerson ? addTile() : ""}</div>` : isEditor() && !S.addPerson ? `<div class="roster">${addTile()}</div>` : `<div class="empty">No team members yet.</div>`}`;
 }
 
 function viewProfile(){
@@ -1740,6 +1747,29 @@ document.addEventListener("click", async e => {
     case "theme": toggleTheme(); break;
     case "np-open": if (isEditor()){ S.addPerson = true; render(); $("#np-name")?.focus(); } break;
     case "np-close": S.addPerson = false; render(); break;
+    case "share-site": {
+      const em = b.dataset.email || "", w = window.open("", "_blank");
+      try { if (em) await navigator.clipboard.writeText(em); } catch(e){}
+      let url = `https://${CONFIG.siteHost}${CONFIG.sitePath}/_layouts/15/user.aspx`;
+      try {
+        const tok = (await API.msal.acquireTokenSilent({ scopes: [`https://${CONFIG.siteHost}/AllSites.Write`], account: API.account })).accessToken;
+        const g = await fetch(`https://${CONFIG.siteHost}${CONFIG.sitePath}/_api/web/associatedmembergroup?$select=Id`, { headers: { Authorization: "Bearer " + tok, Accept: "application/json;odata=nometadata" } }).then(r => r.json());
+        if (g && g.Id) url = `https://${CONFIG.siteHost}${CONFIG.sitePath}/_layouts/15/aclinv.aspx?GroupId=${g.Id}`;
+      } catch(e){}
+      if (w) w.location.href = url; else location.href = url;
+      toast(em ? "Email copied. Paste it in SharePoint and tap Share." : "Type their email in SharePoint and tap Share.");
+      break;
+    }
+    case "link-acct": {
+      const p = S.items.find(i => String(i.id) === b.dataset.id); if (!p || !isEditor()) break;
+      const em = p.pendingEmail || prompt("Their email address:", "") || ""; if (!em.trim()) break;
+      b.disabled = true; b.textContent = "Linking…";
+      const id = await siteUserId(em.trim());
+      if (!id){ toast("Couldn't link it yet. Make sure they've accepted the invitation and signed in once.", true); b.disabled = false; b.textContent = "Link Account"; break; }
+      try { await API.update(p.id, { [LINK_COL]: id }); p.personId = id; p.email = lc(em.trim()); p.pendingEmail = ""; toast(`Linked ${p.fullName} to ${em.trim()}`); render(); }
+      catch(err){ toast("Couldn't link it. " + err.message, true); b.disabled = false; b.textContent = "Link Account"; }
+      break;
+    }
     case "np-active": { const h = $("#np-active"); h.value = b.dataset.value; document.querySelectorAll('[data-act="np-active"]').forEach(x => { const on = x === b; x.classList.toggle("on", on); x.setAttribute("aria-pressed", on); }); break; }
     case "accept": setStatus(item, true); break;
     case "abs-cancel": S.absConfirm = b.dataset.id; render(); break;
@@ -1981,14 +2011,13 @@ document.addEventListener("change", async e => {
 
 /* ---------- "NEW" tag: announcements added since this person last opened the app (kept in this browser) ---------- */
 function markNewAnns(){
+  // NEW = added since this person last opened the app on this device (first open on a device: added in the last 7 days).
   S.newAnns = new Set();
-  const key = "seen-anns:" + location.pathname + ":" + ((S.me && S.me.emails && S.me.emails[0]) || "");
-  const ids = (S.announcements || []).map(a => String(a.id));
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw){ const seen = new Set(JSON.parse(raw)); ids.forEach(id => { if (!seen.has(id)) S.newAnns.add(id); }); ids.forEach(id => seen.add(id)); localStorage.setItem(key, JSON.stringify([...seen].slice(-300))); }
-    else localStorage.setItem(key, JSON.stringify(ids));   // first time on this phone: nothing is "new"
-  } catch(e){}
+  const key = "anns-last-visit:" + location.pathname + ":" + ((S.me && S.me.emails && S.me.emails[0]) || "");
+  let last = 0; try { last = Number(localStorage.getItem(key)) || 0; } catch(e){}
+  if (!last) last = Date.now() - 7 * 864e5;
+  (S.announcements || []).forEach(a => { const t = Date.parse(a.created || ""); if (t && t > last) S.newAnns.add(String(a.id)); });
+  try { localStorage.setItem(key, String(Date.now())); } catch(e){}
 }
 const isNewAnn = a => !!(S.newAnns && S.newAnns.has(String(a.id)));
 const newPill = () => `<span class="pill new-pill">NEW</span> `;
@@ -2029,8 +2058,9 @@ function newPersonRow(v){
   if (v.on.length){ f["Serving@odata.type"] = "Collection(Edm.String)"; f.Serving = v.on.map(b => b.dataset.value); }
   return f;
 }
+const addTile = () => `<button class="tile add-tile" data-act="np-open" aria-label="Add a team member"><span class="av add-av" aria-hidden="true">＋</span><span class="meta"><b>Add Team Member</b></span></button>`;
 function newPersonForm(){
-  if (!S.addPerson) return `<button class="btn tpl-btn" data-act="np-open">＋ Add Team Member</button>`;
+  if (!S.addPerson) return "";
   return `<form class="panel stack" id="newPersonForm">
       <h2 class="section-label" style="margin:0">New Team Member</h2>
       <div class="field"><label for="np-name">Full Name</label><input id="np-name" maxlength="120" autocomplete="off" required placeholder="First and last name"></div>
@@ -2038,8 +2068,27 @@ function newPersonForm(){
       <div class="field"><label for="np-bday">Birthday</label><input id="np-bday" type="date"></div>
       <div class="field"><label for="np-phone">Phone Number</label><input id="np-phone" type="tel" maxlength="40"></div>
       ${(S.servingChoices || []).length ? `<div class="field"><span class="label">Places They Serve</span><div class="checklist">${S.servingChoices.map(x => `<button type="button" class="serve-opt" data-act="serve-toggle" data-value="${esc(x)}" aria-pressed="false"><span class="box" aria-hidden="true">${ICON.check}</span>${esc(x)}</button>`).join("")}</div></div>` : ""}
-      <span class="hint">They're added to the Roster in SharePoint. To sign in and see their schedule, they also need access to the team's SharePoint site.</span>
       <div class="actions" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn blue" type="submit" id="np-save">Add to Roster</button><button class="btn" type="button" data-act="np-close">Cancel</button></div></form>`;
+}
+const LINK_COL = "PersonLookupId";
+/* Admins: link Roster people whose email is waiting (added before they had access). Runs quietly after loading. */
+async function linkPendingPeople(){
+  if (DEMO || !isEditor()) return;
+  const todo = S.items.filter(i => isProfile(i) && !i.personId && i.pendingEmail).slice(0, 10);
+  for (const p of todo){
+    const id = await siteUserId(p.pendingEmail); if (!id) continue;
+    try { await API.update(p.id, { [LINK_COL]: id }); p.personId = id; p.email = lc(p.pendingEmail); } catch(e){}
+  }
+}
+/* About page (admins): help give someone without a linked account access to the SharePoint site. */
+function accessPanel(p){
+  if (!isEditor() || !p || p.personId || p.id == null || String(p.id).startsWith("p-")) return "";
+  const em = p.pendingEmail || "";
+  return `<section class="panel stack access-panel"><h2 class="section-label" style="margin:0">Give Them Access</h2>
+    <p style="margin:0">${em ? `<b>${esc(em)}</b> isn't linked to a sign-in yet.` : "No email is linked to this person yet."} To sign in, they need access to the team's SharePoint site.</p>
+    <ol style="margin:0;padding-left:20px"><li><b>Share the Site</b> copies their email and opens SharePoint's Add Members page. Paste the email and tap <b>Share</b>; they get an invitation email.</li>
+      <li>Once they've accepted it and signed in, tap <b>Link Account</b> (the app also tries this on its own when an admin opens it).</li></ol>
+    <div class="actions"><button class="btn blue" data-act="share-site" data-email="${esc(em)}">Share the Site</button><button class="btn" data-act="link-acct" data-id="${esc(p.id)}">Link Account</button></div></section>`;
 }
 /* The site user id for an email (adds the person to the site's user list if needed). */
 async function siteUserId(email){
@@ -2063,7 +2112,7 @@ async function start(){
     if (!signedIn){ S.phase = "signin"; render(); return; }
     const data = await API.load();
     S.me = data.me; S.items = data.items; S.names = [...new Set([...(data.names || []), ...data.items.filter(isProfile).map(i => i.fullName).filter(Boolean)])];   // Roster names added in the app aren't Full Name choices yet
-    S.servingChoices = data.servingChoices || []; S.choices = data.choices || {}; S.users = data.users || []; S.announcements = data.announcements || []; markNewAnns(); S.messages = data.messages || [];
+    S.servingChoices = data.servingChoices || []; S.choices = data.choices || {}; S.users = data.users || []; S.announcements = data.announcements || []; markNewAnns(); setTimeout(linkPendingPeople, 1500); S.messages = data.messages || [];
     const t = new Date(); S.cal.month = new Date(t.getFullYear(), t.getMonth(), 1); S.cal.sel = todayKey();
     restoreNav();
     S.phase = "ready"; render(); maybeConfetti(); updateBadge();
