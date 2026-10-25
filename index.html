@@ -278,6 +278,17 @@ a.btn{text-decoration:none}
 .btn.accept{background:var(--go);border-color:var(--go);color:#FFFFFF}
 .btn.decline{background:var(--stop);border-color:var(--stop);color:#FFFFFF}
 .btn.decline-soft{color:var(--bad)}
+/* iPhone zooms the page when a box under 16px text is tapped, and then the menu bar seems to scroll with the page. */
+@media (max-width:820px){input,select,textarea{font-size:16px!important}}
+.today-btns{display:flex;flex-wrap:wrap;gap:8px}
+.today-cant{align-self:flex-start;margin-top:6px;padding:6px 12px;border-color:var(--bad);color:var(--bad);background:transparent;font-weight:700}
+.today-hero .confirm-row{margin-top:6px}
+.install-guide{border:2px solid var(--accent);background:linear-gradient(135deg,var(--accent-soft),var(--surface) 70%)}
+.install-guide ol{margin:4px 0 0;padding-left:22px;display:flex;flex-direction:column;gap:4px}
+.install-guide .ig-share{display:inline-grid;place-items:center;vertical-align:-4px}
+.install-guide .ig-share svg{width:18px;height:18px}
+.share-app{margin-left:auto;display:inline-flex;align-items:center;gap:6px;border-color:var(--accent);color:var(--accent);font-weight:700;padding:7px 12px}
+.share-app svg{width:16px;height:16px}
 .today-hero{position:relative;display:flex;flex-direction:column;gap:10px;padding:16px 16px 14px;border-radius:var(--r);border:2px solid var(--accent);background:linear-gradient(135deg,var(--accent-soft),var(--surface) 70%);box-shadow:0 6px 22px -10px var(--accent)}
 .today-h{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
 .today-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 0 var(--accent);animation:todayPulse 1.8s ease-out infinite}
@@ -527,7 +538,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "63";
+const APP_VERSION = "64";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -548,6 +559,7 @@ const firstOf = n => (n||"").trim().split(/\s+/)[0] || "";
 const lc = s => (s||"").toLowerCase();
 
 const ICON = {
+  share:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>',
   trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
   home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>',
   list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg>',
@@ -1168,13 +1180,18 @@ function todayHero(){
       <div class="today-role">${esc(roleOf(i))}</div>
       <div class="today-meta">${esc(i.category || "")}${i.call ? ` · Call Time <b>${esc(i.call)}</b>` : ""}${i.svcTime ? ` · Service <b>${esc(i.svcTime)}</b>` : ""}</div>
       ${pending(i) ? `<div class="today-act"><span class="pill pending-pill">Needs your reply</span><button class="btn accept" data-act="accept" data-id="${esc(i.id)}" ${S.busy.has(i.id) ? "disabled" : ""}>${S.busy.has(i.id) ? "Saving…" : "Accept"}</button></div>` : ""}
+      ${S.confirm === i.id ? `<div class="confirm-row">Let the team know you can't make it today?
+          <button class="btn decline-soft" data-act="decline" data-id="${esc(i.id)}" ${S.busy.has(i.id) ? "disabled" : ""}>${S.busy.has(i.id) ? "Sending…" : "Yes, I Can't Make It"}</button>
+          <button class="btn" data-act="cancel">Keep It</button></div>`
+        : `<button class="btn today-cant" data-act="ask-decline" data-id="${esc(i.id)}">Can't Make It</button>`}
     </div>`).join("")}
-    <button class="btn today-team" data-act="team" data-date="${t}">See Today's Team</button></section>`;
+    <div class="today-btns"><button class="btn today-team" data-act="team" data-date="${t}">See Today's Team</button>${S.items.some(i => i.date === t && (typeof isNotesRow === "function" ? isNotesRow(i) : i.role === CONFIG.notesRole) && i.notes) ? `<button class="btn today-team" data-act="notes" data-date="${t}">See Today's Notes</button>` : ""}</div></section>`;
 }
 function viewHome(){
   const t = todayKey(), wk = addDays(t, 7);
+  const todayShown = assignments().some(i => mine(i) && i.date === t && (approved(i) || pending(i)));   // the "You're Serving Today" card
   const pend = assignments().filter(i => mine(i) && pending(i) && i.date >= t).sort(byDate);
-  const up = [...assignments().filter(i => mine(i) && approved(i) && i.date >= t && i.date <= wk),
+  const up = [...assignments().filter(i => mine(i) && approved(i) && i.date >= t && i.date <= wk && !(todayShown && i.date === t)),
               ...myAbsences().filter(i => i.date >= t && i.date <= wk)].sort(byDate);
   const first = myProfile()?.first || firstOf(S.me.name);
   // Soonest "Show Until" first; announcements with no end date go last, oldest first.
@@ -1401,7 +1418,7 @@ function viewAbsence(){
 
 function viewDirectory(){
   const people = S.items.filter(p => isProfile(p) && !p.gone).sort((a,b) => (a.fullName||"").localeCompare(b.fullName||""));
-  return `<div class="page-h"><h1>Team Directory</h1></div>
+  return `<div class="page-h"><h1>Team Directory</h1>${shareBtn()}</div>
     ${isEditor() ? newPersonForm() : ""}
     <p class="sub" style="margin-top:-10px">${people.length} team members</p>
     ${people.length ? `<div class="roster">${people.map(p => `<button class="tile" data-act="member" data-id="${p.id}">${avatar(p)}<span class="meta"><b>${esc(p.fullName)}</b></span></button>`).join("")}${isEditor() && !S.addPerson ? addTile() : ""}</div>` : isEditor() && !S.addPerson ? `<div class="roster">${addTile()}</div>` : `<div class="empty">No team members yet.</div>`}
@@ -1659,6 +1676,28 @@ function badgePanel(){
 let deferredInstall = null;
 const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+/* Admins: share the app with the team. The link opens a page that walks people through adding it to their home screen. */
+const APP_NAME = document.title;
+async function shareApp(){
+  const url = location.origin + location.pathname + "?install";
+  const text = `Add ${APP_NAME} to your phone: open this link in Safari (iPhone) or Chrome (Android), then tap "Add to Home Screen" (iPhone: Share button → Add to Home Screen; Android: Install app). Sign in with your church Microsoft account.`;
+  try {
+    if (navigator.share){ await navigator.share({ title: APP_NAME, text, url }); return; }
+  } catch(e){ if (e && e.name === "AbortError") return; }
+  try { await navigator.clipboard.writeText(text + "\n" + url); toast("Link copied. Paste it into a text or email to your team."); }
+  catch(_){ prompt("Copy this link and send it to your team:", url); }
+}
+function shareBtn(){ return isEditor() ? `<button class="btn share-app" data-act="share-app">${ICON.share}Share App</button>` : ""; }
+const wantsInstall = /[?&]install\b/.test(location.search);
+function installGuide(){
+  if (!wantsInstall || isStandalone() || S.installHidden) return "";
+  const inApp = /FBAN|FBAV|Instagram|Line\/|GSA\/|Teams|Outlook|Gmail|wv\)/i.test(navigator.userAgent);
+  let steps;
+  if (deferredInstall) steps = `<p>Tap <b>Install App</b> to put ${esc(APP_NAME)} on your home screen.</p><button class="btn primary" data-act="install">Install App</button>`;
+  else if (isIOS()) steps = `<ol>${inApp || !/Safari/i.test(navigator.userAgent) || /CriOS|FxiOS|EdgiOS/i.test(navigator.userAgent) ? `<li>Open this link in <b>Safari</b> (tap ⋯ or the compass, then <b>Open in Safari</b>).</li>` : ""}<li>Tap the <b>Share</b> button <span class="ig-share" aria-hidden="true">${ICON.share}</span> at the bottom of Safari.</li><li>Scroll down and tap <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open ${esc(APP_NAME)} from your home screen and sign in.</li></ol>`;
+  else steps = `<ol>${inApp ? `<li>Open this link in <b>Chrome</b> (⋮ → <b>Open in Chrome</b>).</li>` : ""}<li>Tap the menu <b>⋮</b> at the top right.</li><li>Tap <b>Install app</b> or <b>Add to Home screen</b>.</li><li>Open ${esc(APP_NAME)} from your home screen and sign in.</li></ol>`;
+  return `<section class="panel install install-guide"><h2 class="section-label" style="margin:0;color:var(--accent)">Add ${esc(APP_NAME)} to Your Home Screen</h2>${steps}<button class="linkbtn" data-act="install-hide" style="align-self:flex-start">Not now</button></section>`;
+}
 function installPanel(){
   if (isStandalone()) return "";
   let body;
@@ -1667,7 +1706,7 @@ function installPanel(){
   else body = `<p>On Android: open the browser menu (⋮) and tap <b>Install app</b> or <b>Add to Home screen</b>.</p>`;
   return `<section class="panel install"><h2 class="section-label" style="margin:0">Get the App</h2>${body}</section>`;
 }
-window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferredInstall = e; if (S.view === "profile") render(); });
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferredInstall = e; if (S.view === "profile" || wantsInstall) render(); });
 window.addEventListener("appinstalled", () => { deferredInstall = null; toast("Installed. Look for RCI Productions on your home screen."); render(); });
 if ("serviceWorker" in navigator && location.protocol === "https:" && window.top === window.self){
   navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {});
@@ -1683,7 +1722,7 @@ function render(){
   if (S.phase !== "ready"){
     let body = "";
     if (S.phase === "boot") body = `<div class="center-screen"><span class="spinner" role="status" aria-label="Loading"></span><p>Loading the schedule…</p></div>`;
-    if (S.phase === "signin") body = `<div class="center-screen"><img class="wm wm-light" src="icons/wordmark.png?v=${APP_VERSION}" alt="RCI Productions"><img class="wm wm-dark" src="icons/wordmark-dark.png?v=${APP_VERSION}" alt="RCI Productions"><p>Sign in with your church Microsoft account to see your schedule, reply to requests and update your profile.</p><button class="btn primary" data-act="signin">Sign in with Microsoft</button></div>`;
+    if (S.phase === "signin") body = installGuide() + `<div class="center-screen"><img class="wm wm-light" src="icons/wordmark.png?v=${APP_VERSION}" alt="RCI Productions"><img class="wm wm-dark" src="icons/wordmark-dark.png?v=${APP_VERSION}" alt="RCI Productions"><p>Sign in with your church Microsoft account to see your schedule, reply to requests and update your profile.</p><button class="btn primary" data-act="signin">Sign in with Microsoft</button></div>`;
     if (S.phase === "error") body = `<div class="center-screen"><h1>Can't reach the schedule</h1><p>The app couldn't load the Serving Schedule list. Check that you're a member of the RCI Productions SharePoint site, then try again.</p><div class="err">${esc(S.error)}</div><button class="btn primary" data-act="retry">Try again</button></div>`;
     app.innerHTML = header + `<main><div class="wrap">${body}</div></main>`;
     return;
@@ -1693,7 +1732,7 @@ function render(){
   saveNav();
   const active = ["notes","team","member","admin"].includes(S.view) ? (S.stack[0]?.view || "home") : S.view;
   const demoBar = DEMO ? `<div class="demo"><span><strong>Demo mode.</strong> Sample people and dates; nothing is saved to SharePoint. Add your app's client ID in the configuration to connect the Serving Schedule list.</span></div>` : "";
-  app.innerHTML = header + `<main><div class="wrap">${demoBar}${views[S.view]()}</div></main>
+  app.innerHTML = header + `<main><div class="wrap">${demoBar}${S.view === "home" ? installGuide() : ""}${views[S.view]()}</div></main>
     <nav class="tabs" aria-label="Main"><div class="wrap">${TABS.map(([v,l,ic]) => `<button data-act="tab" data-view="${v}" ${v===active?'aria-current="page"':""}>${ic}<span>${l}</span></button>`).join("")}</div></nav>`;
   hydratePhotos(); hydrateFlyers();
 }
@@ -1912,6 +1951,8 @@ document.addEventListener("click", async e => {
       S.busy.delete(item.id); S.absConfirm = null; render(); break;
     }
     case "sec-toggle": { const set = secClosed(), k = b.dataset.sec; set.has(k) ? set.delete(k) : set.add(k); try { localStorage.setItem(SEC_KEY, JSON.stringify([...set])); } catch(_){} render(); break; }
+    case "share-app": shareApp(); break;
+    case "install-hide": S.installHidden = true; render(); break;
     case "ask-decline": S.confirm = item.id; render(); break;
     case "decline": setStatus(item, false); break;
     case "cancel": S.confirm = null; render(); break;
