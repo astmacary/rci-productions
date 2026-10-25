@@ -127,6 +127,19 @@ h1.greet{font-family:var(--display);font-weight:700;font-size:clamp(30px,8vw,40p
 .date-chip b{font-size:20px;line-height:1.1;letter-spacing:0}
 .date-chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .admin-row{display:flex;flex-direction:column;gap:6px;padding:10px 12px}
+.admin-row.c2{padding:12px 14px;gap:10px}
+.c2-main{display:flex;align-items:flex-start;gap:12px;min-width:0}
+.c2-face .av.face{width:64px;height:64px;font-size:20px}
+.c2-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;padding-top:2px}
+.c2-name{font-size:16.5px;line-height:1.2;overflow-wrap:anywhere}
+.c2-pos{font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:.02em;color:var(--accent);line-height:1.15;overflow-wrap:anywhere}
+.c2-sub{font-size:12.5px;margin:0}
+.c2-side{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex:none}
+.c2-btns{display:flex;gap:6px}
+.c2-btns .iconbtn{width:36px;height:36px}
+.c2-btns .iconbtn svg{width:17px;height:17px}
+.c2 .iconbtn.save-btn:not(:disabled){background:transparent;border:2px solid var(--accent);color:var(--accent)}
+.admin-row.c2.locked .c2-face .av{opacity:.75}
 .admin-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
 .admin-title{display:flex;flex-direction:column;gap:1px;min-width:0}
 .admin-title .times{margin-top:2px;gap:0 14px}
@@ -250,6 +263,19 @@ a.btn{text-decoration:none}
 .btn.accept{background:var(--go);border-color:var(--go);color:#FFFFFF}
 .btn.decline{background:var(--stop);border-color:var(--stop);color:#FFFFFF}
 .btn.decline-soft{color:var(--bad)}
+.wait-row{display:flex;align-items:center;gap:12px;padding:10px 12px;flex-wrap:wrap}
+.wait-info{flex:1;min-width:140px;display:flex;flex-direction:column;gap:2px;overflow-wrap:anywhere}
+.wait-btns{display:flex;gap:6px}
+.manage-panel .actions{display:flex;gap:8px;flex-wrap:wrap}
+.del-person{display:flex;flex-direction:column;gap:8px;background:var(--bad-soft);border-radius:10px;padding:10px 12px;font-weight:600}
+.gone-note{display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:14px}
+.archived-sec{margin-top:18px}
+.archived-sec summary{cursor:pointer;list-style:none}
+.archived-sec summary::-webkit-details-marker{display:none}
+.archived-sec summary::before{content:"▸";margin-right:2px}
+.archived-sec[open] summary::before{content:"▾"}
+.archived-roster .av{filter:grayscale(1);opacity:.7}
+
 .btn.blue{background:var(--blue);border-color:var(--blue);color:#FFFFFF}
 .btn:disabled{opacity:.55;cursor:default}
 .btn.block{width:100%;justify-content:center;padding:11px 14px}
@@ -466,7 +492,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "58";
+const APP_VERSION = "59";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -548,7 +574,9 @@ function normalize(id, f, emailById){
     birthday: spDate(f.Birthday),
     phone: f.PhoneNumber || "",
     photoRaw: f.Photo || "",
-    serving: Array.isArray(f.Serving) ? f.Serving.slice() : []
+    serving: Array.isArray(f.Serving) ? f.Serving.slice() : [],
+    gone: lc(f.ArchiveStatus) === "archived",
+    pendingEmail: f.PersonLookupId == null ? (((f.Notes || "").match(/^Pending sign-in: (\S+@\S+)/) || [])[1] || "") : ""
   };
 }
 
@@ -603,7 +631,7 @@ const LiveAPI = {
         if (email && email.includes("@")) users.push({ id: String(u.id), email: lc(email), name: u.fields.Title || email });
       });
     } catch(e){ console.warn("Could not read User Information List; matching by name instead.", e); }
-    const sel = "Title,ServiceDates,ServiceCategory,CallTime,ServiceTime,ChoiceNames,PersonLookupId,Status,Published,Notes,Name,TimeOffDate,Birthday,Photo,PhoneNumber,Serving";
+    const sel = "Title,ServiceDates,ServiceCategory,CallTime,ServiceTime,ChoiceNames,PersonLookupId,Status,Published,Notes,Name,TimeOffDate,Birthday,Photo,PhoneNumber,Serving,ArchiveStatus";
     const rows = await this.all(`${base}/${CONFIG.listId}/items?$expand=fields($select=${sel})&$top=500`);
     let names = [], servingChoices = [], choices = {};
     try {
@@ -799,7 +827,7 @@ const DemoAPI = {
     ];
     const servingChoices = ["Production Director","FOH Audio Engineer","Lighting Technician","Broadcast Audio Engineer","Propresenter Technician","Creative Director","Broadcast Switcher Operator","Camera 2 Operator","Gimbal Operator"];
     items.filter(isProfile).forEach((p, n) => { p.serving = servingChoices.filter((_, j) => (j + n) % 3 === 0); });
-    const bdayP = items.find(i => isProfile(i) && i.birthday.slice(5) === t.slice(5));
+    const bdayP = items.find(i => isProfile(i) && !i.gone && i.birthday.slice(5) === t.slice(5));
     const messages = bdayP ? [
       { id: "m1", toId: bdayP.id, text: "Happy birthday! Thanks for always keeping the slides on cue. 🎉", fromName: people[1][0], fromEmail: people[1][1], at: new Date(Date.now() - 3600e3).toISOString() },
       { id: "m2", toId: bdayP.id, text: "Have the best day! 🎂", fromName: people[6][0], fromEmail: people[6][1], at: new Date(Date.now() - 7200e3).toISOString() }
@@ -906,7 +934,7 @@ function tile(person, line, act, id){
 function birthdaysToday(){
   const t = todayKey(), md = t.slice(5), y = Number(t.slice(0,4));
   const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
-  return S.items.filter(i => isProfile(i) && i.birthday && (i.birthday.slice(5) === md || (!leap && md === "02-28" && i.birthday.slice(5) === "02-29")))
+  return S.items.filter(i => isProfile(i) && !i.gone && i.birthday && (i.birthday.slice(5) === md || (!leap && md === "02-28" && i.birthday.slice(5) === "02-29")))
     .sort((a,b) => a.fullName.localeCompare(b.fullName));
 }
 
@@ -1113,6 +1141,7 @@ function viewHome(){
       <div class="panel bday-panel"><p class="bday-msg">🎉 Happy Birthday! 🎂</p>
         <div class="list">${bdays.map(p => bdayRow(p, myProfile()?.id === p.id ? "That's you! Happy Birthday 🎂" : "Tap to wish them Happy Birthday 🎂", "wall")).join("")}</div></div></section>` : ""}
     ${myWall.length ? `<section><button class="person bday-row" data-act="wall" data-id="${myProfile().id}"><span class="wall-emoji" aria-hidden="true">💌</span><span class="meta"><b>You have ${myWall.length} birthday message${myWall.length > 1 ? "s" : ""}</b><small>Tap to read your Birthday Wall</small></span><span class="chev">${ICON.next}</span></button></section>` : ""}
+    ${waitingPanel()}
     <section><h2 class="section-label">Pending Requests <span class="count ${pend.length?"hot":""}">${pend.length}</span></h2>
       ${pend.length ? `<div class="list">${pend.map(i=>cue(i)).join("")}</div>` : `<div class="empty">You have no pending requests right now.</div>`}</section>
     <section><h2 class="section-label">Next 7 Days <span class="count">${up.length}</span></h2>
@@ -1129,7 +1158,7 @@ function viewSchedule(){
 function eventsOn(k){
   const md = k.slice(5);
   const a = assignments().filter(i => approved(i) && i.date === k).sort((x, y) => Number(x.id) - Number(y.id));   // same order as the SharePoint list
-  const b = S.items.filter(i => isProfile(i) && i.birthday && i.birthday.slice(5) === md);
+  const b = S.items.filter(i => isProfile(i) && !i.gone && i.birthday && i.birthday.slice(5) === md);
   const none = S.items.some(i => i.date === k && lc(i.category) === lc(CONFIG.noServiceCategory));
   return { a, b, none };
 }
@@ -1243,7 +1272,7 @@ function viewMember(){
   const bd = p.birthday ? fromKey(p.birthday).toLocaleDateString(undefined,{month:"long",day:"numeric"}) : "—";
   const t = todayKey();
   const next = assignments().filter(i => i.date >= t && approved(i) && ((p.email && i.email === p.email) || i.fullName === p.fullName)).sort(byDate).slice(0,3);
-  return `${backBar("About " + (p.first || firstOf(p.fullName)))}${accessPanel(p)}
+  return `${backBar("About " + (p.first || firstOf(p.fullName)))}${accessPanel(p)}${goneNote(p)}
     <section class="panel profile-hero">${avatar(p,"lg")}<h2>${esc(p.fullName)}</h2>
       ${p.email && myProfile()?.id !== p.id ? `<a class="btn blue" href="mailto:${esc(p.email)}">${ICON.mail}Email Me</a><span class="sub email-addr">${esc(p.email)}</span>` : ""}</section>
     <section class="panel"><dl class="kv">
@@ -1253,7 +1282,8 @@ function viewMember(){
     <section><h2 class="section-label">Places I Serve</h2>
       ${p.serving.length ? `<ul class="panel rows">${p.serving.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<div class="empty">No serving areas listed yet.</div>`}</section>
     ${wallSection(p)}
-    ${next.length ? `<section><h2 class="section-label">Serving Next</h2><div class="list">${next.map(i=>`<div class="panel" style="padding:10px 14px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>${esc(i.role)}</b><span class="sub" style="margin:0">${esc(fmtShort(i.date))}</span></div>`).join("")}</div></section>` : ""}`;
+    ${next.length ? `<section><h2 class="section-label">Serving Next</h2><div class="list">${next.map(i=>`<div class="panel" style="padding:10px 14px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>${esc(i.role)}</b><span class="sub" style="margin:0">${esc(fmtShort(i.date))}</span></div>`).join("")}</div></section>` : ""}
+    ${managePanel(p)}`;
 }
 
 function noProfileMsg(){
@@ -1308,11 +1338,12 @@ function viewAbsence(){
 }
 
 function viewDirectory(){
-  const people = S.items.filter(isProfile).sort((a,b) => (a.fullName||"").localeCompare(b.fullName||""));
+  const people = S.items.filter(p => isProfile(p) && !p.gone).sort((a,b) => (a.fullName||"").localeCompare(b.fullName||""));
   return `<div class="page-h"><h1>Team Directory</h1></div>
     ${isEditor() ? newPersonForm() : ""}
     <p class="sub" style="margin-top:-10px">${people.length} team members</p>
-    ${people.length ? `<div class="roster">${people.map(p => `<button class="tile" data-act="member" data-id="${p.id}">${avatar(p)}<span class="meta"><b>${esc(p.fullName)}</b></span></button>`).join("")}${isEditor() && !S.addPerson ? addTile() : ""}</div>` : isEditor() && !S.addPerson ? `<div class="roster">${addTile()}</div>` : `<div class="empty">No team members yet.</div>`}`;
+    ${people.length ? `<div class="roster">${people.map(p => `<button class="tile" data-act="member" data-id="${p.id}">${avatar(p)}<span class="meta"><b>${esc(p.fullName)}</b></span></button>`).join("")}${isEditor() && !S.addPerson ? addTile() : ""}</div>` : isEditor() && !S.addPerson ? `<div class="roster">${addTile()}</div>` : `<div class="empty">No team members yet.</div>`}
+    ${archivedSection()}`;
 }
 
 function viewProfile(){
@@ -1512,17 +1543,16 @@ function viewAdmin(){
     const sid = esc(i.id);
     const locked = i.status === "Accepted" && !(S.adminUnlocked || new Set()).has(i.id);
     const dis = locked ? "disabled" : "";
-    return `<form class="panel admin-row ${locked ? "locked" : ""}" data-id="${sid}">
-      <div class="admin-top">
-        <div class="admin-title"><b>${esc(i.role || "No position")}</b><span class="sub" style="margin:0">${esc([i.category, fmtShort(i.date)].filter(Boolean).join(" · "))}</span>
-</div>
-        <div class="admin-side">${statusPill(i)}${locked
+    return `<form class="panel admin-row c2 ${locked ? "locked" : ""}" data-id="${sid}">
+      <div class="c2-main"><span class="c2-face" data-face>${faceFor(i.personId, i.fullName)}</span>
+        <div class="c2-info"><b class="c2-name" data-nm>${esc(i.fullName || "Not assigned")}</b><span class="c2-pos">${esc(i.role || "No position")}</span><span class="sub c2-sub">${esc([i.category, fmtShort(i.date)].filter(Boolean).join(" · "))}</span></div>
+        <div class="c2-side">${statusPill(i)}<div class="c2-btns"><button class="iconbtn del-btn" type="button" data-act="del-ask" data-id="${sid}" aria-label="Delete this position" title="Delete">${ICON.trash}</button>${locked
           ? `<button class="iconbtn notes-btn" type="button" data-act="admin-unlock" data-id="${sid}" aria-label="Edit this assignment" title="Edit">${ICON.pencil}</button>`
-          : saveIcon()}<button class="iconbtn del-btn" type="button" data-act="del-ask" data-id="${sid}" aria-label="Delete this position" title="Delete">${ICON.trash}</button></div>
+          : saveIcon()}</div></div>
       </div>${delAsk(i)}
       <div class="admin-grid">
         <div class="field wide"><label for="ad-name-${sid}">Full Name</label>
-          <div class="name-pick"><span data-face>${faceFor(i.personId, i.fullName)}</span><select id="ad-name-${sid}" data-f="ChoiceNames" ${dis}>${opts(S.names, i.fullName, "— Not assigned —")}</select></div>
+          <select id="ad-name-${sid}" data-f="ChoiceNames" ${dis}>${opts(S.names.filter(n => n === i.fullName || !goneName(n)), i.fullName, "— Not assigned —")}</select>
           <input type="hidden" data-f="PersonLookupId" value="${esc(i.personId || "")}"><span class="hint warn-text" data-who>${whoWarn(i.personId, i.fullName)}</span></div>
         <div class="field wide"><label for="ad-pub-${sid}">Published</label><select id="ad-pub-${sid}" data-f="Published" ${dis}>${opts((S.choices || {}).published, i.published, "—")}</select></div>
       </div>
@@ -1747,6 +1777,27 @@ document.addEventListener("click", async e => {
     case "theme": toggleTheme(); break;
     case "np-open": if (isEditor()){ S.addPerson = true; render(); $("#np-name")?.focus(); } break;
     case "np-close": S.addPerson = false; render(); break;
+    case "person-del-ask": S.delPerson = b.dataset.id; render(); break;
+    case "person-del-no": S.delPerson = null; render(); break;
+    case "toggle-archived": e.preventDefault(); S.showArchived = !S.showArchived; render(); break;
+    case "person-archive": {
+      const p = S.items.find(i => String(i.id) === b.dataset.id); if (!canManage(p)) break;
+      const on = b.dataset.on === "1"; S.busy.add("mg-" + p.id); render();
+      try { await archiveWrite(p.id, on); p.gone = on; toast(on ? `Archived ${p.fullName}` : `Restored ${p.fullName}`); }
+      catch(err){ toast("Couldn't save that. " + err.message, true); }
+      S.busy.delete("mg-" + p.id); render(); break;
+    }
+    case "person-del-yes": {
+      const p = S.items.find(i => String(i.id) === b.dataset.id); if (!canManage(p)) break;
+      S.busy.add("mg-" + p.id); render();
+      try {
+        await API.deleteItem(p.id);
+        S.items = S.items.filter(i => i !== p); S.delPerson = null; S.busy.delete("mg-" + p.id);
+        toast(`Deleted ${p.fullName}`);
+        const prev = S.stack.pop() || { view: "home" }; go(prev.view, prev.arg, false);
+      } catch(err){ S.busy.delete("mg-" + p.id); toast("Couldn't delete. " + err.message, true); render(); }
+      break;
+    }
     case "share-site": {
       const em = b.dataset.email || "", w = window.open("", "_blank");
       try { if (em) await navigator.clipboard.writeText(em); } catch(e){}
@@ -1766,7 +1817,7 @@ document.addEventListener("click", async e => {
       b.disabled = true; b.textContent = "Linking…";
       const id = await siteUserId(em.trim());
       if (!id){ toast("Couldn't link it yet. Make sure they've accepted the invitation and signed in once.", true); b.disabled = false; b.textContent = "Link Account"; break; }
-      try { await API.update(p.id, { [LINK_COL]: id }); p.personId = id; p.email = lc(em.trim()); p.pendingEmail = ""; toast(`Linked ${p.fullName} to ${em.trim()}`); render(); }
+      try { await API.update(p.id, { [LINK_COL]: id, ...(p.pendingEmail ? { Notes: "" } : {}) }); p.personId = id; p.email = lc(em.trim()); p.pendingEmail = ""; toast(`Linked ${p.fullName} to ${em.trim()}`); render(); }
       catch(err){ toast("Couldn't link it. " + err.message, true); b.disabled = false; b.textContent = "Link Account"; }
       break;
     }
@@ -1984,6 +2035,7 @@ document.addEventListener("change", async e => {
       row.querySelector('[data-f="PersonLookupId"]').value = match ? match.id : "";
       row.querySelector("[data-who]").textContent = whoWarn(match ? match.id : "", e.target.value);
       row.querySelector("[data-face]").innerHTML = faceFor(match ? match.id : "", e.target.value);
+      const nm = row.querySelector("[data-nm]"); if (nm) nm.textContent = e.target.value || "Not assigned";
       hydratePhotos();
     }
     row.querySelector('button[type="submit"]').disabled = false;
@@ -2053,6 +2105,7 @@ const newPill = () => `<span class="pill new-pill">NEW</span> `;
 function newPersonRow(v){
   const f = { Title: v.name, ServiceCategory: CONFIG.profileCategory, ChoiceNames: v.name, Name: firstOf(v.name) };
   if (v.userId) f.PersonLookupId = String(v.userId);
+  else if (v.email) f.Notes = "Pending sign-in: " + v.email;   // remembered until they can be linked
   if (v.birthday) f.Birthday = v.birthday + "T12:00:00Z";
   if (v.phone) f.PhoneNumber = v.phone;
   if (v.on.length){ f["Serving@odata.type"] = "Collection(Edm.String)"; f.Serving = v.on.map(b => b.dataset.value); }
@@ -2074,13 +2127,55 @@ const LINK_COL = "PersonLookupId";
 /* Admins: link Roster people whose email is waiting (added before they had access). Runs quietly after loading. */
 async function linkPendingPeople(){
   if (DEMO || !isEditor()) return;
-  const todo = S.items.filter(i => isProfile(i) && !i.personId && i.pendingEmail).slice(0, 10);
+  const todo = S.items.filter(i => isProfile(i) && !i.gone && !i.personId && i.pendingEmail).slice(0, 10);
   for (const p of todo){
     const id = await siteUserId(p.pendingEmail); if (!id) continue;
-    try { await API.update(p.id, { [LINK_COL]: id }); p.personId = id; p.email = lc(p.pendingEmail); } catch(e){}
+    try { await API.update(p.id, { [LINK_COL]: id, Notes: "" }); p.personId = id; p.email = lc(p.pendingEmail); p.pendingEmail = ""; } catch(e){}
   }
 }
 /* About page (admins): help give someone without a linked account access to the SharePoint site. */
+/* Admins can archive someone (hidden from the Team Directory, birthdays and scheduling, but kept in the list
+   so they can be restored) or delete their Roster row. Archived = Archive Status is set to Archived. */
+const goneName = n => !!n && S.items.some(i => isProfile(i) && i.gone && lc(i.fullName) === lc(n)) && !S.items.some(i => isProfile(i) && !i.gone && lc(i.fullName) === lc(n));
+const canManage = p => isEditor() && !!p && p.id != null && !String(p.id).startsWith("p-") && isProfile(p) && p.editable !== false;
+async function archiveWrite(id, on){
+  const f = { ArchiveStatus: on ? "Archived" : "Active" };
+  try { await API.update(id, f); }
+  catch(err){ if (on) throw err; const k = Object.keys(f)[0]; if (f[k] !== null) throw err; await API.update(id, { [k]: "" }); }
+}
+function goneNote(p){ return canManage(p) && p.gone ? `<div class="panel gone-note"><span class="pill">Archived</span> Hidden from the Team Directory and scheduling.</div>` : ""; }
+function managePanel(p){
+  if (!canManage(p)) return "";
+  const busy = S.busy.has("mg-" + p.id), id = esc(p.id), nm = esc(p.fullName || "this person");
+  return `<section class="panel stack manage-panel"><h2 class="section-label" style="margin:0">Manage Team Member</h2>
+    <p class="sub" style="margin:0">${p.gone
+      ? `${nm} is archived, so they're hidden from the Team Directory and from scheduling. <b>Restore</b> brings them back.`
+      : `<b>Archive</b> hides ${nm} from the Team Directory and from scheduling but keeps their info, so you can restore them later. <b>Delete</b> removes their Roster row for good.`} Schedule rows they already have aren't changed.</p>
+    ${S.delPerson === p.id
+      ? `<div class="del-person">Delete ${nm}’s Roster row permanently?
+          <div class="actions"><button class="btn decline-soft" data-act="person-del-yes" data-id="${id}" ${busy ? "disabled" : ""}>${busy ? "Deleting…" : "Yes, Delete"}</button><button class="btn" data-act="person-del-no">Keep Them</button></div></div>`
+      : `<div class="actions"><button class="btn" data-act="person-archive" data-on="${p.gone ? "0" : "1"}" data-id="${id}" ${busy ? "disabled" : ""}>${busy ? "Saving…" : p.gone ? "Restore" : "Archive"}</button><button class="btn decline-soft" data-act="person-del-ask" data-id="${id}" ${busy ? "disabled" : ""}>Delete</button></div>`}
+  </section>`;
+}
+function archivedSection(){
+  if (!isEditor()) return "";
+  const list = S.items.filter(p => isProfile(p) && p.gone).sort((a, b) => (a.fullName || "").localeCompare(b.fullName || ""));
+  if (!list.length) return "";
+  const t = p => `<button class="tile" data-act="member" data-id="${p.id}">${avatar(p)}<span class="meta"><b>${esc(p.fullName)}</b></span></button>`;
+  return `<details class="archived-sec"${S.showArchived ? " open" : ""}><summary class="section-label" data-act="toggle-archived">Archived <span class="count">${list.length}</span></summary>
+    <p class="sub" style="margin:0 0 8px">Only admins see this. Open someone to restore or delete them.</p>
+    <div class="roster archived-roster">${list.map(t).join("")}</div></details>`;
+}
+/* Admin Home: people added with an email who can't sign in yet (the site hasn't been shared with them). */
+function waitingPanel(){
+  if (!isEditor()) return "";
+  const list = S.items.filter(p => isProfile(p) && !p.gone && !p.personId && p.pendingEmail);
+  if (!list.length) return "";
+  return `<section><h2 class="section-label">Waiting for Access <span class="count hot">${list.length}</span></h2>
+    <div class="list">${list.map(p => `<div class="panel wait-row">${avatar(p)}<div class="wait-info"><b>${esc(p.fullName)}</b><span class="sub" style="margin:0">${esc(p.pendingEmail)}</span></div>
+      <div class="wait-btns"><button class="btn blue" data-act="share-site" data-email="${esc(p.pendingEmail)}">Share</button><button class="btn" data-act="member" data-id="${esc(p.id)}">Open</button></div></div>`).join("")}</div>
+    <p class="sub" style="margin:6px 0 0">Tap <b>Share</b>, paste their email in SharePoint and tap Share. Once they accept and sign in, the app links them and they drop off this list.</p></section>`;
+}
 function accessPanel(p){
   if (!isEditor() || !p || p.personId || p.id == null || String(p.id).startsWith("p-")) return "";
   const em = p.pendingEmail || "";
