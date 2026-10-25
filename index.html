@@ -146,6 +146,8 @@ h1.greet{font-family:var(--display);font-weight:700;font-size:clamp(30px,8vw,40p
 .abs-tile{border-color:var(--bad);background:var(--bad-soft)}
 .abs-tile .tile-bar{justify-content:center}
 .role-sec{display:flex;flex-direction:column;gap:8px}
+.role-sec + .role-sec{margin-top:10px}
+.role-sec .section-label{margin:0}
 .admin-tile.locked .tile-who .av{opacity:.7}
 .admin-tile .del-ask{flex-direction:column;align-items:stretch;gap:6px;font-size:13px;background:var(--bad-soft);border-radius:8px;padding:8px}
 .admin-tile .del-ask .btn{justify-content:center;padding:6px 8px}
@@ -421,6 +423,13 @@ const CONFIG = {
     "Propresenter Technician", "Creative Director", "Broadcast Switcher Operator", "Camera 2 Operator",
     "Gimbal 1 Operator", "Gimbal 2 Operator", "Gimbal 3 Operator"],
   templateDefaultCategory: "Sunday Morning",   // used when the date has no Service Category yet
+  // Headings on Edit Schedule and the Calendar roster, in this order; positions listed in their order within each.
+  sections: [
+    ["Leadership", ["Production Director", "Creative Director"]],
+    ["Audio Engineers", ["FOH Audio Engineer", "Broadcast Audio Engineer"]],
+    ["Lighting & Visuals", ["Lighting Technician", "ProPresenter Technician"]],
+    ["Video & Broadcasting", ["Broadcast Switcher Operator", "Camera 2 Operator", "Gimbal 1 Operator", "Gimbal 2 Operator", "Gimbal 3 Operator", "Gimbal Operator"]]
+  ],
   absentCategory: "Absent",          // Service Category of the row the Absence tab adds for each day off
   noServiceCategory: "No Service",  // Service Category marking a date with no service  // Service Category used for each person's profile row
   notesRole: "Production Director",// role whose Notes hold the run sheet / set list
@@ -436,7 +445,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "52";
+const APP_VERSION = "53";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1137,7 +1146,7 @@ function viewCalendar(){
         ${isEditor() ? `<button class="iconbtn notes-btn" data-act="admin-open" data-date="${sel}" aria-label="Edit this day's schedule" title="Edit schedule">${ICON.pencil}</button>` : ""}</div>
       ${ev.none ? `<div class="no-service"><span aria-hidden="true">❌</span> No Service</div>` : ""}
       ${bdayRows ? `<div class="list" style="margin-bottom:10px">${bdayRows}</div>` : ""}
-      ${team ? `<div class="roster">${team}</div>` : (bdayRows || ev.none ? "" : `<div class="empty">No events scheduled.</div>`)}
+      ${team ? bySection(ev.a, part => `<div class="roster">${part.map(i => tile(i, i.role, "member-of", i.id)).join("")}</div>`) : (bdayRows || ev.none ? "" : `<div class="empty">No events scheduled.</div>`)}
     </section>`;
 }
 
@@ -1424,6 +1433,25 @@ function adminAbsent(rows){
         <b class="tile-name">${esc(i.fullName || "Someone")}</b>
         <span class="tile-sub">${esc(fmtShort(i.date))}</span></div></div>`).join("")}</div></section>`;
 }
+/* Group positions under the CONFIG.sections headings (anything else goes under "Other"). */
+function posRank(role){
+  const r = lc((role || "").trim()); let n = 0;
+  for (const [, roles] of CONFIG.sections){ for (const x of roles){ if (lc(x) === r) return n; n++; } }
+  return 999;
+}
+function sectionOfRole(role){
+  const r = lc((role || "").trim());
+  const hit = CONFIG.sections.find(([, roles]) => roles.some(x => lc(x) === r));
+  return hit ? hit[0] : "Other";
+}
+function bySection(list, html){
+  const order = new Map(list.map((i, n) => [i.id, n]));
+  const sorted = list.slice().sort((a, b) => (posRank(a.role) - posRank(b.role)) || (order.get(a.id) - order.get(b.id)));
+  return [...CONFIG.sections.map(([h]) => h), "Other"].map(h => {
+    const part = sorted.filter(i => sectionOfRole(i.role) === h);
+    return part.length ? `<section class="role-sec"><h2 class="section-label">${esc(h)} <span class="count">${part.length}</span></h2>${html(part)}</section>` : "";
+  }).join("");
+}
 /* Inline "Delete this position?" check on an Edit Schedule card. */
 function delAsk(i){
   if (S.delAsk !== i.id) return "";
@@ -1450,24 +1478,26 @@ function viewAdmin(){
   const dayRows = S.items.filter(i => !isProfile(i) && i.date === k);
   const rows = dayRows.filter(i => !isNoService(i) && !isAbsent(i)).sort((x, y) => Number(x.id) - Number(y.id));   // same order as the SharePoint list
   const chips = dates.map(d => { const x = fromKey(d); return `<button class="date-chip ${d === k ? "on" : ""}" data-act="admin-date" data-date="${d}" aria-pressed="${d === k}"><span>${x.toLocaleDateString(undefined,{weekday:"short"})}</span><b>${x.getDate()}</b><span>${x.toLocaleDateString(undefined,{month:"short"})}</span></button>`; }).join("");
-  const cards = rows.map(i => {
+  const card = i => {
     const sid = esc(i.id);
     const locked = i.status === "Accepted" && !(S.adminUnlocked || new Set()).has(i.id);
     const dis = locked ? "disabled" : "";
-    return `<form class="panel admin-row admin-tile ${locked ? "locked" : ""}" data-id="${sid}">
-      <div class="tile-bar">${statusPill(i)}<span class="tile-btns"><button class="iconbtn del-btn" type="button" data-act="del-ask" data-id="${sid}" aria-label="Delete this assignment" title="Delete">${ICON.trash}</button>${locked
+    return `<form class="panel admin-row ${locked ? "locked" : ""}" data-id="${sid}">
+      <div class="admin-top">
+        <div class="admin-title"><b>${esc(i.role || "No position")}</b><span class="sub" style="margin:0">${esc([i.category, fmtShort(i.date)].filter(Boolean).join(" · "))}</span>
+</div>
+        <div class="admin-side">${statusPill(i)}${locked
           ? `<button class="iconbtn notes-btn" type="button" data-act="admin-unlock" data-id="${sid}" aria-label="Edit this assignment" title="Edit">${ICON.pencil}</button>`
-          : saveIcon()}</span></div>
-      <div class="tile-who"><span data-face>${faceFor(i.personId, i.fullName)}</span>
-        <b class="tile-name">${esc(i.role || "No position")}</b>
-        <span class="tile-sub">${esc(i.category || fmtShort(i.date))}</span></div>
-      <div class="tile-fields">
-        <label class="tile-f"><span>Full Name</span><select id="ad-name-${sid}" data-f="ChoiceNames" ${dis}>${opts(S.names, i.fullName, "— Not assigned —")}</select>
-          <input type="hidden" data-f="PersonLookupId" value="${esc(i.personId || "")}"><span class="hint warn-text" data-who>${whoWarn(i.personId, i.fullName)}</span></label>
-        <label class="tile-f"><span>Published</span><select id="ad-pub-${sid}" data-f="Published" ${dis}>${opts((S.choices || {}).published, i.published, "—")}</select></label>
+          : saveIcon()}<button class="iconbtn del-btn" type="button" data-act="del-ask" data-id="${sid}" aria-label="Delete this position" title="Delete">${ICON.trash}</button></div>
       </div>${delAsk(i)}
+      <div class="admin-grid">
+        <div class="field wide"><label for="ad-name-${sid}">Full Name</label>
+          <div class="name-pick"><span data-face>${faceFor(i.personId, i.fullName)}</span><select id="ad-name-${sid}" data-f="ChoiceNames" ${dis}>${opts(S.names, i.fullName, "— Not assigned —")}</select></div>
+          <input type="hidden" data-f="PersonLookupId" value="${esc(i.personId || "")}"><span class="hint warn-text" data-who>${whoWarn(i.personId, i.fullName)}</span></div>
+        <div class="field wide"><label for="ad-pub-${sid}">Published</label><select id="ad-pub-${sid}" data-f="Published" ${dis}>${opts((S.choices || {}).published, i.published, "—")}</select></div>
+      </div>
     </form>`;
-  }).join("");
+  };
   return `${backBar("Edit Schedule")}
     <ol class="panel steps"><li>Choose a name from the drop down menu.</li><li>Change the status to <b>"Published"</b> and hit the <span class="inline-check" aria-label="check">${ICON.check}</span> to save.</li></ol>
     <div class="date-chips" role="group" aria-label="Service dates">${chips}${adminPickChip()}</div>
@@ -1476,7 +1506,7 @@ function viewAdmin(){
     ${adminNoService(k, dayRows)}
     ${adminTemplate(k, dayRows)}
     ${adminAbsent(dayRows)}
-    ${rows.length ? `<div class="admin-tiles">${cards}</div>` : `<div class="empty">There is no schedule for this date.</div>`}`;
+    ${rows.length ? `${bySection(rows, part => `<div class="list">${part.map(card).join("")}</div>`)}` : `<div class="empty">There is no schedule for this date.</div>`}`;
 }
 
 /* ---------- red badge on the app icon for pending requests ---------- */
