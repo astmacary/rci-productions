@@ -124,6 +124,29 @@ h1.greet{font-family:var(--display);font-weight:700;font-size:clamp(30px,8vw,40p
 .admin-side{display:flex;flex-direction:row;align-items:center;gap:6px;flex:none}
 .admin-side .iconbtn{width:30px;height:30px}
 .admin-side .iconbtn svg{width:15px;height:15px}
+/* Edit Schedule tiles (same layout as RCI Worship & Arts): several side by side */
+.admin-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:8px}
+.admin-row.admin-tile{padding:8px;gap:6px;min-width:0}
+.tile-bar{display:flex;align-items:center;justify-content:space-between;gap:4px;min-width:0}
+.tile-bar .pill{font-size:10.5px;padding:2px 7px;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.tile-btns{display:flex;gap:4px;flex:none;margin-left:auto}
+.tile-btns .iconbtn{width:28px;height:28px}
+.tile-btns .iconbtn svg{width:14px;height:14px}
+.tile-who{display:flex;flex-direction:column;align-items:center;text-align:center;gap:3px;min-width:0}
+.tile-who .av.face,.tile-who .av{width:52px;height:52px;font-size:16px}
+.tile-name{font-size:14.5px;line-height:1.2;max-width:100%;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.tile-sub{font-size:11.5px;color:var(--muted);line-height:1.2}
+.tile-fields{display:flex;flex-direction:column;gap:5px}
+.tile-f{display:flex;flex-direction:column;gap:2px;min-width:0}
+.tile-f > span{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.tile-f select{width:100%;min-width:0;padding:5px 8px;min-height:34px;font-size:13px}
+.tile-f .field-tag{display:flex;justify-content:center;margin-top:3px}
+.tile-f .hint{font-size:11px}
+.admin-tile.locked select{opacity:.55}
+.admin-tile.locked .tile-who .av{opacity:.7}
+.admin-tile .del-ask{flex-direction:column;align-items:stretch;gap:6px;font-size:13px;background:var(--bad-soft);border-radius:8px;padding:8px}
+.admin-tile .del-ask .btn{justify-content:center;padding:6px 8px}
+
 .iconbtn.del-btn{color:var(--bad);border-color:var(--bad);background:transparent}
 .del-ask{display:flex;flex-wrap:wrap;align-items:center;gap:8px;color:var(--bad);font-weight:600;font-size:14px}
 .del-ask .btn{padding:6px 12px}
@@ -410,7 +433,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "49";
+const APP_VERSION = "50";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1428,20 +1451,18 @@ function viewAdmin(){
     const sid = esc(i.id);
     const locked = i.status === "Accepted" && !(S.adminUnlocked || new Set()).has(i.id);
     const dis = locked ? "disabled" : "";
-    return `<form class="panel admin-row ${locked ? "locked" : ""}" data-id="${sid}">
-      <div class="admin-top">
-        <div class="admin-title"><b>${esc(i.role || "No position")}</b><span class="sub" style="margin:0">${esc([i.category, fmtShort(i.date)].filter(Boolean).join(" · "))}</span>
-</div>
-        <div class="admin-side">${statusPill(i)}${locked
+    return `<form class="panel admin-row admin-tile ${locked ? "locked" : ""}" data-id="${sid}">
+      <div class="tile-bar">${statusPill(i)}<span class="tile-btns"><button class="iconbtn del-btn" type="button" data-act="del-ask" data-id="${sid}" aria-label="Delete this assignment" title="Delete">${ICON.trash}</button>${locked
           ? `<button class="iconbtn notes-btn" type="button" data-act="admin-unlock" data-id="${sid}" aria-label="Edit this assignment" title="Edit">${ICON.pencil}</button>`
-          : saveIcon()}<button class="iconbtn del-btn" type="button" data-act="del-ask" data-id="${sid}" aria-label="Delete this position" title="Delete">${ICON.trash}</button></div>
+          : saveIcon()}</span></div>
+      <div class="tile-who"><span data-face>${faceFor(i.personId, i.fullName)}</span>
+        <b class="tile-name">${esc(i.role || "No position")}</b>
+        <span class="tile-sub">${esc(i.category || fmtShort(i.date))}</span></div>
+      <div class="tile-fields">
+        <label class="tile-f"><span>Full Name</span><select id="ad-name-${sid}" data-f="ChoiceNames" ${dis}>${opts(S.names, i.fullName, "— Not assigned —")}</select>
+          <input type="hidden" data-f="PersonLookupId" value="${esc(i.personId || "")}"><span class="hint warn-text" data-who>${whoWarn(i.personId, i.fullName)}</span></label>
+        <label class="tile-f"><span>Published</span><select id="ad-pub-${sid}" data-f="Published" ${dis}>${opts((S.choices || {}).published, i.published, "—")}</select></label>
       </div>${delAsk(i)}
-      <div class="admin-grid">
-        <div class="field wide"><label for="ad-name-${sid}">Full Name</label>
-          <div class="name-pick"><span data-face>${faceFor(i.personId, i.fullName)}</span><select id="ad-name-${sid}" data-f="ChoiceNames" ${dis}>${opts(S.names, i.fullName, "— Not assigned —")}</select></div>
-          <input type="hidden" data-f="PersonLookupId" value="${esc(i.personId || "")}"><span class="hint warn-text" data-who>${whoWarn(i.personId, i.fullName)}</span></div>
-        <div class="field wide"><label for="ad-pub-${sid}">Published</label><select id="ad-pub-${sid}" data-f="Published" ${dis}>${opts((S.choices || {}).published, i.published, "—")}</select></div>
-      </div>
     </form>`;
   }).join("");
   return `${backBar("Edit Schedule")}
@@ -1452,7 +1473,7 @@ function viewAdmin(){
     ${adminNoService(k, dayRows)}
     ${adminTemplate(k, dayRows)}
     ${adminAbsent(dayRows)}
-    ${rows.length ? `<div class="list">${cards}</div>` : `<div class="empty">There is no schedule for this date.</div>`}`;
+    ${rows.length ? `<div class="admin-tiles">${cards}</div>` : `<div class="empty">There is no schedule for this date.</div>`}`;
 }
 
 /* ---------- red badge on the app icon for pending requests ---------- */
@@ -1504,6 +1525,8 @@ function render(){
     return;
   }
   const views = { admin: viewAdmin, directory: viewDirectory, home: viewHome, schedule: viewSchedule, calendar: viewCalendar, notes: viewNotes, team: viewTeam, member: viewMember, absence: viewAbsence, profile: viewProfile };
+  if (!views[S.view]){ S.view = "home"; S.arg = null; }
+  saveNav();
   const active = ["notes","team","member","admin"].includes(S.view) ? (S.stack[0]?.view || "home") : S.view;
   const demoBar = DEMO ? `<div class="demo"><span><strong>Demo mode.</strong> Sample people and dates; nothing is saved to SharePoint. Add your app's client ID in the configuration to connect the Serving Schedule list.</span></div>` : "";
   app.innerHTML = header + `<main><div class="wrap">${demoBar}${views[S.view]()}</div></main>
@@ -1511,6 +1534,22 @@ function render(){
   hydratePhotos(); hydrateFlyers();
 }
 
+/* Remember the page being viewed, so reloading the app (pull to refresh, the browser's reload, an update)
+   comes back to the same page instead of Home. Kept for this tab/app window only. */
+const NAV_KEY = "rci-nav:" + location.pathname;
+const NAV_SKIP = { doc: "docs" };   // pages that can't be rebuilt on their own go to their parent
+function saveNav(){
+  try { sessionStorage.setItem(NAV_KEY, JSON.stringify({ view: S.view, arg: S.arg, stack: S.stack.slice(-10),
+    adminDate: S.adminDate || null, adminExtra: S.adminExtra || null, calSel: S.cal.sel, calMonth: S.cal.month ? keyOf(S.cal.month) : null })); } catch(_){}
+}
+function restoreNav(){
+  try {
+    const n = JSON.parse(sessionStorage.getItem(NAV_KEY) || "null"); if (!n || !n.view) return;
+    S.view = NAV_SKIP[n.view] || n.view; S.arg = NAV_SKIP[n.view] ? null : n.arg; S.stack = Array.isArray(n.stack) ? n.stack : [];
+    if (n.adminDate) S.adminDate = n.adminDate; if (n.adminExtra) S.adminExtra = n.adminExtra;
+    if (n.calSel) S.cal.sel = n.calSel; if (n.calMonth) S.cal.month = fromKey(n.calMonth);
+  } catch(_){}
+}
 function go(view, arg=null, push=true){
   if (push) S.stack.push({ view: S.view, arg: S.arg });
   S.view = view; S.arg = arg; S.confirm = null; render(); window.scrollTo(0,0);
@@ -1866,6 +1905,7 @@ async function start(){
     const data = await API.load();
     S.me = data.me; S.items = data.items; S.names = data.names; S.servingChoices = data.servingChoices || []; S.choices = data.choices || {}; S.users = data.users || []; S.announcements = data.announcements || []; S.messages = data.messages || [];
     const t = new Date(); S.cal.month = new Date(t.getFullYear(), t.getMonth(), 1); S.cal.sel = todayKey();
+    restoreNav();
     S.phase = "ready"; render(); maybeConfetti(); updateBadge();
   } catch(e){
     console.error(e); S.error = e.message || String(e); S.phase = "error"; render();
