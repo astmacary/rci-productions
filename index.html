@@ -459,7 +459,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "56";
+const APP_VERSION = "57";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1303,6 +1303,7 @@ function viewAbsence(){
 function viewDirectory(){
   const people = S.items.filter(isProfile).sort((a,b) => (a.fullName||"").localeCompare(b.fullName||""));
   return `<div class="page-h"><h1>Team Directory</h1></div>
+    ${isEditor() ? newPersonForm() : ""}
     <p class="sub" style="margin-top:-10px">${people.length} team members</p>
     ${people.length ? `<div class="roster">${people.map(p => `<button class="tile" data-act="member" data-id="${p.id}">${avatar(p)}<span class="meta"><b>${esc(p.fullName)}</b></span></button>`).join("")}</div>` : `<div class="empty">No team members yet.</div>`}`;
 }
@@ -1737,6 +1738,9 @@ document.addEventListener("click", async e => {
     case "ann-flyer-clear": annDraftSave(); S.annDraft.file = null; S.annDraft.preview = ""; render(); break;
     case "back": { S.notesEdit = null; const prev = S.stack.pop() || { view: "home" }; go(prev.view, prev.arg, false); break; }
     case "theme": toggleTheme(); break;
+    case "np-open": if (isEditor()){ S.addPerson = true; render(); $("#np-name")?.focus(); } break;
+    case "np-close": S.addPerson = false; render(); break;
+    case "np-active": { const h = $("#np-active"); h.value = b.dataset.value; document.querySelectorAll('[data-act="np-active"]').forEach(x => { const on = x === b; x.classList.toggle("on", on); x.setAttribute("aria-pressed", on); }); break; }
     case "accept": setStatus(item, true); break;
     case "abs-cancel": S.absConfirm = b.dataset.id; render(); break;
     case "abs-cancel-keep": S.absConfirm = null; render(); break;
@@ -1788,6 +1792,27 @@ document.addEventListener("click", async e => {
 
 document.addEventListener("submit", async e => {
   e.preventDefault();
+  if (e.target.id === "newPersonForm"){
+    if (!isEditor()) return;
+    const name = $("#np-name").value.trim().replace(/\s+/g, " "), email = $("#np-email").value.trim();
+    if (!name){ toast("Type their full name.", true); return; }
+    if (S.items.some(i => isProfile(i) && lc(i.fullName) === lc(name))){ toast(`${name} is already on the Roster.`, true); return; }
+    const btn = $("#np-save"); btn.disabled = true; btn.textContent = "Adding…";
+    try {
+      const userId = await siteUserId(email);
+      const on = [...e.target.querySelectorAll('.serve-opt[aria-pressed="true"]')];
+      const f = newPersonRow({ name, email, userId, birthday: $("#np-bday").value, phone: $("#np-phone").value.trim(), on });
+      if (DEMO){ toast(`Demo: ${name} would be added to the Roster.`); S.addPerson = false; render(); return; }
+      const r = await API.g(`/sites/${API.siteId}/lists/${CONFIG.listId}/items`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fields: f }) });
+      const data = await API.load();
+      S.items = data.items; if (data.users) S.users = data.users; if (data.names) S.names = [...new Set([...data.names, ...data.items.filter(isProfile).map(i => i.fullName).filter(Boolean)])];
+      S.addPerson = false;
+      toast(email && !userId ? `${name} was added. Their email couldn't be linked yet; pick it in SharePoint once they have access.` : `${name} was added to the Roster.`, !!(email && !userId));
+      const np = S.items.find(i => String(i.id) === String(r.id)) || S.items.find(i => isProfile(i) && lc(i.fullName) === lc(name));
+      if (np) go("member", np.id); else render();
+    } catch(err){ toast("Couldn't add them. " + err.message, true); btn.disabled = false; btn.textContent = "Add to Roster"; }
+    return;
+  }
   if (e.target.id === "catForm"){
     if (!isEditor()) return;
     const k = e.target.dataset.date, v = $("#cat-pick").value.trim().replace(/\s+/g, " "); if (!v) return;
@@ -1994,13 +2019,51 @@ const newPill = () => `<span class="pill new-pill">NEW</span> `;
   });
 })();
 
+
+/* ---------- Admins: add a new person to the Roster from the Team page ---------- */
+function newPersonRow(v){
+  const f = { Title: v.name, ServiceCategory: CONFIG.profileCategory, ChoiceNames: v.name, Name: firstOf(v.name) };
+  if (v.userId) f.PersonLookupId = String(v.userId);
+  if (v.birthday) f.Birthday = v.birthday + "T12:00:00Z";
+  if (v.phone) f.PhoneNumber = v.phone;
+  if (v.on.length){ f["Serving@odata.type"] = "Collection(Edm.String)"; f.Serving = v.on.map(b => b.dataset.value); }
+  return f;
+}
+function newPersonForm(){
+  if (!S.addPerson) return `<button class="btn tpl-btn" data-act="np-open">＋ Add Team Member</button>`;
+  return `<form class="panel stack" id="newPersonForm">
+      <h2 class="section-label" style="margin:0">New Team Member</h2>
+      <div class="field"><label for="np-name">Full Name</label><input id="np-name" maxlength="120" autocomplete="off" required placeholder="First and last name"></div>
+      <div class="field"><label for="np-email">Email</label><input id="np-email" type="email" maxlength="200" autocomplete="off" placeholder="The email they sign in with"></div>
+      <div class="field"><label for="np-bday">Birthday</label><input id="np-bday" type="date"></div>
+      <div class="field"><label for="np-phone">Phone Number</label><input id="np-phone" type="tel" maxlength="40"></div>
+      ${(S.servingChoices || []).length ? `<div class="field"><span class="label">Places They Serve</span><div class="checklist">${S.servingChoices.map(x => `<button type="button" class="serve-opt" data-act="serve-toggle" data-value="${esc(x)}" aria-pressed="false"><span class="box" aria-hidden="true">${ICON.check}</span>${esc(x)}</button>`).join("")}</div></div>` : ""}
+      <span class="hint">They're added to the Roster in SharePoint. To sign in and see their schedule, they also need access to the team's SharePoint site.</span>
+      <div class="actions" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn blue" type="submit" id="np-save">Add to Roster</button><button class="btn" type="button" data-act="np-close">Cancel</button></div></form>`;
+}
+/* The site user id for an email (adds the person to the site's user list if needed). */
+async function siteUserId(email){
+  if (!email) return "";
+  const known = (S.users || []).find(u => lc(u.email) === lc(email)); if (known) return String(known.id);
+  if (DEMO) return "";
+  try {
+    const tok = (await API.msal.acquireTokenSilent({ scopes: [`https://${CONFIG.siteHost}/AllSites.Write`], account: API.account })).accessToken;
+    const res = await fetch(`https://${CONFIG.siteHost}${CONFIG.sitePath}/_api/web/ensureuser`, { method: "POST",
+      headers: { Authorization: "Bearer " + tok, Accept: "application/json;odata=nometadata", "Content-Type": "application/json;odata=nometadata" },
+      body: JSON.stringify({ logonName: email }) });
+    if (!res.ok) return "";
+    return String((await res.json()).Id || "");
+  } catch(e){ return ""; }
+}
+
 async function start(){
   S.phase = "boot"; render();
   try {
     const signedIn = await API.init();
     if (!signedIn){ S.phase = "signin"; render(); return; }
     const data = await API.load();
-    S.me = data.me; S.items = data.items; S.names = data.names; S.servingChoices = data.servingChoices || []; S.choices = data.choices || {}; S.users = data.users || []; S.announcements = data.announcements || []; markNewAnns(); S.messages = data.messages || [];
+    S.me = data.me; S.items = data.items; S.names = [...new Set([...(data.names || []), ...data.items.filter(isProfile).map(i => i.fullName).filter(Boolean)])];   // Roster names added in the app aren't Full Name choices yet
+    S.servingChoices = data.servingChoices || []; S.choices = data.choices || {}; S.users = data.users || []; S.announcements = data.announcements || []; markNewAnns(); S.messages = data.messages || [];
     const t = new Date(); S.cal.month = new Date(t.getFullYear(), t.getMonth(), 1); S.cal.sel = todayKey();
     restoreNav();
     S.phase = "ready"; render(); maybeConfetti(); updateBadge();
