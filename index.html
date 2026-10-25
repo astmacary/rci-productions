@@ -140,6 +140,21 @@ h1.greet{font-family:var(--display);font-weight:700;font-size:clamp(30px,8vw,40p
 .c2-btns .iconbtn svg{width:17px;height:17px}
 .c2 .iconbtn.save-btn:not(:disabled){background:transparent;border:2px solid var(--accent);color:var(--accent)}
 .admin-row.c2.locked .c2-face .av{opacity:.75}
+.c2-face .av.face{width:58px;height:58px;font-size:18px}
+.c2-namepick{position:relative;display:block;cursor:pointer;line-height:1.25}
+.c2-namepick .c2-name{display:inline}
+.admin-row.c2.locked .c2-namepick{cursor:default}
+.admin-row.c2.locked .c2-dd{display:none}
+.c2-dd{display:inline-grid;vertical-align:-5px;margin-left:6px;place-items:center;width:24px;height:24px;border-radius:50%;background:#FFFFFF;color:#0B1D33;border:1px solid var(--line);flex:none;box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.c2-dd svg{width:13px;height:13px;transform:rotate(90deg)}
+.c2-dd.inline-dd{display:inline-grid;width:20px;height:20px;vertical-align:-4px}
+.c2-dd.inline-dd svg{width:11px;height:11px}
+.c2-sel{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px}
+.c2-sel:disabled{display:none}
+.c2-pub{display:flex;align-items:center;gap:10px;padding-top:8px;border-top:1px solid var(--line)}
+.c2-pub > span{font-size:11.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;flex:none}
+.c2-pub select{flex:1;min-width:0;padding:6px 10px;min-height:34px;font-size:14px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px}
+.admin-row.c2.locked .c2-pub select{opacity:.55}
 .admin-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
 .admin-title{display:flex;flex-direction:column;gap:1px;min-width:0}
 .admin-title .times{margin-top:2px;gap:0 14px}
@@ -492,7 +507,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "59";
+const APP_VERSION = "60";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1279,8 +1294,13 @@ function viewMember(){
       <dt>First Name</dt><dd>${esc(p.first || "—")}</dd>
       <dt>Birthday</dt><dd>${esc(bd)}</dd>
     </dl></section>
-    <section><h2 class="section-label">Places I Serve</h2>
-      ${p.serving.length ? `<ul class="panel rows">${p.serving.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<div class="empty">No serving areas listed yet.</div>`}</section>
+    ${isEditor() ? (() => { const choices = [...new Set([...(S.servingChoices || []), ...p.serving])];
+      return `<section><h2 class="section-label">Places They Serve</h2>
+      <form class="panel stack" id="memberServeForm" data-id="${esc(p.id)}"><span class="hint">Admins: check the places ${esc(p.first || firstOf(p.fullName))} serves, then save. These decide which names Edit Schedule offers for each position.</span>
+        <div class="checklist">${choices.map(x => `<button type="button" class="serve-opt" data-act="serve-toggle" data-value="${esc(x)}" aria-pressed="${p.serving.includes(x)}"><span class="box" aria-hidden="true">${ICON.check}</span>${esc(x)}</button>`).join("")}</div>
+        <button class="btn blue block" type="submit" id="ms-save">Save Places They Serve</button></form></section>`; })()
+    : `<section><h2 class="section-label">Places I Serve</h2>
+      ${p.serving.length ? `<ul class="panel rows">${p.serving.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<div class="empty">No serving areas listed yet.</div>`}</section>`}
     ${wallSection(p)}
     ${next.length ? `<section><h2 class="section-label">Serving Next</h2><div class="list">${next.map(i=>`<div class="panel" style="padding:10px 14px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>${esc(i.role)}</b><span class="sub" style="margin:0">${esc(fmtShort(i.date))}</span></div>`).join("")}</div></section>` : ""}
     ${managePanel(p)}`;
@@ -1513,6 +1533,16 @@ function bySection(list, html, scope = "admin"){
     return h ? secBlock(`${scope}:${h}`, h, part.length, html(part)) : `<section class="role-sec">${html(part)}</section>`;
   }).join("");
 }
+/* Names offered for a position: people whose Serving tags include it ("Gimbal 2 Operator" also matches the
+   "Gimbal Operator" tag). Archived people are left out. The name already on the row is always kept. */
+function namesForRole(role, current){
+  const r = lc((role || "").trim()), r2 = r.replace(/\s+\d+\b/g, "");
+  const tagged = S.items.filter(p => isProfile(p) && !p.gone && p.fullName && (p.serving || []).some(t => { const x = lc(t); return x === r || x === r2; }))
+    .map(p => p.fullName).sort((a, b) => a.localeCompare(b));
+  const list = [...new Set(tagged)];
+  if (current && !list.includes(current)) list.unshift(current);
+  return list;
+}
 /* Inline "Delete this position?" check on an Edit Schedule card. */
 function delAsk(i){
   if (S.delAsk !== i.id) return "";
@@ -1545,21 +1575,20 @@ function viewAdmin(){
     const dis = locked ? "disabled" : "";
     return `<form class="panel admin-row c2 ${locked ? "locked" : ""}" data-id="${sid}">
       <div class="c2-main"><span class="c2-face" data-face>${faceFor(i.personId, i.fullName)}</span>
-        <div class="c2-info"><b class="c2-name" data-nm>${esc(i.fullName || "Not assigned")}</b><span class="c2-pos">${esc(i.role || "No position")}</span><span class="sub c2-sub">${esc([i.category, fmtShort(i.date)].filter(Boolean).join(" · "))}</span></div>
+        <div class="c2-info">
+          <label class="c2-namepick" title="Choose a name"><b class="c2-name" data-nm>${esc(i.fullName || "Not assigned")}</b><span class="c2-dd" aria-hidden="true">${ICON.next}</span>
+            <select class="c2-sel" id="ad-name-${sid}" data-f="ChoiceNames" aria-label="Choose a name for ${esc(i.role || "this position")}" ${dis}>${opts(namesForRole(i.role, i.fullName), i.fullName, "— Not assigned —")}</select></label>
+          <input type="hidden" data-f="PersonLookupId" value="${esc(i.personId || "")}">
+          <span class="c2-pos">${esc(i.role || "No position")}</span><span class="sub c2-sub">${esc([i.category, fmtShort(i.date)].filter(Boolean).join(" · "))}</span></div>
         <div class="c2-side">${statusPill(i)}<div class="c2-btns"><button class="iconbtn del-btn" type="button" data-act="del-ask" data-id="${sid}" aria-label="Delete this position" title="Delete">${ICON.trash}</button>${locked
           ? `<button class="iconbtn notes-btn" type="button" data-act="admin-unlock" data-id="${sid}" aria-label="Edit this assignment" title="Edit">${ICON.pencil}</button>`
           : saveIcon()}</div></div>
       </div>${delAsk(i)}
-      <div class="admin-grid">
-        <div class="field wide"><label for="ad-name-${sid}">Full Name</label>
-          <select id="ad-name-${sid}" data-f="ChoiceNames" ${dis}>${opts(S.names.filter(n => n === i.fullName || !goneName(n)), i.fullName, "— Not assigned —")}</select>
-          <input type="hidden" data-f="PersonLookupId" value="${esc(i.personId || "")}"><span class="hint warn-text" data-who>${whoWarn(i.personId, i.fullName)}</span></div>
-        <div class="field wide"><label for="ad-pub-${sid}">Published</label><select id="ad-pub-${sid}" data-f="Published" ${dis}>${opts((S.choices || {}).published, i.published, "—")}</select></div>
-      </div>
+      <label class="c2-pub"><span>Published</span><select id="ad-pub-${sid}" data-f="Published" ${dis}>${opts((S.choices || {}).published, i.published, "—")}</select></label>
     </form>`;
   };
   return `${backBar("Edit Schedule")}
-    <ol class="panel steps"><li>Choose a name from the drop down menu.</li><li>Change the status to <b>"Published"</b> and hit the <span class="inline-check" aria-label="check">${ICON.check}</span> to save.</li></ol>
+    <ol class="panel steps"><li>Tap the name (or the white <span class="c2-dd inline-dd" aria-hidden="true">${ICON.next}</span> button) to choose who serves.</li><li>Change the status to <b>"Published"</b> and hit the <span class="inline-check" aria-label="check">${ICON.check}</span> to save.</li></ol>
     <div class="date-chips" role="group" aria-label="Service dates">${chips}${adminPickChip()}</div>
     ${adminPickField()}
     ${adminDayHeader(k, dayRows)}
@@ -1906,6 +1935,17 @@ document.addEventListener("submit", async e => {
     } catch(err){ toast("Couldn't change it. " + err.message, true); btn.disabled = false; btn.classList.remove("busy"); render(); }
     return;
   }
+  if (e.target.id === "memberServeForm"){
+    if (!isEditor()) return;
+    const person = S.items.find(i => i.id === e.target.dataset.id && isProfile(i)); if (!person) return;
+    const serving = [...e.target.querySelectorAll('.serve-opt[aria-pressed="true"]')].map(b => b.dataset.value);
+    const btn = $("#ms-save"); btn.disabled = true; btn.textContent = "Saving…";
+    try {
+      await API.update(person.id, { "Serving@odata.type": "Collection(Edm.String)", Serving: serving });
+      person.serving = serving; toast(`Saved places for ${person.first || firstOf(person.fullName)}`); render();
+    } catch(err){ toast("Couldn't save. " + err.message, true); btn.disabled = false; btn.textContent = "Save Places They Serve"; }
+    return;
+  }
   if (e.target.id === "absenceForm"){
     const p = absPerson(); if (!p) return;
     const me = myProfile(), other = !me || p.id !== me.id;
@@ -2033,7 +2073,7 @@ document.addEventListener("change", async e => {
     if (e.target.dataset.f === "ChoiceNames"){
       const match = personForName(e.target.value);
       row.querySelector('[data-f="PersonLookupId"]').value = match ? match.id : "";
-      row.querySelector("[data-who]").textContent = whoWarn(match ? match.id : "", e.target.value);
+      const who = row.querySelector("[data-who]"); if (who) who.textContent = whoWarn(match ? match.id : "", e.target.value);
       row.querySelector("[data-face]").innerHTML = faceFor(match ? match.id : "", e.target.value);
       const nm = row.querySelector("[data-nm]"); if (nm) nm.textContent = e.target.value || "Not assigned";
       hydratePhotos();
