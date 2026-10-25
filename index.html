@@ -13,7 +13,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="RCI Productions">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}#ptr{position:fixed;top:0;left:0;right:0;height:0;overflow:hidden;z-index:60;display:flex;align-items:flex-end;justify-content:center;background:var(--surface);color:var(--muted);font-weight:600;font-size:13px;border-bottom:1px solid var(--line);transition:height .12s ease;padding-top:env(safe-area-inset-top,0px)}
+#ptr span{padding:0 0 12px}
+#ptr.ready{color:var(--accent)}
+.pill.new-pill{background:var(--accent);color:var(--accent-ink);font-size:10.5px;padding:1px 7px;vertical-align:2px;margin-right:4px}
+</style>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@500&display=swap">
@@ -455,7 +459,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "55";
+const APP_VERSION = "56";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1004,7 +1008,7 @@ function annCard(a){
   const lines = a.text.split(/\n/).map(l => l.trim()).filter(Boolean);
   const head = lines.shift() || "", rest = lines.join("\n");
   return `<article class="ann-card">
-    <div class="ann-body"><b class="ann-title">${esc(head)}</b>${rest ? `<p class="ann-text">${esc(rest)}</p>` : ""}${S.annEdit ? annEditLine(a) : ""}</div>
+    <div class="ann-body"><b class="ann-title">${isNewAnn(a) ? newPill() : ""}${esc(head)}</b>${rest ? `<p class="ann-text">${esc(rest)}</p>` : ""}${S.annEdit ? annEditLine(a) : ""}</div>
     ${a.flyer ? `<button class="flyer" data-act="flyer-open" data-flyer="${a.id}" aria-label="Open the flyer"><span class="flyer-load">Loading…</span></button>` : ""}
   </article>`;
 }
@@ -1949,13 +1953,54 @@ document.addEventListener("change", async e => {
 /* ============================================================
    START
    ============================================================ */
+
+/* ---------- "NEW" tag: announcements added since this person last opened the app (kept in this browser) ---------- */
+function markNewAnns(){
+  S.newAnns = new Set();
+  const key = "seen-anns:" + location.pathname + ":" + ((S.me && S.me.emails && S.me.emails[0]) || "");
+  const ids = (S.announcements || []).map(a => String(a.id));
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw){ const seen = new Set(JSON.parse(raw)); ids.forEach(id => { if (!seen.has(id)) S.newAnns.add(id); }); ids.forEach(id => seen.add(id)); localStorage.setItem(key, JSON.stringify([...seen].slice(-300))); }
+    else localStorage.setItem(key, JSON.stringify(ids));   // first time on this phone: nothing is "new"
+  } catch(e){}
+}
+const isNewAnn = a => !!(S.newAnns && S.newAnns.has(String(a.id)));
+const newPill = () => `<span class="pill new-pill">NEW</span> `;
+
+/* ---------- Pull down at the top of any page to refresh ---------- */
+(function(){
+  const ind = document.createElement("div"); ind.id = "ptr"; ind.innerHTML = "<span>↓ Pull to refresh</span>";
+  document.addEventListener("DOMContentLoaded", () => document.body.appendChild(ind));
+  if (document.body) document.body.appendChild(ind);
+  let y0 = null, h = 0;
+  const editing = t => t && t.closest && t.closest("input,textarea,select,[contenteditable='true'],iframe,.date-chips,.grid7");
+  addEventListener("touchstart", e => {
+    y0 = (window.scrollY <= 0 && e.touches.length === 1 && !editing(e.target) && !editing(document.activeElement)) ? e.touches[0].clientY : null; h = 0;
+  }, { passive: true });
+  addEventListener("touchmove", e => {
+    if (y0 == null) return;
+    const dy = e.touches[0].clientY - y0;
+    if (dy <= 0 || window.scrollY > 0){ ind.style.height = "0"; h = 0; return; }
+    h = Math.min(dy * 0.5, 90); ind.style.height = h + "px";
+    const ready = h >= 60; ind.classList.toggle("ready", ready);
+    ind.firstChild.textContent = ready ? "↻ Release to refresh" : "↓ Pull to refresh";
+  }, { passive: true });
+  addEventListener("touchend", () => {
+    if (y0 == null) return; y0 = null;
+    if (h >= 60){ ind.firstChild.textContent = "Refreshing…"; ind.style.height = "48px"; setTimeout(() => location.reload(), 120); }
+    else ind.style.height = "0";
+    h = 0;
+  });
+})();
+
 async function start(){
   S.phase = "boot"; render();
   try {
     const signedIn = await API.init();
     if (!signedIn){ S.phase = "signin"; render(); return; }
     const data = await API.load();
-    S.me = data.me; S.items = data.items; S.names = data.names; S.servingChoices = data.servingChoices || []; S.choices = data.choices || {}; S.users = data.users || []; S.announcements = data.announcements || []; S.messages = data.messages || [];
+    S.me = data.me; S.items = data.items; S.names = data.names; S.servingChoices = data.servingChoices || []; S.choices = data.choices || {}; S.users = data.users || []; S.announcements = data.announcements || []; markNewAnns(); S.messages = data.messages || [];
     const t = new Date(); S.cal.month = new Date(t.getFullYear(), t.getMonth(), 1); S.cal.sel = todayKey();
     restoreNav();
     S.phase = "ready"; render(); maybeConfetti(); updateBadge();
