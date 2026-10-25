@@ -145,8 +145,8 @@ h1.greet{font-family:var(--display);font-weight:700;font-size:clamp(30px,8vw,40p
 .c2-namepick .c2-name{display:inline}
 .admin-row.c2.locked .c2-namepick{cursor:default}
 .admin-row.c2.locked .c2-dd{display:none}
-.c2-dd{display:inline-grid;vertical-align:-5px;margin-left:6px;place-items:center;width:24px;height:24px;border-radius:50%;background:#FFFFFF;color:#0B1D33;border:1px solid var(--line);flex:none;box-shadow:0 1px 3px rgba(0,0,0,.18)}
-.c2-dd svg{width:13px;height:13px;transform:rotate(90deg)}
+.c2-dd{display:inline-grid;vertical-align:-4px;margin-left:4px;place-items:center;width:22px;height:22px;background:none;border:none;box-shadow:none;color:var(--fg);flex:none}
+.c2-dd svg{width:16px;height:16px;transform:rotate(90deg)}
 .c2-dd.inline-dd{display:inline-grid;width:20px;height:20px;vertical-align:-4px}
 .c2-dd.inline-dd svg{width:11px;height:11px}
 .c2-sel{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px}
@@ -507,7 +507,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "60";
+const APP_VERSION = "61";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1588,7 +1588,7 @@ function viewAdmin(){
     </form>`;
   };
   return `${backBar("Edit Schedule")}
-    <ol class="panel steps"><li>Tap the name (or the white <span class="c2-dd inline-dd" aria-hidden="true">${ICON.next}</span> button) to choose who serves.</li><li>Change the status to <b>"Published"</b> and hit the <span class="inline-check" aria-label="check">${ICON.check}</span> to save.</li></ol>
+    <ol class="panel steps"><li>Tap the name (or the <span class="c2-dd inline-dd" aria-hidden="true">${ICON.next}</span> beside it) to choose who serves.</li><li>Change the status to <b>"Published"</b> and hit the <span class="inline-check" aria-label="check">${ICON.check}</span> to save.</li></ol>
     <div class="date-chips" role="group" aria-label="Service dates">${chips}${adminPickChip()}</div>
     ${adminPickField()}
     ${adminDayHeader(k, dayRows)}
