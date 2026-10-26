@@ -554,7 +554,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "69";
+const APP_VERSION = "70";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -2004,7 +2004,7 @@ document.addEventListener("click", async e => {
       const prevLabel = b.textContent; b.disabled = true; b.textContent = "Sharing…";
       try {
         const tok = (await API.msal.acquireTokenSilent({ scopes: [`https://${CONFIG.siteHost}/AllSites.FullControl`], account: API.account })).accessToken;
-        const r = await fetch(`${siteUrl}/_api/web/shareobject`, {
+        const r = await fetch(`${siteUrl}/_api/SP.Web.ShareObject`, {
           method: "POST",
           headers: { Authorization: "Bearer " + tok, Accept: "application/json;odata=nometadata", "Content-Type": "application/json;odata=verbose" },
           body: JSON.stringify({
