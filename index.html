@@ -571,7 +571,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "82";
+const APP_VERSION = "83";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -2664,7 +2664,15 @@ const Onboarding = {
     const normal=value=>String(value || '').trim().toLowerCase();
     const myEmails=new Set(S.me.emails.map(normal));
     // Use exact email/UPN matching, never a display name, to confirm a first sign-in.
-    const profiles=S.items.filter(p=>this.writable(p) && !p.gone && (myEmails.has(normal(this.email(p))) || (!this.email(p) && myEmails.has(normal(p.email)))));
+    let profiles=S.items.filter(p=>this.writable(p) && !p.gone && (myEmails.has(normal(this.email(p))) || (!this.email(p) && myEmails.has(normal(p.email)))));
+    if(!profiles.length){
+      // Guest sessions may omit their original email. SharePoint's authenticated
+      // current-user ID is authoritative and matches the roster's person lookup.
+      try {
+        const current=await this.sp('web/currentuser?$select=Id,LoginName');
+        if(current?.Id) profiles=S.items.filter(p=>this.writable(p) && !p.gone && String(p.personId)===String(current.Id));
+      } catch(e){ return; }
+    }
     if(profiles.length!==1 || profiles[0].accessStatus==='Complete') return;
     const p=profiles[0];
     try {
