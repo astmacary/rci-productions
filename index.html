@@ -279,7 +279,7 @@ a.btn{text-decoration:none}
 .btn.decline{background:var(--stop);border-color:var(--stop);color:#FFFFFF}
 .btn.decline-soft{color:var(--bad)}
 /* Next 7 Days on Home: theme-colored cards (navy date block, gold details) */
-.next7 .cue:not(.abs){border:1px solid color-mix(in srgb,var(--accent) 40%,var(--line));border-left:4px solid var(--accent);background:linear-gradient(135deg,var(--accent-soft),var(--surface) 72%);box-shadow:0 4px 16px -12px var(--accent)}
+.next7 .cue:not(.abs){border:1px solid color-mix(in srgb,var(--accent) 40%,var(--line));border-left:4px solid var(--accent);background:var(--surface);box-shadow:0 4px 16px -12px var(--accent)}
 .next7 .cue:not(.abs) .when{background:#0B1D33;color:#FFFFFF}
 .next7 .cue:not(.abs) .when .day{color:#D2B07C;font-size:32px}
 .next7 .cue:not(.abs) .when .dow,.next7 .cue:not(.abs) .when .mon{opacity:.9}
@@ -570,7 +570,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "74";
+const APP_VERSION = "75";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
