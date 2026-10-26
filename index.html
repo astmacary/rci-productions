@@ -278,6 +278,13 @@ a.btn{text-decoration:none}
 .btn.accept{background:var(--go);border-color:var(--go);color:#FFFFFF}
 .btn.decline{background:var(--stop);border-color:var(--stop);color:#FFFFFF}
 .btn.decline-soft{color:var(--bad)}
+.info-card{position:relative}
+.info-card.is-editing{display:none}
+.info-card .card-edit{position:absolute;top:10px;right:10px;width:32px;height:32px}
+.info-card .card-edit svg{width:15px;height:15px}
+.tile.abs-tile .av{aspect-ratio:4/3}
+.tile.abs-tile .av img{object-position:center 25%}
+
 .cal-roster .tile .av{aspect-ratio:4/3}
 .cal-roster .tile .av img{object-position:center 25%}
 .access-flag{font-size:10px !important;padding:2px 8px !important;top:8px !important;right:8px !important;letter-spacing:.05em}
@@ -409,8 +416,8 @@ ul.ann li.ann-today{background:var(--accent-soft);border-left:4px solid var(--ac
 .tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:0;overflow:hidden;text-align:left;display:flex;flex-direction:column;width:100%;min-width:0}
 .tile .av{width:100%;height:auto;aspect-ratio:1/1;border-radius:0;font-size:20px}
 .tile .meta{padding:5px 6px 7px;min-width:0;display:flex;flex-direction:column;gap:1px}
-.tile .meta b{font-weight:700;font-size:11.5px;line-height:1.2;overflow-wrap:break-word;hyphens:auto}
-.tile .meta small{color:var(--muted);font-size:10.5px;line-height:1.25;overflow-wrap:break-word;hyphens:auto}
+.tile .meta b{font-weight:700;font-size:11.5px;line-height:1.2;overflow-wrap:break-word;hyphens:none;-webkit-hyphens:none}
+.tile .meta small{color:var(--muted);font-size:10.5px;line-height:1.25;overflow-wrap:break-word;hyphens:none;-webkit-hyphens:none}
 @media (max-width:359px){.tile .meta b{font-size:10.5px}.tile .meta small{font-size:9.5px}}
 /* People rows */
 .person{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;width:100%;text-align:left}
@@ -591,7 +598,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "86";
+const APP_VERSION = "87";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1421,7 +1428,7 @@ function viewMember(){
   return `${backBar("About " + (p.first || firstOf(p.fullName)))}${goneNote(p)}
     <section class="panel profile-hero">${Onboarding.flag(p)}${avatar(p,"lg")}<h2>${esc(p.fullName)}</h2>${adminSlot(p)}
       ${p.email && myProfile()?.id !== p.id ? `<a class="btn blue" href="mailto:${esc(p.email)}">${ICON.mail}Email Me</a>` : ""}</section>${Onboarding.panel(p)}
-    <section class="panel"><dl class="kv">
+    ${cardEditForm(p)}<section class="panel info-card ${S.cardEdit === p.id ? "is-editing" : ""}">${cardEditBtn(p)}<dl class="kv">
       <dt>First Name</dt><dd>${esc(p.first || firstOf(p.fullName) || "—")}</dd>
       <dt>Birthday</dt><dd>${esc(bd)}</dd>
       ${(() => { const em = p.email || p.pendingEmail || ""; return `<dt>Email</dt><dd>${em ? `<a href="mailto:${esc(em)}" style="color:var(--accent);font-weight:600;word-break:break-all">${esc(em)}</a>` : "—"}</dd>`; })()}
@@ -2081,6 +2088,8 @@ document.addEventListener("click", async e => {
       catch(err){ toast("Couldn't save that. " + err.message, true); }
       S.busy.delete("adm-" + p.id); render(); break;
     }
+    case "card-edit": S.cardEdit = b.dataset.id; render(); $("#ce-bday")?.focus(); break;
+    case "card-edit-cancel": S.cardEdit = null; render(); break;
     case "share-app": shareApp(); break;
     case "install-hide": S.installHidden = true; render(); break;
     case "ask-decline": S.confirm = item.id; render(); break;
@@ -2121,6 +2130,21 @@ document.addEventListener("click", async e => {
 
 document.addEventListener("submit", async e => {
   e.preventDefault();
+  if (e.target.id === "cardEditForm"){
+    const p = S.items.find(i => String(i.id) === e.target.dataset.id); if (!p || !canEditCard(p)) return;
+    const bday = $("#ce-bday").value, phone = $("#ce-phone").value.trim(), emEl = $("#ce-email"), em = emEl && !emEl.disabled ? emEl.value.trim().toLowerCase() : null;
+    if (em && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){ toast("That email doesn't look right.", true); return; }
+    const f = { Birthday: toSp(bday), PhoneNumber: phone || null };
+    const first = $("#ce-first").value.trim(); f.Name = first || null;
+    if (em !== null && em !== (p.pendingEmail || "")) Object.assign(f, { Notes: em ? "Pending sign-in: " + em : "" });
+    const btn = $("#ce-save"); btn.disabled = true; btn.textContent = "Saving…";
+    try {
+      await API.update(p.id, f);
+      Object.assign(p, { birthday: bday, phone }); if (f.Name !== undefined) p.first = first; if (em !== null){ p.pendingEmail = em; if (!p.personId) p.email = em; }
+      S.cardEdit = null; toast(`Saved ${p.fullName}’s info`); render();
+    } catch(err){ toast("Couldn't save. " + err.message, true); btn.disabled = false; btn.textContent = "Save"; }
+    return;
+  }
   if (e.target.id === "newPersonForm"){
     if (!isEditor()) return;
     const name = $("#np-name").value.trim().replace(/\s+/g, " "), email = $("#np-email").value.trim();
@@ -2512,6 +2536,23 @@ function adminControl(p){
   else body = `<p class="hint" style="margin:0">${on ? `${nm} can edit the schedule, announcements and the team.` : `Admins can edit the schedule, announcements and the team.`}</p>
       <div class="actions"><button class="btn ${on ? "decline-soft" : "blue"}" data-act="admin-set" data-id="${esc(p.id)}" data-on="${on ? "0" : "1"}" ${busy ? "disabled" : ""}>${busy ? "Saving…" : on ? "Remove Admin" : "★ Make Admin"}</button></div>`;
   return `<section class="panel stack admin-ctl"><h2 class="section-label" style="margin:0">Admin Privileges</h2>${body}</section>`;
+}
+/* Admins: edit a team member's About card (birthday, phone, first name; email too while it isn't linked to a sign-in). */
+const canEditCard = p => isEditor() && !!p && p.id != null && !String(p.id).startsWith("p-") && isProfile(p) && p.editable !== false;
+function cardEditBtn(p){
+  return canEditCard(p) && S.cardEdit !== p.id ? `<button type="button" class="iconbtn card-edit" data-act="card-edit" data-id="${esc(p.id)}" aria-label="Edit ${esc(p.fullName || "")}'s info" title="Edit">${ICON.pencil}</button>` : "";
+}
+function cardEditForm(p){
+  if (!canEditCard(p) || S.cardEdit !== p.id) return "";
+  const linked = !!p.personId, em = p.email || p.pendingEmail || "";
+  return `<form class="panel stack" id="cardEditForm" data-id="${esc(p.id)}">
+      <h2 class="section-label" style="margin:0">Edit ${esc(p.first || firstOf(p.fullName) || "Their")}’s Info</h2>
+      <div class="field"><label for="ce-first">First Name</label><input id="ce-first" maxlength="100" value="${esc(p.first || "")}"></div>
+      <div class="field"><label for="ce-bday">Birthday</label><input id="ce-bday" type="date" value="${esc(p.birthday || "")}"></div>
+      <div class="field"><label for="ce-email">Email</label><input id="ce-email" type="email" maxlength="200" value="${esc(em)}" ${linked ? "disabled" : ""}>
+        ${linked ? `<span class="hint">Linked to their sign-in, so it can't be changed here.</span>` : ""}</div>
+      <div class="field"><label for="ce-phone">Phone Number</label><input id="ce-phone" type="tel" maxlength="255" value="${esc(p.phone || "")}"></div>
+      <div class="actions"><button class="btn blue" type="submit" id="ce-save">Save</button><button class="btn" type="button" data-act="card-edit-cancel">Cancel</button></div></form>`;
 }
 /* "Admin" tag on the profile of anyone in CONFIG.editors (matched by their linked or pending email). */
 function adminTag(p){
