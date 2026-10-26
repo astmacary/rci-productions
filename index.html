@@ -298,13 +298,13 @@ a.btn{text-decoration:none}
 ul.ann li.ann-today{background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:8px;padding-left:10px}
 .pill.today-pill{background:var(--accent);color:var(--accent-ink);font-weight:800}
 .replies{padding:0;overflow:hidden}
-.reply-row{display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid var(--line)}
+.reply-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-top:1px solid var(--line)}
 .reply-row:first-child{border-top:none}
-.reply-row.fresh{background:var(--accent-soft)}
-.reply-row .av.mini,.reply-row .av{width:30px;height:30px;font-size:11px;flex:none}
-.reply-info{display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;min-width:0}
-.reply-info small{flex-basis:100%;color:var(--muted);font-size:12.5px}
-.pill.ok{background:var(--ok-soft,rgba(46,160,67,.15));color:var(--ok,#2E8B57)}
+.reply-row .av{width:40px;height:40px;font-size:14px;flex:none}
+.reply-info{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1}
+.reply-info b{font-weight:700;overflow-wrap:anywhere}
+.reply-info small{color:var(--muted);font-size:13px}
+.reply-row .pill{flex:none}
 .today-hero{position:relative;display:flex;flex-direction:column;gap:10px;padding:16px 16px 14px;border-radius:var(--r);border:2px solid var(--accent);background:linear-gradient(135deg,var(--accent-soft),var(--surface) 70%);box-shadow:0 6px 22px -10px var(--accent)}
 .today-h{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
 .today-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 0 var(--accent);animation:todayPulse 1.8s ease-out infinite}
@@ -554,7 +554,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "67";
+const APP_VERSION = "68";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1690,6 +1690,13 @@ function recentReplies(){
     if (!byThem) continue;
     out.push({ i, at, accepted: st === "accepted" });
   }
+  for (const i of S.items){
+    if (!isAbsent(i) || !i.date) continue;
+    const mm = String(i.notes || "").replace(/<[^>]*>/g, " ").match(/Declined\s+([^<\n]+?)\s*$/i); if (!mm) continue;
+    const m = S.modById.get(String(i.id)); if (!m || !m.at) continue;
+    const at = Date.parse(m.at); if (!(at >= since)) continue;
+    out.push({ i: { ...i, role: mm[1].trim() }, at, accepted: false });
+  }
   return out.sort((a, b) => b.at - a.at).slice(0, 12);
 }
 const newReplyCount = () => recentReplies().filter(r => r.at > repliesSeenAt).length;
@@ -1700,13 +1707,12 @@ function replyAgo(ms){
   const d = Math.round(h / 24); return d === 1 ? "yesterday" : d + " days ago";
 }
 function repliesPanel(){
-  const list = recentReplies(); if (!isEditor() || !list.length) return "";
-  const fresh = list.filter(r => r.at > repliesSeenAt).length;
-  const html = `<section><h2 class="section-label">Recent Replies <span class="count ${fresh ? "hot" : ""}">${fresh || list.length}</span></h2>
-    <div class="panel replies">${list.map(({ i, at, accepted }) => `<div class="reply-row ${at > repliesSeenAt ? "fresh" : ""}">${avatar(i, "mini")}
-      <div class="reply-info"><b>${esc(i.fullName || "Someone")}</b> <span class="pill ${accepted ? "ok" : "bad"}">${accepted ? "Accepted" : "Declined"}</span>
-        <small>${esc(i.role || "")}${i.role ? " · " : ""}${esc(fmtShort(i.date))} · ${esc(replyAgo(at))}</small></div></div>`).join("")}</div></section>`;
-  // Seen once shown; the highlight stays until the app is opened again.
+  // Only replies that came in since this admin last opened the app (like the NEW tag on announcements).
+  const list = recentReplies().filter(r => r.at > repliesSeenAt); if (!isEditor() || !list.length) return "";
+  const html = `<section><h2 class="section-label">Recent Replies <span class="count hot">${list.length}</span></h2>
+    <div class="panel replies">${list.map(({ i, at, accepted }) => `<div class="reply-row">${avatar(i, "sm")}
+      <div class="reply-info"><b>${esc(i.fullName || "Someone")}</b><small>${esc(i.role || "")}${i.role ? " · " : ""}${esc(fmtShort(i.date))} · ${esc(replyAgo(at))}</small></div>
+      ${accepted ? `<span class="pill ok">CONFIRMED</span>` : `<span class="pill bad">DECLINED</span>`}</div>`).join("")}</div></section>`;
   try { localStorage.setItem(REPLY_KEY, String(Date.now())); } catch(_){}
   return html;
 }
@@ -1817,6 +1823,22 @@ async function setStatus(item, accept){
   S.busy.add(item.id); render();
   const fields = accept ? { Status: "Accepted", Published: "Request Approved" } : { Status: "Declined", Published: "Request Denied" };
   try {
+    if (!accept){
+      // Declining: mark them Absent for that date (so Edit Schedule leaves them out of the name lists)
+      // and open the position back up for someone else. The Absent row records the decline for Recent Replies.
+      const note = `Declined ${item.role || "position"}`;
+      const extra = { Title: "Time Off", TimeOffDate: toSp(item.date), Status: "Unavailable", Published: "--", ChoiceNames: item.fullName || null, Notes: note };
+      if (item.personId) extra.PersonLookupId = String(item.personId);
+      if (!S.items.some(i => isAbsent(i) && i.date === item.date && mine(i))){
+        const id = await API.addRow(item.date, CONFIG.absentCategory, extra);
+        const row = normalize(id, {}); Object.assign(row, { role: "Time Off", date: item.date, timeOff: item.date, category: CONFIG.absentCategory, status: "Unavailable", published: "--", fullName: item.fullName, email: item.email, personId: item.personId, notes: note });
+        S.items.push(row);
+      }
+      await API.updateAssignment(item.id, { ChoiceNames: null, PersonLookupId: null, Status: "Pending", Published: "--" });
+      Object.assign(item, { fullName: "", personId: "", email: "", status: "Pending", published: "--" });
+      toast(`Declined: ${item.role}, ${fmtShort(item.date)}. You're marked absent that day.`);
+      S.busy.delete(item.id); S.confirm = null; render(); updateBadge(); return;
+    }
     await API.update(item.id, fields);
     item.status = fields.Status; item.published = fields.Published;
     toast(accept ? `Accepted: ${item.role}, ${fmtShort(item.date)}` : `Declined: ${item.role}, ${fmtShort(item.date)}`);
