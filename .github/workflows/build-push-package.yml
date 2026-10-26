@@ -1,0 +1,44 @@
+name: Build push-service deployment package
+on:
+  push:
+    branches: [codex/lock-screen-push]
+    paths:
+      - .github/workflows/build-push-package.yml
+      - push-server/src/**
+      - push-server/package.json
+      - push-server/package-lock.json
+      - push-server/host.json
+permissions:
+  contents: write
+concurrency:
+  group: push-service-package
+  cancel-in-progress: false
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: push-server/package-lock.json
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: push-server
+      - run: npm test
+        working-directory: push-server
+      - name: Package tested runtime
+        working-directory: push-server
+        run: |
+          mkdir -p deploy
+          zip -q -r deploy/rci-push.zip host.json package.json package-lock.json src node_modules
+          sha256sum deploy/rci-push.zip > deploy/SHA256SUMS
+          printf '%s\n' "$GITHUB_SHA" > deploy/SOURCE_COMMIT
+      - name: Publish deployment package on this branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add push-server/deploy
+          git diff --cached --quiet && exit 0
+          git commit -m 'Build tested push-service deployment package'
+          git push origin HEAD:codex/lock-screen-push

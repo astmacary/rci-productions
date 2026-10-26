@@ -511,6 +511,8 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 <div id="app"></div>
 <div id="toast" class="toast" hidden></div>
 
+<script src="push-config.js"></script>
+<script src="push-client.js"></script>
 <script>
 /* ============================================================
    CONFIGURATION — fill these in after registering the app in
@@ -554,7 +556,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "70";
+const APP_VERSION = "71";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -917,6 +919,11 @@ const DemoAPI = {
   async uploadPhoto(profile, blob){ return JSON.stringify({ demo: URL.createObjectURL(blob) }); }
 };
 const API = DEMO ? DemoAPI : LiveAPI;
+const Push = createPushClient({
+  appId: RCI_PUSH_CONFIG.appId, apiBaseUrl: RCI_PUSH_CONFIG.apiBaseUrl,
+  getToken: () => API.token(), onChange: () => { render(); updateBadge(); },
+  isDemo: () => DEMO, standalone: () => isStandalone(), ios: () => isIOS()
+});
 
 /* ============================================================
    STATE + SELECTORS
@@ -1722,13 +1729,7 @@ function updateBadge(){
   const n = pendingCount() + newReplyCount();   // admins also count new replies
   (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {});
 }
-function badgePanel(){
-  // iPhones only show the badge after notifications are allowed for the installed app.
-  if (!("setAppBadge" in navigator) || !("Notification" in window) || !isStandalone()) return "";
-  if (Notification.permission === "granted") return "";
-  if (Notification.permission === "denied") return `<section class="panel install badge-ask"><h2 class="section-label" style="margin:0">Notifications &amp; App Badge</h2><p>Notifications are turned off. To see a red number on the app icon for pending requests, allow notifications for ${esc(document.title)} in your phone's Settings.</p></section>`;
-  return `<section class="panel install badge-ask"><h2 class="section-label" style="margin:0">Notifications &amp; App Badge</h2><p>Allow notifications so the app icon shows a red number when you have a request waiting.</p><button class="btn badge-red" data-act="badge-on">Allow Notifications</button></section>`;
-}
+function badgePanel(){ return Push.panel(); }
 
 /* ---------- install to home screen ---------- */
 let deferredInstall = null;
@@ -2075,7 +2076,8 @@ document.addEventListener("click", async e => {
     case "cal-next": S.cal.month = new Date(S.cal.month.getFullYear(), S.cal.month.getMonth()+1, 1); render(); break;
     case "cal-today": { const t = new Date(); S.cal.month = new Date(t.getFullYear(), t.getMonth(), 1); S.cal.sel = todayKey(); render(); break; }
     case "copy": try { await navigator.clipboard.writeText(b.dataset.text); toast("Phone number copied"); } catch(err){ toast("Select the number to copy it", true); } break;
-    case "badge-on": try { const r = await Notification.requestPermission(); if (r === "granted"){ updateBadge(); toast("App badge turned on"); } } catch(err){} render(); break;
+    case "badge-on": await Push.enable(); break;
+    case "push-off": try { await Push.disable(); toast("Notifications turned off on this device"); } catch(err){ toast(err.message, true); } break;
     case "wall": go("member", b.dataset.id); requestAnimationFrame(() => { const w = document.getElementById("wall"); if (w) w.scrollIntoView({ block: "start", behavior: "smooth" }); }); break;
     case "msg-ask": S.confirmMsg = b.dataset.id; render(); break;
     case "msg-keep": S.confirmMsg = null; render(); break;
@@ -2092,7 +2094,7 @@ document.addEventListener("click", async e => {
     case "abs-prev": { const A = absState(); A.month = new Date(A.month.getFullYear(), A.month.getMonth()-1, 1); render(); break; }
     case "abs-next": { const A = absState(); A.month = new Date(A.month.getFullYear(), A.month.getMonth()+1, 1); render(); break; }
     case "signin": API.signIn(); break;
-    case "signout": API.signOut(); break;
+    case "signout": try { await Push.disable(); API.signOut(); } catch(err){ toast(err.message, true); } break;
     case "retry": start(); break;
     case "install": if (deferredInstall){ deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall = null; render(); } break;
   }
@@ -2454,6 +2456,7 @@ async function start(){
     const t = new Date(); S.cal.month = new Date(t.getFullYear(), t.getMonth(), 1); S.cal.sel = todayKey();
     restoreNav();
     S.phase = "ready"; render(); maybeConfetti(); updateBadge();
+    void Push.init();
   } catch(e){
     console.error(e); S.error = e.message || String(e); S.phase = "error"; render();
   }
@@ -2486,3 +2489,4 @@ document.addEventListener("visibilitychange", async () => {
 </script>
 </body>
 </html>
+
