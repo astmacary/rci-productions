@@ -278,6 +278,20 @@ a.btn{text-decoration:none}
 .btn.accept{background:var(--go);border-color:var(--go);color:#FFFFFF}
 .btn.decline{background:var(--stop);border-color:var(--stop);color:#FFFFFF}
 .btn.decline-soft{color:var(--bad)}
+.fold-sec.closed > :not(.fold-head){display:none}
+.fold-head{margin:0 0 8px}
+.fold-head .section-label{flex:none}
+.team-h{margin-top:14px}
+.view-toggle{gap:2px}
+.view-toggle .iconbtn{width:32px;height:32px;border:none;background:transparent;color:var(--accent);opacity:.8}
+.view-toggle .iconbtn svg{width:16px;height:16px}
+.view-toggle .iconbtn.on{background:var(--accent-soft);color:var(--accent);opacity:1;border:none}
+.cal-list{gap:0}
+.cal-list .row{padding:8px 12px;align-items:center}
+.cal-list .row .who{gap:12px}
+.daylist.cal-list .row .av.mini{width:42px;height:42px;font-size:14px;margin:0}
+.cal-list .row .who b{font-size:15px}
+
 .ann-sec.closed > :not(.day-h){display:none}
 .ann-head{flex:1;min-width:0;width:auto}
 .ann-head .section-label{flex:none}
@@ -617,7 +631,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "88";
+const APP_VERSION = "89";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1296,6 +1310,20 @@ function annClosed(){
   if (S.annClosed == null){ try { S.annClosed = localStorage.getItem(ANN_CLOSED_KEY) === "1"; } catch(_){ S.annClosed = false; } }
   return S.annClosed && !S.annEdit;
 }
+/* Home sections that fold up with the chevron beside their count (each phone remembers open/closed). */
+const FOLD_KEY = k => "fold:" + location.pathname + ":" + k;
+function foldClosed(k){ S.folds ||= {}; if (S.folds[k] == null){ try { S.folds[k] = localStorage.getItem(FOLD_KEY(k)) === "1"; } catch(_){ S.folds[k] = false; } } return S.folds[k]; }
+function foldHead(k, label, n, hot){
+  return `<button type="button" class="sec-head inline-chev fold-head" data-act="fold" data-k="${k}" aria-expanded="${!foldClosed(k)}"><h2 class="section-label">${label} <span class="count ${hot ? "hot" : ""}">${n}</span></h2><span class="sec-chev" aria-hidden="true">${ICON.next}</span></button>`;
+}
+/* Next 7 Days: red count when something is on it that wasn't there the last time this person opened the app. */
+function newUpCount(up){
+  const key = "seen-up:" + location.pathname + ":" + ((S.me && S.me.emails && S.me.emails[0]) || "");
+  if (!S.seenUp){ let prev = null; try { prev = JSON.parse(localStorage.getItem(key) || "null"); } catch(_){}
+    S.seenUp = new Set(Array.isArray(prev) ? prev : up.map(i => String(i.id)));   // first visit: nothing counts as new
+    try { localStorage.setItem(key, JSON.stringify(up.map(i => String(i.id)))); } catch(_){} }
+  return up.filter(i => !S.seenUp.has(String(i.id))).length;
+}
 function viewHome(){
   const t = todayKey(), wk = addDays(t, 7);
   const todayShown = assignments().some(i => mine(i) && i.date === t && (approved(i) || pending(i)));   // the "You're Serving Today" card
@@ -1321,9 +1349,9 @@ function viewHome(){
         <div class="list">${bdays.map(p => bdayRow(p, myProfile()?.id === p.id ? "That's you! Happy Birthday 🎂" : "Tap to wish them Happy Birthday 🎂", "wall")).join("")}</div></div></section>` : ""}
     ${myWall.length ? `<section><button class="person bday-row" data-act="wall" data-id="${myProfile().id}"><span class="wall-emoji" aria-hidden="true">💌</span><span class="meta"><b>You have ${myWall.length} birthday message${myWall.length > 1 ? "s" : ""}</b><small>Tap to read your Birthday Wall</small></span><span class="chev">${ICON.next}</span></button></section>` : ""}
     ${waitingPanel()}
-    <section><h2 class="section-label">Pending Requests <span class="count ${pend.length?"hot":""}">${pend.length}</span></h2>
+    <section class="fold-sec ${foldClosed("pend") ? "closed" : ""}">${foldHead("pend", "Pending Requests", pend.length, pend.length > 0)}
       ${pend.length ? `<div class="list">${pend.map(i=>cue(i)).join("")}</div>` : `<div class="empty">You have no pending requests right now.</div>`}</section>
-    <section><h2 class="section-label">Next 7 Days <span class="count">${up.length}</span></h2>
+    <section class="fold-sec ${foldClosed("next7") ? "closed" : ""}">${foldHead("next7", "Next 7 Days", up.length, newUpCount(up) > 0)}
       ${up.length ? `<div class="list next7">${up.map(i => isAbsent(i) ? absentCue(i) : cue(i,{pill:true})).join("")}</div>` : `<div class="empty">You have no confirmed assignments this week.</div>`}</section>`;
 }
 
@@ -1342,10 +1370,11 @@ function eventsOn(k){
   return { a, b, none };
 }
 /* Calendar roster: photo squares or a list, picked with two icons beside the day's heading (remembered per phone). */
-const CALVIEW_KEY = "cal-view:" + location.pathname;
+const calViewKey = () => "cal-view:" + location.pathname + ":" + ((S.me && S.me.emails && S.me.emails[0]) || "");
 const ICON_GRID = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>';
 const ICON_LIST = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="6" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="5" cy="18" r="1.6"/><path d="M10 6h11M10 12h11M10 18h11"/></svg>';
-function calView(){ if (!S.calView){ try { S.calView = localStorage.getItem(CALVIEW_KEY) || "grid"; } catch(_){ S.calView = "grid"; } } return S.calView; }
+function calView(){ if (!S.calView){ try { S.calView = localStorage.getItem(calViewKey()) || "grid"; } catch(_){ S.calView = "grid"; } } return S.calView; }
+function servingHead(){ return `<div class="day-h team-h"><h2 class="section-label">Serving Team</h2>${calViewToggle()}</div>`; }
 function calViewToggle(){
   const v = calView();
   return `<div class="view-toggle" role="group" aria-label="Roster view">${[["grid", ICON_GRID, "Photo view"], ["list", ICON_LIST, "List view"]].map(([k, ic, l]) =>
@@ -1389,10 +1418,10 @@ function viewCalendar(){
     </section>
     <section><div class="day-h"><div class="day-t"><h2 class="section-label">${esc(fmtLong(sel))}</h2></div>
         ${hasNotes ? `<button class="iconbtn notes-btn" data-act="notes" data-date="${sel}" aria-label="Production Notes for this day" title="Production Notes">${ICON.notes}</button>` : ""}
-        ${calViewToggle()}${isEditor() ? `<button class="iconbtn notes-btn" data-act="admin-open" data-date="${sel}" aria-label="Edit this day's schedule" title="Edit schedule">${ICON.pencil}</button>` : ""}</div>
+        ${isEditor() ? `<button class="iconbtn notes-btn" data-act="admin-open" data-date="${sel}" aria-label="Edit this day's schedule" title="Edit schedule">${ICON.pencil}</button>` : ""}</div>
       ${ev.none ? `<div class="no-service"><span aria-hidden="true">❌</span> No Service</div>` : ""}
       ${bdayRows ? `<div class="list" style="margin-bottom:10px">${bdayRows}</div>` : ""}
-      ${team ? bySection(ev.a, part => rosterBlock(part), "cal") : (bdayRows || ev.none ? "" : `<div class="empty">No events scheduled.</div>`)}
+      ${team ? servingHead() + bySection(ev.a, part => rosterBlock(part), "cal") : (bdayRows || ev.none ? "" : `<div class="empty">No events scheduled.</div>`)}
     </section>`;
 }
 
@@ -2133,8 +2162,9 @@ document.addEventListener("click", async e => {
     }
     case "card-edit": S.cardEdit = b.dataset.id; render(); $("#ce-bday")?.focus(); break;
     case "card-edit-cancel": S.cardEdit = null; render(); break;
-    case "cal-view": S.calView = b.dataset.view; try { localStorage.setItem(CALVIEW_KEY, S.calView); } catch(_){} render(); break;
+    case "cal-view": S.calView = b.dataset.view; try { localStorage.setItem(calViewKey(), S.calView); } catch(_){} render(); break;
     case "ann-toggle": S.annClosed = !annClosed(); try { localStorage.setItem(ANN_CLOSED_KEY, S.annClosed ? "1" : "0"); } catch(_){} render(); break;
+    case "fold": { const k = b.dataset.k; S.folds ||= {}; S.folds[k] = !foldClosed(k); try { localStorage.setItem(FOLD_KEY(k), S.folds[k] ? "1" : "0"); } catch(_){} render(); break; }
     case "share-app": shareApp(); break;
     case "install-hide": S.installHidden = true; render(); break;
     case "ask-decline": S.confirm = item.id; render(); break;
