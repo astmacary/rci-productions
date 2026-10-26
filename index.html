@@ -283,7 +283,7 @@ a.btn{text-decoration:none}
 .today-btns{display:flex;flex-wrap:wrap;gap:8px}
 .today-item{position:relative}
 .today-cant{position:absolute;top:0;right:0;font:inherit;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:3px 10px;border-radius:999px;border:1px solid var(--bad);color:var(--bad);background:var(--bad-soft);cursor:pointer;white-space:nowrap}
-.today-item .today-role{padding-right:118px}
+
 .today-hero .confirm-row{margin-top:6px}
 .install-guide{border:2px solid var(--accent);background:linear-gradient(135deg,var(--accent-soft),var(--surface) 70%)}
 .ig-signin{margin:6px 0 0;font-size:14px;line-height:1.45}
@@ -294,6 +294,9 @@ a.btn{text-decoration:none}
 .share-app svg{width:16px;height:16px}
 .badge-ask{border:2px solid var(--bad)}
 .btn.badge-red{background:var(--bad);border-color:var(--bad);color:#FFFFFF;font-weight:700;align-self:flex-start}
+.ann-card.ann-today{border:2px solid var(--accent);background:linear-gradient(135deg,var(--accent-soft),var(--surface) 70%);box-shadow:0 6px 22px -12px var(--accent)}
+ul.ann li.ann-today{background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:8px;padding-left:10px}
+.pill.today-pill{background:var(--accent);color:var(--accent-ink);font-weight:800}
 .today-hero{position:relative;display:flex;flex-direction:column;gap:10px;padding:16px 16px 14px;border-radius:var(--r);border:2px solid var(--accent);background:linear-gradient(135deg,var(--accent-soft),var(--surface) 70%);box-shadow:0 6px 22px -10px var(--accent)}
 .today-h{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
 .today-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 0 var(--accent);animation:todayPulse 1.8s ease-out infinite}
@@ -543,7 +546,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "65";
+const APP_VERSION = "66";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1095,8 +1098,8 @@ function annText(v){
 function annCard(a){
   const lines = a.text.split(/\n/).map(l => l.trim()).filter(Boolean);
   const head = lines.shift() || "", rest = lines.join("\n");
-  return `<article class="ann-card">
-    <div class="ann-body"><b class="ann-title">${isNewAnn(a) ? newPill() : ""}${esc(head)}</b>${rest ? `<p class="ann-text">${esc(rest)}</p>` : ""}${S.annEdit ? annEditLine(a) : ""}</div>
+  return `<article class="ann-card${annToday(a) ? " ann-today" : ""}">
+    <div class="ann-body"><b class="ann-title">${annToday(a) ? todayPill() : ""}${isNewAnn(a) ? newPill() : ""}${esc(head)}</b>${rest ? `<p class="ann-text">${esc(rest)}</p>` : ""}${S.annEdit ? annEditLine(a) : ""}</div>
     ${a.flyer ? `<button class="flyer" data-act="flyer-open" data-flyer="${a.id}" aria-label="Open the flyer"><span class="flyer-load">Loading…</span></button>` : ""}
   </article>`;
 }
@@ -1182,13 +1185,10 @@ function todayHero(){
   return `<section class="today-hero" aria-label="Where you're serving today">
     <div class="today-h"><span class="today-dot" aria-hidden="true"></span>You're Serving Today</div>
     ${list.map(i => `<div class="today-item">
-      ${S.confirm === i.id ? "" : `<button class="today-cant" data-act="ask-decline" data-id="${esc(i.id)}">Can't Make It</button>`}
       <div class="today-role">${esc(roleOf(i))}</div>
       <div class="today-meta">${esc(i.category || "")}${i.call ? ` · Call Time <b>${esc(i.call)}</b>` : ""}${i.svcTime ? ` · Service <b>${esc(i.svcTime)}</b>` : ""}</div>
       ${pending(i) ? `<div class="today-act"><span class="pill pending-pill">Needs your reply</span><button class="btn accept" data-act="accept" data-id="${esc(i.id)}" ${S.busy.has(i.id) ? "disabled" : ""}>${S.busy.has(i.id) ? "Saving…" : "Accept"}</button></div>` : ""}
-      ${S.confirm === i.id ? `<div class="confirm-row">Let the team know you can't make it today?
-          <button class="btn decline-soft" data-act="decline" data-id="${esc(i.id)}" ${S.busy.has(i.id) ? "disabled" : ""}>${S.busy.has(i.id) ? "Sending…" : "Yes, I Can't Make It"}</button>
-          <button class="btn" data-act="cancel">Keep It</button></div>` : ""}
+
     </div>`).join("")}
     <div class="today-btns"><button class="btn today-team" data-act="team" data-date="${t}">See Today's Team</button>${S.items.some(i => i.date === t && (typeof isNotesRow === "function" ? isNotesRow(i) : i.role === CONFIG.notesRole) && i.notes) ? `<button class="btn today-team" data-act="notes" data-date="${t}">See Today's Notes</button>` : ""}</div></section>`;
 }
@@ -1600,10 +1600,11 @@ function bySection(list, html, scope = "admin"){
 }
 /* Names offered for a position: people whose Serving tags include it ("Gimbal 2 Operator" also matches the
    "Gimbal Operator" tag). Archived people are left out. The name already on the row is always kept. */
-function namesForRole(role, current){
+function namesForRole(role, current, date){
+  const off = new Set(S.items.filter(i => isAbsent(i) && i.date === date).map(i => lc(i.fullName || "")));
   const r = lc((role || "").trim()), r2 = r.replace(/\s+\d+\b/g, "");
   const tagged = S.items.filter(p => isProfile(p) && !p.gone && lc(p.active) !== "non active" && p.fullName && (p.serving || []).some(t => { const x = lc(t); return x === r || x === r2; }))
-    .map(p => p.fullName).sort((a, b) => a.localeCompare(b));
+    .map(p => p.fullName).filter(n => !off.has(lc(n))).sort((a, b) => a.localeCompare(b));
   const list = [...new Set(tagged)];
   if (current && !list.includes(current)) list.unshift(current);
   return list;
@@ -1642,7 +1643,7 @@ function viewAdmin(){
       <div class="c2-main"><span class="c2-face" data-face>${faceFor(i.personId, i.fullName)}</span>
         <div class="c2-info">
           <label class="c2-namepick" title="Choose a name"><b class="c2-name" data-nm>${esc(i.fullName || "Not assigned")}</b><span class="c2-dd" aria-hidden="true">${ICON.next}</span>
-            <select class="c2-sel" id="ad-name-${sid}" data-f="ChoiceNames" aria-label="Choose a name for ${esc(i.role || "this position")}" ${dis}>${opts(namesForRole(i.role, i.fullName), i.fullName, "— Not assigned —")}</select></label>
+            <select class="c2-sel" id="ad-name-${sid}" data-f="ChoiceNames" aria-label="Choose a name for ${esc(i.role || "this position")}" ${dis}>${opts(namesForRole(i.role, i.fullName, i.date), i.fullName, "— Not assigned —")}</select></label>
           <input type="hidden" data-f="PersonLookupId" value="${esc(i.personId || "")}">
           <span class="c2-pos">${esc(i.role || "No position")}</span><span class="sub c2-sub">${esc([i.category, fmtShort(i.date)].filter(Boolean).join(" · "))}</span></div>
         <div class="c2-side">${statusPill(i)}<div class="c2-btns"><button class="iconbtn del-btn" type="button" data-act="del-ask" data-id="${sid}" aria-label="Delete this position" title="Delete">${ICON.trash}</button>${locked
@@ -1702,7 +1703,7 @@ function installGuide(){
   if (deferredInstall) steps = `<p>Tap <b>Install App</b> to put ${esc(APP_NAME)} on your home screen.</p><button class="btn primary" data-act="install">Install App</button>`;
   else if (isIOS() && !/CriOS|FxiOS|EdgiOS/i.test(navigator.userAgent)) steps = `<ol>${inApp || !/Safari/i.test(navigator.userAgent) ? `<li>Open this link in <b>Safari</b> first (tap ⋯ or the compass, then <b>Open in Safari</b>).</li>` : ""}<li>Tap the <b>two lines</b> on the web address bar below.</li><li>Tap the <b>Share</b> button <span class="ig-share" aria-hidden="true">${ICON.share}</span>.</li><li>Tap the <b>View More</b> drop-down menu.</li><li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open ${esc(APP_NAME)} from your home screen and sign in.</li></ol>`;
   else steps = `<ol>${inApp ? `<li>Open this link in <b>Chrome</b> first.</li>` : ""}<li>Tap the <b>Share</b> button <span class="ig-share" aria-hidden="true">${ICON.share}</span> on the web address bar at the top.</li><li>Tap the <b>View More</b> drop-down menu.</li><li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open ${esc(APP_NAME)} from your home screen and sign in.</li></ol>`;
-  return `<section class="panel install install-guide"><h2 class="section-label" style="margin:0;color:var(--accent)">Add ${esc(APP_NAME)} to Your Home Screen</h2>${steps}<p class="ig-signin"><b>Signing in:</b> if your team leader already has your email address in the system, sign in with <b>that email address</b>. The sign-in page says Microsoft; that's expected. Just follow the prompts (you may get a one-time code by email).</p><button class="linkbtn" data-act="install-hide" style="align-self:flex-start">Not now</button></section>`;
+  return `<section class="panel install install-guide"><h2 class="section-label" style="margin:0;color:var(--accent)">Add the ${esc(APP_NAME)} App to Your Home Screen</h2>${steps}<p class="ig-signin"><b>Signing in:</b> if your team leader already has your email address in the system, sign in with <b>that email address</b>. The sign-in page says Microsoft; that's expected. Just follow the prompts (you may get a one-time code by email).</p><button class="linkbtn" data-act="install-hide" style="align-self:flex-start">Not now</button></section>`;
 }
 function installPanel(){
   if (isStandalone()) return "";
@@ -2208,6 +2209,9 @@ function markNewAnns(){
   try { localStorage.setItem(key, String(Date.now())); } catch(e){}
 }
 const isNewAnn = a => !!(S.newAnns && S.newAnns.has(String(a.id)));
+/* The day before an announcement's Show Until date is the day of the event: highlight it with a TODAY tag. */
+const annToday = a => !!a.until && addDays(todayKey(), 1) === a.until;
+const todayPill = () => `<span class="pill today-pill">TODAY</span> `;
 const newPill = () => `<span class="pill new-pill">NEW</span> `;
 
 /* ---------- Pull down at the top of any page to refresh ---------- */
