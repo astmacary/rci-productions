@@ -278,6 +278,16 @@ a.btn{text-decoration:none}
 .btn.accept{background:var(--go);border-color:var(--go);color:#FFFFFF}
 .btn.decline{background:var(--stop);border-color:var(--stop);color:#FFFFFF}
 .btn.decline-soft{color:var(--bad)}
+.profile-hero{position:relative}
+.access-flag{position:absolute;top:10px;right:10px;font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);color:var(--muted)}
+.access-flag.complete{background:var(--ok-soft);color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,transparent)}
+.access-flag.pending{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+.access-flag.failed{background:var(--bad-soft);color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,transparent)}
+.profile-hero:has(.access-flag){padding-top:40px}
+.actions .share-app{margin-left:0}
+.tile{position:relative}
+.admin-star{position:absolute;top:5px;right:5px;z-index:2;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink);font-size:13px;line-height:1;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+
 .pill.admin-tag{background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent);font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:11.5px;padding:3px 10px}
 /* Next 7 Days on Home: theme-colored cards (navy date block, gold details) */
 .next7 .cue:not(.abs){border:1px solid color-mix(in srgb,var(--accent) 40%,var(--line));border-left:4px solid var(--accent);background:var(--surface);box-shadow:0 4px 16px -12px var(--accent)}
@@ -571,7 +581,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "83";
+const APP_VERSION = "84";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1398,9 +1408,9 @@ function viewMember(){
   const bd = p.birthday ? fromKey(p.birthday).toLocaleDateString(undefined,{month:"long",day:"numeric"}) : "—";
   const t = todayKey();
   const next = assignments().filter(i => i.date >= t && approved(i) && ((p.email && i.email === p.email) || i.fullName === p.fullName)).sort(byDate).slice(0,3);
-  return `${backBar("About " + (p.first || firstOf(p.fullName)))}${Onboarding.panel(p)}${goneNote(p)}
-    <section class="panel profile-hero">${avatar(p,"lg")}<h2>${esc(p.fullName)}</h2>${adminTag(p)}
-      ${p.email && myProfile()?.id !== p.id ? `<a class="btn blue" href="mailto:${esc(p.email)}">${ICON.mail}Email Me</a><span class="sub email-addr">${esc(p.email)}</span>` : ""}</section>
+  return `${backBar("About " + (p.first || firstOf(p.fullName)))}${goneNote(p)}
+    <section class="panel profile-hero">${Onboarding.flag(p)}${avatar(p,"lg")}<h2>${esc(p.fullName)}</h2>${adminTag(p)}
+      ${p.email && myProfile()?.id !== p.id ? `<a class="btn blue" href="mailto:${esc(p.email)}">${ICON.mail}Email Me</a><span class="sub email-addr">${esc(p.email)}</span>` : ""}</section>${Onboarding.panel(p)}${adminControl(p)}
     <section class="panel"><dl class="kv">
       <dt>First Name</dt><dd>${esc(p.first || "—")}</dd>
       <dt>Birthday</dt><dd>${esc(bd)}</dd>
@@ -1476,10 +1486,10 @@ function viewAbsence(){
 
 function viewDirectory(){
   const people = S.items.filter(p => isProfile(p) && !p.gone).sort((a,b) => (a.fullName||"").localeCompare(b.fullName||""));
-  return `<div class="page-h"><h1>Team Directory</h1>${shareBtn()}</div>
+  return `<div class="page-h"><h1>Team Directory</h1></div>
     ${isEditor() ? newPersonForm() : ""}
     <p class="sub" style="margin-top:-10px">${people.length} team members</p>
-    ${people.length ? `<div class="roster">${people.map(p => `<button class="tile" data-act="member" data-id="${p.id}">${avatar(p)}<span class="meta"><b>${esc(p.fullName)}</b></span></button>`).join("")}${isEditor() && !S.addPerson ? addTile() : ""}</div>` : isEditor() && !S.addPerson ? `<div class="roster">${addTile()}</div>` : `<div class="empty">No team members yet.</div>`}
+    ${people.length ? `<div class="roster">${people.map(p => `<button class="tile" data-act="member" data-id="${p.id}">${adminStar(p)}${avatar(p)}<span class="meta"><b>${esc(p.fullName)}</b></span></button>`).join("")}${isEditor() && !S.addPerson ? addTile() : ""}</div>` : isEditor() && !S.addPerson ? `<div class="roster">${addTile()}</div>` : `<div class="empty">No team members yet.</div>`}
     ${archivedSection()}`;
 }
 
@@ -2051,6 +2061,14 @@ document.addEventListener("click", async e => {
       S.busy.delete(item.id); S.absConfirm = null; render(); break;
     }
     case "sec-toggle": { const set = secClosed(), k = b.dataset.sec; set.has(k) ? set.delete(k) : set.add(k); try { localStorage.setItem(SEC_KEY, JSON.stringify([...set])); } catch(_){} render(); break; }
+    case "admin-set": {
+      const p = S.items.find(i => String(i.id) === b.dataset.id); if (!p || !isEditor()) break;
+      const em = personAdminEmail(p), on = b.dataset.on === "1"; if (!em) break;
+      S.busy.add("adm-" + p.id); render();
+      try { await setAdmin(em, on); toast(on ? `${p.fullName} is now an admin` : `${p.fullName} is no longer an admin`); }
+      catch(err){ toast("Couldn't save that. " + err.message, true); }
+      S.busy.delete("adm-" + p.id); render(); break;
+    }
     case "share-app": shareApp(); break;
     case "install-hide": S.installHidden = true; render(); break;
     case "ask-decline": S.confirm = item.id; render(); break;
@@ -2429,6 +2447,51 @@ function waitingPanel(){
       <button class="btn" data-act="member" data-id="${esc(p.id)}">Open Profile</button></div>`).join("")}</div>
     <p class="sub" style="margin:6px 0 0">Open a profile to check Microsoft access or retry setup. A linked email alone does not confirm access.</p></section>`;
 }
+/* ---------- Admin privileges ----------
+   CONFIG.editors are the built-in admins. Admins can add more from a person's About page; those are kept in the
+   site's Site Assets library as app/admins.json (a list of emails) and loaded when the app opens. */
+const BASE_EDITORS = (CONFIG.editors || []).map(e => String(e).toLowerCase());
+let EXTRA_ADMINS = [];
+const personAdminEmail = p => (Onboarding.email(p) || "").toLowerCase();
+const isAdminPerson = p => !!adminTag(p);
+const adminStar = p => isAdminPerson(p) ? `<span class="admin-star" title="Admin" aria-label="Admin">★</span>` : "";
+const starTile = (html, p) => isAdminPerson(p) ? html.replace(/^(\s*<button[^>]*>)/, "$1" + adminStar(p)) : html;
+async function appAssetsDrive(){
+  const drives = await API.g(`/sites/${API.siteId}/drives?$select=id,name,webUrl`);
+  const d = drives.value.find(x => /\/SiteAssets$/i.test(x.webUrl)) || drives.value.find(x => /site assets/i.test(x.name))
+    || await API.g(`/sites/${API.siteId}/lists/${encodeURIComponent("Site Assets")}/drive?$select=id`).catch(() => null);
+  if (!d) throw new Error("Couldn't find the site's Site Assets library.");
+  return d.id;
+}
+async function readAdminsFile(id){
+  try { const v = await API.g(`/drives/${id}/root:/app/admins.json:/content`); return Array.isArray(v) ? v.map(e => String(e).toLowerCase()) : []; }
+  catch(e){ if (e.status === 404) return []; throw e; }
+}
+function applyAdmins(list){ EXTRA_ADMINS = [...new Set(list)]; CONFIG.editors = [...new Set([...BASE_EDITORS, ...EXTRA_ADMINS])]; }
+async function loadAdmins(){
+  if (DEMO) return;
+  try { applyAdmins(await readAdminsFile(await appAssetsDrive())); render(); } catch(e){ console.warn("Admins list:", e); }
+}
+async function setAdmin(email, on){
+  if (DEMO){ applyAdmins(on ? [...EXTRA_ADMINS, email] : EXTRA_ADMINS.filter(e => e !== email)); return; }
+  const id = await appAssetsDrive(), cur = await readAdminsFile(id);
+  const next = on ? [...new Set([...cur, email])] : cur.filter(e => e !== email);
+  await API.g(`/drives/${id}/root:/app/admins.json:/content`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next, null, 1) });
+  applyAdmins(next);
+}
+function adminControl(p){
+  if (!isEditor() || !p || p.gone || p.id == null || String(p.id).startsWith("p-")) return "";
+  const em = personAdminEmail(p), on = isAdminPerson(p), built = BASE_EDITORS.includes(em), busy = S.busy.has("adm-" + p.id);
+  const me = !DEMO && S.me && S.me.emails.some(e => String(e).toLowerCase() === em);
+  const nm = esc(p.first || firstOf(p.fullName) || "them");
+  let body;
+  if (!em) body = `<p class="hint" style="margin:0">Add or link ${nm}’s email first; admin access goes by the email they sign in with.</p>`;
+  else if (built) body = `<p class="hint" style="margin:0">${nm} is a built-in admin for this app.</p>`;
+  else if (on && me) body = `<p class="hint" style="margin:0">You're an admin. Another admin can remove your admin access.</p>`;
+  else body = `<p class="hint" style="margin:0">${on ? `${nm} can edit the schedule, announcements and the team.` : `Admins can edit the schedule, announcements and the team.`}</p>
+      <div class="actions"><button class="btn ${on ? "decline-soft" : "blue"}" data-act="admin-set" data-id="${esc(p.id)}" data-on="${on ? "0" : "1"}" ${busy ? "disabled" : ""}>${busy ? "Saving…" : on ? "Remove Admin" : "★ Make Admin"}</button></div>`;
+  return `<section class="panel stack admin-ctl"><h2 class="section-label" style="margin:0">Admin Privileges</h2>${body}</section>`;
+}
 /* "Admin" tag on the profile of anyone in CONFIG.editors (matched by their linked or pending email). */
 function adminTag(p){
   const ed = (CONFIG.editors || []).map(e => String(e).toLowerCase());
@@ -2682,17 +2745,24 @@ const Onboarding = {
       await this.status(p,'Complete','First app sign-in and required list access verified.');
     } catch(e){ this.details.set(String(p.id),'Sign-in succeeded, but required list access could not be confirmed: '+e.message); }
   },
+  flag(p){
+    if(!isEditor() || !this.writable(p)) return '';
+    const st=['Pending','Complete','Failed'].includes(p.accessStatus)?p.accessStatus:'Pending';
+    const label=st==='Complete'?'✓ Access Complete':st==='Failed'?'! Access Failed':'Access Pending';
+    return `<span class="access-flag ${st.toLowerCase()}" role="status" title="Access Status: ${st}">${label}</span>`;
+  },
   panel(p){
     if(!isEditor() || !this.writable(p)) return '';
+    if(p.accessStatus==='Complete') return '';   // shown only as the green flag on the photo card
     const status=['Pending','Complete','Failed'].includes(p.accessStatus)?p.accessStatus:'Pending';
     const id=String(p.id), busy=this.busy.has(id);
     const detail=this.schemaError || this.details.get(id) || (p.accessStatus==='Complete'
       ? 'Microsoft access and onboarding are complete.'
       : p.accessStatus==='Failed' ? 'Setup failed. Select Retry Setup to see the Microsoft error and retry.'
       : 'Access has not been verified yet. Select Check Access, or Retry Setup to grant access.');
-    return `<section class="panel stack" aria-label="Admin onboarding"><div class="page-h" style="margin:0"><h2 class="section-label" style="margin:0">Access Status</h2><strong role="status" class="pill">${esc(status)}</strong></div>
+    return `<section class="panel stack" aria-label="Admin onboarding"><h2 class="section-label" style="margin:0">Access Status: ${esc(status)}</h2>
       <p class="hint" style="margin:0">${esc(detail)}</p><p class="hint" style="margin:0">${esc(this.email(p) || 'No sign-in email recorded.')}</p>
-      ${p.gone?'':`<div class="actions"><button class="btn" data-act="access-check" data-id="${esc(id)}" ${busy?'disabled':''}>Check Access</button><button class="btn blue" data-act="access-setup" data-id="${esc(id)}" ${busy?'disabled':''}>${busy?'Checking…':'Retry Setup'}</button></div>`}</section>`;
+      ${p.gone?'':`<div class="actions"><button class="btn" data-act="access-check" data-id="${esc(id)}" ${busy?'disabled':''}>Check Access</button><button class="btn blue" data-act="access-setup" data-id="${esc(id)}" ${busy?'disabled':''}>${busy?'Checking…':'Retry Setup'}</button><button class="btn share-app" data-act="share-app">${ICON.share}Share App</button></div>`}</section>`;
   },
   async action(id,grant,email){
     if(!isEditor()) return;
@@ -2722,7 +2792,7 @@ async function start(){
     const t = new Date(); S.cal.month = new Date(t.getFullYear(), t.getMonth(), 1); S.cal.sel = todayKey();
     restoreNav();
     await Onboarding.confirmSelf();
-    S.phase = "ready"; render(); maybeConfetti(); updateBadge();
+    S.phase = "ready"; render(); maybeConfetti(); updateBadge(); loadAdmins();
     void Push.init();
   } catch(e){
     console.error(e); S.error = e.message || String(e); S.phase = "error"; render();
