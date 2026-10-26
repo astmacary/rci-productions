@@ -1,0 +1,84 @@
+/* Shared by the four RCI apps. No server secrets belong in this file. */
+function createPushClient({ appId, apiBaseUrl, getToken, onChange, isDemo, standalone, ios }) {
+  let key = "", enabled = false, busy = false, error = "", ready = false;
+  const supported = () => window.isSecureContext && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  const escape = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const base = apiBaseUrl.replace(/\/$/, "");
+  async function request(path, body, authenticated = true) {
+    const headers = { "Content-Type": "application/json" };
+    if (authenticated) headers.Authorization = "Bearer " + await getToken();
+    const res = await fetch(base + path, { method: body ? "POST" : "GET", headers, body: body ? JSON.stringify({ appId, ...body }) : undefined, cache: "no-store", signal: AbortSignal.timeout(20000) });
+    if (!res.ok) throw new Error(res.status === 401 ? "Sign in again, then retry notifications." : "The notification service couldn't be reached. Please retry.");
+    return res.status === 204 ? null : res.json();
+  }
+  async function registration() {
+    await navigator.serviceWorker.register("sw.js", { updateViaCache: "none" });
+    let timer;
+    try { return await Promise.race([navigator.serviceWorker.ready, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("The app is still updating. Close and reopen it, then retry.")), 15000); })]); }
+    finally { clearTimeout(timer); }
+  }
+  function publicKey(value) {
+    const s = atob(value.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - value.length % 4) % 4));
+    return Uint8Array.from(s, c => c.charCodeAt(0));
+  }
+  async function init() {
+    if (isDemo() || !base || !supported() || (ios() && !standalone())) return;
+    busy = true; error = ""; onChange();
+    try {
+      const cfg = await request("/push/config?appId=" + encodeURIComponent(appId), null, false);
+      key = cfg.publicKey; if (!key) throw new Error("Notifications aren't configured yet.");
+      ready = true;
+      const reg = await registration();
+      const sub = await reg.pushManager.getSubscription();
+      if (sub && Notification.permission === "granted") {
+        const currentKey = sub.options.applicationServerKey;
+        if (currentKey && btoa(String.fromCharCode(...new Uint8Array(currentKey))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "") !== key) {
+          await sub.unsubscribe();
+        } else {
+          await request("/push/subscriptions", { action: "upsert", subscription: sub.toJSON() }); enabled = true;
+        }
+      }
+    } catch (e) { error = e.message; enabled = false; }
+    finally { busy = false; onChange(); }
+  }
+  async function enable() {
+    if (busy) return;
+    // Call permission directly in the tap handler, before any network or worker waits.
+    if (!ready) { await init(); return; }
+    busy = true; error = "";
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") throw new Error(permission === "denied" ? "Notifications are off. Allow them in your device Settings." : "Notifications weren't enabled. You can try again.");
+      onChange();
+      const reg = await registration();
+      const sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: publicKey(key) });
+      await request("/push/subscriptions", { action: "upsert", subscription: sub.toJSON() });
+      enabled = true;
+    } catch (e) { error = e.message; enabled = false; }
+    finally { busy = false; onChange(); }
+  }
+  async function disable() {
+    if (!supported() || isDemo()) return;
+    busy = true; error = ""; onChange();
+    try {
+      const reg = await navigator.serviceWorker.getRegistration(new URL("sw.js", location.href));
+      const sub = reg && await reg.pushManager.getSubscription();
+      if (sub) {
+        if (base) { try { await request("/push/subscriptions", { action: "remove", endpoint: sub.endpoint }); } catch (_) { /* Unsubscribe still invalidates this phone's endpoint. */ } }
+        if (!await sub.unsubscribe()) throw new Error("Couldn't turn off notifications. Please retry before signing out.");
+      }
+      enabled = false;
+    } catch (e) { error = e.message; throw e; }
+    finally { busy = false; onChange(); }
+  }
+  function panel() {
+    if (isDemo()) return "";
+    const shell = text => `<section class="panel install badge-ask"><h2 class="section-label" style="margin:0">Lock-Screen Notifications</h2>${text}</section>`;
+    if (ios() && !standalone()) return shell("<p>To receive notifications on iPhone or iPad (iOS 16.4+), add this app to your Home Screen and open it from its icon.</p>");
+    if (!supported()) return shell("<p>This browser doesn't support push notifications. Open the app in a supported browser.</p>");
+    if (!base) return shell("<p>Lock-screen notifications are awaiting activation by your team administrator.</p>");
+    if (Notification.permission === "denied") return shell("<p>Notifications are off. Allow notifications for this app in your device Settings, then reopen it.</p>");
+    return shell(`<p>${enabled ? "Notifications are enabled on this device. Your device's notification and Focus settings control when alerts appear." : "Receive schedule requests and team updates, even when the app is closed."}</p>${error ? `<p role="alert">${escape(error)}</p>` : ""}<button class="btn badge-red" data-act="${enabled ? "push-off" : "badge-on"}" ${busy ? "disabled" : ""}>${busy ? "Please wait…" : enabled ? "Turn Off on This Device" : ready ? "Enable Notifications" : "Retry Connection"}</button>`);
+  }
+  return { init, enable, disable, panel };
+}

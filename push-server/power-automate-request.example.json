@@ -1,0 +1,7 @@
+{
+  "appId": "rci-productions",
+  "recipients": ["REPLACE_WITH_RECIPIENT_EMAIL"],
+  "title": "New serving request",
+  "body": "You have a new serving request. Open the app to reply.",
+  "eventId": "REPLACE_WITH_LIST_ITEM_ID_AND_VERSION_AND_EVENT_TYPE"
+}
