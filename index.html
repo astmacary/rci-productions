@@ -292,7 +292,7 @@ a.btn{text-decoration:none}
 .day-h:has(+ .team-h){margin-bottom:2px !important}
 .cal-card .cc-face .av{width:34px !important;height:34px !important;font-size:12px !important}
 .cal-card .cc-name{font-size:14px !important;font-weight:700 !important}
-.cal-card .cc-pos{font-size:14px !important}
+.cal-card .cc-pos{font-size:14px !important;color:var(--fg) !important}
 .cal-card{padding:5px 10px !important}
 .day-h.team-h{margin-top:0 !important;margin-bottom:6px !important}
 
@@ -662,7 +662,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "92";
+const APP_VERSION = "93";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
