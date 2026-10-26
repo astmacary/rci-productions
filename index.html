@@ -278,6 +278,25 @@ a.btn{text-decoration:none}
 .btn.accept{background:var(--go);border-color:var(--go);color:#FFFFFF}
 .btn.decline{background:var(--stop);border-color:var(--stop);color:#FFFFFF}
 .btn.decline-soft{color:var(--bad)}
+.ann-sec.closed > :not(.day-h){display:none}
+.ann-head{flex:1;min-width:0;width:auto}
+.ann-head .section-label{flex:none}
+
+.view-toggle{display:inline-flex;gap:4px;flex:none}
+.view-toggle .iconbtn svg{width:16px;height:16px}
+.sec-head.inline-chev .section-label{flex:none}
+.sec-head.inline-chev{justify-content:flex-start}
+.daylist{display:flex;flex-direction:column;padding:0;overflow:hidden}
+.daylist .row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 14px;border-top:1px solid var(--line)}
+.daylist .row:first-child{border-top:none}
+.daylist .row .who{display:flex;align-items:center;gap:8px;min-width:0}
+.daylist .row .av.mini{width:24px;height:24px;font-size:9.5px;color:var(--fg);text-align:center;margin:-2px 0}
+.cal-list .row{width:100%;background:none;border-left:none;border-right:none;border-bottom:none;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.cal-list .row > span:last-child{color:var(--muted);font-size:13.5px;text-align:right}
+.cal-roster{margin-bottom:2px}
+.cal-list .row .who{background:none;border:none;padding:0;border-radius:0;box-shadow:none;font-weight:600}
+.cal-list .row .who b{font-weight:700}
+
 .info-card{position:relative}
 .info-card.is-editing{display:none}
 .info-card .card-edit{position:absolute;top:10px;right:10px;width:32px;height:32px}
@@ -598,7 +617,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "87";
+const APP_VERSION = "88";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1270,6 +1289,13 @@ function todayHero(){
     </div>`).join("")}
     <div class="today-btns"><button class="btn today-team" data-act="team" data-date="${t}">See Today's Team</button>${S.items.some(i => i.date === t && (typeof isNotesRow === "function" ? isNotesRow(i) : i.role === CONFIG.notesRole) && i.notes) ? `<button class="btn today-team" data-act="notes" data-date="${t}">See Today's Notes</button>` : ""}</div></section>`;
 }
+/* Announcements on Home fold up with the chevron beside their count (remembered per phone).
+   The count turns red while there's a NEW announcement. Editing always opens the section. */
+const ANN_CLOSED_KEY = "ann-closed:" + location.pathname;
+function annClosed(){
+  if (S.annClosed == null){ try { S.annClosed = localStorage.getItem(ANN_CLOSED_KEY) === "1"; } catch(_){ S.annClosed = false; } }
+  return S.annClosed && !S.annEdit;
+}
 function viewHome(){
   const t = todayKey(), wk = addDays(t, 7);
   const todayShown = assignments().some(i => mine(i) && i.date === t && (approved(i) || pending(i)));   // the "You're Serving Today" card
@@ -1286,7 +1312,7 @@ function viewHome(){
     <div><h1 class="greet">Welcome ${esc(first)}</h1><p class="sub">${esc(fmtLong(t))}</p></div>
     ${todayHero()}
     ${repliesPanel()}
-    <section><div class="day-h"><h2 class="section-label">Announcements</h2>${annEditBtn()}</div>
+    <section class="ann-sec ${annClosed() ? "closed" : ""}"><div class="day-h"><button type="button" class="sec-head inline-chev ann-head" data-act="ann-toggle" aria-expanded="${!annClosed()}"><h2 class="section-label">Announcements <span class="count ${anns.some(a => isNewAnn(a)) ? "hot" : ""}" title="${anns.some(a => isNewAnn(a)) ? "New announcement" : ""}">${anns.length}</span></h2><span class="sec-chev" aria-hidden="true">${ICON.next}</span></button>${annEditBtn()}</div>
       ${anns.length ? `<div class="list">${anns.map(a => annCard(a)).join("")}</div>` : `<div class="empty">We have no upcoming announcements at this time.</div>`}
       ${S.annEdit ? `<div class="panel" style="margin-top:10px">${annForm()}</div>` : ""}
       ${CONFIG.guidelinesUrl ? `<p style="margin-top:10px"><a href="${esc(CONFIG.guidelinesUrl)}" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600">Read the team guidelines</a></p>` : ""}</section>
@@ -1314,6 +1340,23 @@ function eventsOn(k){
   const b = S.items.filter(i => isProfile(i) && !i.gone && i.birthday && i.birthday.slice(5) === md);
   const none = S.items.some(i => i.date === k && lc(i.category) === lc(CONFIG.noServiceCategory));
   return { a, b, none };
+}
+/* Calendar roster: photo squares or a list, picked with two icons beside the day's heading (remembered per phone). */
+const CALVIEW_KEY = "cal-view:" + location.pathname;
+const ICON_GRID = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>';
+const ICON_LIST = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="6" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="5" cy="18" r="1.6"/><path d="M10 6h11M10 12h11M10 18h11"/></svg>';
+function calView(){ if (!S.calView){ try { S.calView = localStorage.getItem(CALVIEW_KEY) || "grid"; } catch(_){ S.calView = "grid"; } } return S.calView; }
+function calViewToggle(){
+  const v = calView();
+  return `<div class="view-toggle" role="group" aria-label="Roster view">${[["grid", ICON_GRID, "Photo view"], ["list", ICON_LIST, "List view"]].map(([k, ic, l]) =>
+    `<button type="button" class="iconbtn ${v === k ? "on" : ""}" data-act="cal-view" data-view="${k}" aria-pressed="${v === k}" aria-label="${l}" title="${l}">${ic}</button>`).join("")}</div>`;
+}
+function rosterBlock(list, roleOf){
+  const ro = roleOf || (i => i.role || "");
+  const link = i => { const pr = profileOf(i); return pr ? ["member", pr.id] : ["member-of", i.id]; };
+  if (calView() === "list") return `<div class="panel daylist cal-list">${list.map(i => { const [a, id] = link(i);
+    return `<button type="button" class="row" data-act="${a}" data-id="${esc(id)}"><span class="who">${avatar(i, "mini")}<b>${esc(i.fullName || "Unassigned")}</b></span><span>${esc(ro(i))}</span></button>`; }).join("")}</div>`;
+  return `<div class="roster cal-roster">${list.map(i => { const [a, id] = link(i); return tile(i, ro(i), a, id); }).join("")}</div>`;
 }
 function viewCalendar(){
   const m = S.cal.month, sel = S.cal.sel, t = todayKey();
@@ -1346,10 +1389,10 @@ function viewCalendar(){
     </section>
     <section><div class="day-h"><div class="day-t"><h2 class="section-label">${esc(fmtLong(sel))}</h2></div>
         ${hasNotes ? `<button class="iconbtn notes-btn" data-act="notes" data-date="${sel}" aria-label="Production Notes for this day" title="Production Notes">${ICON.notes}</button>` : ""}
-        ${isEditor() ? `<button class="iconbtn notes-btn" data-act="admin-open" data-date="${sel}" aria-label="Edit this day's schedule" title="Edit schedule">${ICON.pencil}</button>` : ""}</div>
+        ${calViewToggle()}${isEditor() ? `<button class="iconbtn notes-btn" data-act="admin-open" data-date="${sel}" aria-label="Edit this day's schedule" title="Edit schedule">${ICON.pencil}</button>` : ""}</div>
       ${ev.none ? `<div class="no-service"><span aria-hidden="true">❌</span> No Service</div>` : ""}
       ${bdayRows ? `<div class="list" style="margin-bottom:10px">${bdayRows}</div>` : ""}
-      ${team ? bySection(ev.a, part => `<div class="roster cal-roster">${part.map(i => tile(i, i.role, "member-of", i.id)).join("")}</div>`, "cal") : (bdayRows || ev.none ? "" : `<div class="empty">No events scheduled.</div>`)}
+      ${team ? bySection(ev.a, part => rosterBlock(part), "cal") : (bdayRows || ev.none ? "" : `<div class="empty">No events scheduled.</div>`)}
     </section>`;
 }
 
@@ -1657,7 +1700,7 @@ function secClosed(){
 }
 function secBlock(key, label, n, body, sub){
   const closed = secClosed().has(key);
-  return `<section class="role-sec${sub ? " sub-sec" : ""}"><button type="button" class="sec-head" data-act="sec-toggle" data-sec="${esc(key)}" aria-expanded="${!closed}"><h2 class="section-label">${esc(label)} <span class="count">${n}</span></h2><span class="sec-chev" aria-hidden="true">${ICON.next}</span></button>${closed ? "" : body}</section>`;
+  return `<section class="role-sec${sub ? " sub-sec" : ""}"><button type="button" class="sec-head${key.startsWith("cal:") ? " inline-chev" : ""}" data-act="sec-toggle" data-sec="${esc(key)}" aria-expanded="${!closed}"><h2 class="section-label">${esc(label)} <span class="count">${n}</span></h2><span class="sec-chev" aria-hidden="true">${ICON.next}</span></button>${closed ? "" : body}</section>`;
 }
 function adminAbsent(rows){
   const abs = rows.filter(isAbsent);
@@ -2090,6 +2133,8 @@ document.addEventListener("click", async e => {
     }
     case "card-edit": S.cardEdit = b.dataset.id; render(); $("#ce-bday")?.focus(); break;
     case "card-edit-cancel": S.cardEdit = null; render(); break;
+    case "cal-view": S.calView = b.dataset.view; try { localStorage.setItem(CALVIEW_KEY, S.calView); } catch(_){} render(); break;
+    case "ann-toggle": S.annClosed = !annClosed(); try { localStorage.setItem(ANN_CLOSED_KEY, S.annClosed ? "1" : "0"); } catch(_){} render(); break;
     case "share-app": shareApp(); break;
     case "install-hide": S.installHidden = true; render(); break;
     case "ask-decline": S.confirm = item.id; render(); break;
