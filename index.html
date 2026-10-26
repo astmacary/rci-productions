@@ -571,7 +571,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "77";
+const APP_VERSION = "78";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1398,7 +1398,7 @@ function viewMember(){
   const bd = p.birthday ? fromKey(p.birthday).toLocaleDateString(undefined,{month:"long",day:"numeric"}) : "—";
   const t = todayKey();
   const next = assignments().filter(i => i.date >= t && approved(i) && ((p.email && i.email === p.email) || i.fullName === p.fullName)).sort(byDate).slice(0,3);
-  return `${backBar("About " + (p.first || firstOf(p.fullName)))}${accessPanel(p)}${goneNote(p)}
+  return `${backBar("About " + (p.first || firstOf(p.fullName)))}${Onboarding.panel(p)}${goneNote(p)}
     <section class="panel profile-hero">${avatar(p,"lg")}<h2>${esc(p.fullName)}</h2>${adminTag(p)}
       ${p.email && myProfile()?.id !== p.id ? `<a class="btn blue" href="mailto:${esc(p.email)}">${ICON.mail}Email Me</a><span class="sub email-addr">${esc(p.email)}</span>` : ""}</section>
     <section class="panel"><dl class="kv">
@@ -2026,65 +2026,11 @@ document.addEventListener("click", async e => {
       } catch(err){ S.busy.delete("mg-" + p.id); toast("Couldn't delete. " + err.message, true); render(); }
       break;
     }
-    case "share-site": {
-      const em = b.dataset.email || "";
-      const siteUrl = `https://${CONFIG.siteHost}${CONFIG.sitePath}`;
-      const openSharePointPage = async () => {
-        const w = window.open("", "_blank");
-        try { if (em) await navigator.clipboard.writeText(em); } catch(e){}
-        let url = `${siteUrl}/_layouts/15/user.aspx`;
-        try {
-          const tok = (await API.msal.acquireTokenSilent({ scopes: [`https://${CONFIG.siteHost}/AllSites.Write`], account: API.account })).accessToken;
-          const g = await fetch(`${siteUrl}/_api/web/associatedmembergroup?$select=Id`, { headers: { Authorization: "Bearer " + tok, Accept: "application/json;odata=nometadata" } }).then(r => r.json());
-          if (g && g.Id) url = `${siteUrl}/_layouts/15/aclinv.aspx?GroupId=${g.Id}`;
-        } catch(e){}
-        if (w) w.location.href = url; else location.href = url;
-        toast(em ? "Email copied. Paste it in SharePoint and tap Share." : "Type their email in SharePoint and tap Share.");
-      };
-      // Tries to share the site directly (needs the AllSites.FullControl permission, granted once in Entra).
-      // If that permission isn't there yet, or the call fails for any reason, falls back to the old
-      // copy-email-and-open-SharePoint flow so Give Them Access / Share the Site never breaks.
-      if (!em){ await openSharePointPage(); break; }
-      const prevLabel = b.textContent; b.disabled = true; b.textContent = "Sharing…";
-      try {
-        const tok = (await API.msal.acquireTokenSilent({ scopes: [`https://${CONFIG.siteHost}/AllSites.FullControl`], account: API.account })).accessToken;
-        const r = await fetch(`${siteUrl}/_api/SP.Web.ShareObject`, {
-          method: "POST",
-          headers: { Authorization: "Bearer " + tok, Accept: "application/json;odata=nometadata", "Content-Type": "application/json;odata=verbose" },
-          body: JSON.stringify({
-            url: siteUrl,
-            peoplePickerInput: JSON.stringify([{ Key: em }]),
-            roleValue: "role:1073741827",
-            groupId: 0,
-            propagateAcl: false,
-            sendEmail: true,
-            useSimplifiedRoles: true
-          })
-        });
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        const data = await r.json().catch(() => null);
-        const results = Array.isArray(data) ? data : (data && Array.isArray(data.value) ? data.value : (data ? [data] : []));
-        const bad = results.find(x => x && x.ErrorMessage);
-        if (bad) throw new Error(bad.ErrorMessage);
-        toast(`Shared the site with ${em}. They'll get an invitation email, and the app will link them once they accept and sign in.`);
-      } catch(err){
-        console.warn("Couldn't share the site directly (permission may not be granted yet); opening the SharePoint page instead.", err);
-        await openSharePointPage();
-      } finally {
-        b.disabled = false; b.textContent = prevLabel;
-      }
-      break;
-    }
-    case "link-acct": {
-      const p = S.items.find(i => String(i.id) === b.dataset.id); if (!p || !isEditor()) break;
-      const em = p.pendingEmail || prompt("Their email address:", "") || ""; if (!em.trim()) break;
-      b.disabled = true; b.textContent = "Linking…";
-      const id = await siteUserId(em.trim());
-      if (!id){ toast("Couldn't link it yet. Make sure they've accepted the invitation and signed in once.", true); b.disabled = false; b.textContent = "Link Account"; break; }
-      try { await API.update(p.id, { [LINK_COL]: id, ...(p.pendingEmail ? { Notes: "" } : {}) }); p.personId = id; p.email = lc(em.trim()); p.pendingEmail = ""; toast(`Linked ${p.fullName} to ${em.trim()}`); render(); }
-      catch(err){ toast("Couldn't link it. " + err.message, true); b.disabled = false; b.textContent = "Link Account"; }
-      break;
-    }
+    case "share-site":
+    case "link-acct":
+    case "access-setup": await Onboarding.action(b.dataset.id, true, b.dataset.email); break;
+    case "access-check": await Onboarding.action(b.dataset.id, false); break;
+
     case "ma-active": {
       const cur = $("#ma-active"), v = cur.value === b.dataset.value ? "" : b.dataset.value; cur.value = v;
       document.querySelectorAll('[data-act="ma-active"]').forEach(x => { const on = x.dataset.value === v; x.classList.toggle("on", on); x.setAttribute("aria-pressed", on); });
@@ -2151,19 +2097,27 @@ document.addEventListener("submit", async e => {
     if (!name){ toast("Type their full name.", true); return; }
     if (S.items.some(i => isProfile(i) && lc(i.fullName) === lc(name))){ toast(`${name} is already on the Roster.`, true); return; }
     const btn = $("#np-save"); btn.disabled = true; btn.textContent = "Adding…";
+    let created = false;
     try {
+      if (!email) throw new Error("Enter the email they will use to sign in.");
+      if (!DEMO) await Onboarding.schema();
       const userId = await siteUserId(email);
       const on = [...e.target.querySelectorAll('.serve-opt[aria-pressed="true"]')];
       const f = newPersonRow({ name, email, userId, birthday: $("#np-bday").value, phone: $("#np-phone").value.trim(), on });
       if (DEMO){ toast(`Demo: ${name} would be added to the Roster.`); S.addPerson = false; render(); return; }
+      f[Onboarding.field] = "Pending";
       const r = await API.g(`/sites/${API.siteId}/lists/${CONFIG.listId}/items`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fields: f }) });
+      created = true; S.addPerson = false;
+      const pending = { id: String(r.id), fullName: name, email, pendingEmail: email, personId: userId, category: CONFIG.profileCategory, editable: true };
+      await Onboarding.run(pending, true);
       const data = await API.load();
+      await Onboarding.load(data.items);
       S.items = data.items; if (data.users) S.users = data.users; if (data.names) S.names = [...new Set([...data.names, ...data.items.filter(isProfile).map(i => i.fullName).filter(Boolean)])];
       S.addPerson = false;
-      toast(email && !userId ? `${name} was added. Their email couldn't be linked yet; pick it in SharePoint once they have access.` : `${name} was added to the Roster.`, !!(email && !userId));
+      toast(`${name} was added. Access Status: ${S.items.find(i => String(i.id) === String(r.id))?.accessStatus || 'Pending'}.`, Onboarding.details.get(String(r.id)) && S.items.find(i => String(i.id) === String(r.id))?.accessStatus === 'Failed');
       const np = S.items.find(i => String(i.id) === String(r.id)) || S.items.find(i => isProfile(i) && lc(i.fullName) === lc(name));
       if (np) go("member", np.id); else render();
-    } catch(err){ toast("Couldn't add them. " + err.message, true); btn.disabled = false; btn.textContent = "Add to Roster"; }
+    } catch(err){ toast((created ? "They were added, but the profile could not refresh. Reopen Team to check Access Status. " : "Couldn't add them. ") + err.message, true); if (created) { S.addPerson = false; render(); } else { btn.disabled = false; btn.textContent = "Add to Roster"; } }
     return;
   }
   if (e.target.id === "catForm"){
@@ -2215,6 +2169,7 @@ document.addEventListener("submit", async e => {
     // Reload from SharePoint so every screen shows exactly what was saved.
     if (!DEMO) try {
       const data = await API.load();
+      await Onboarding.load(data.items);
       S.items = data.items;
       const missing = saved.filter(k => !absencesOf(S.items.find(i => i.id === p.id) || p).some(i => i.date === k));
       if (missing.length) toast("Some dates didn't show up in SharePoint: " + missing.map(fmtShort).join(", "), true);
@@ -2404,7 +2359,7 @@ const newPill = () => `<span class="pill new-pill">NEW</span> `;
 function newPersonRow(v){
   const f = { Title: v.name, ServiceCategory: CONFIG.profileCategory, ChoiceNames: v.name, Name: firstOf(v.name) };
   if (v.userId) f.PersonLookupId = String(v.userId);
-  else if (v.email) f.Notes = "Pending sign-in: " + v.email;   // remembered until they can be linked
+  if (v.email) f.Notes = "Pending sign-in: " + v.email;   // remembered until they can be linked
   if (v.birthday) f.Birthday = v.birthday + "T12:00:00Z";
   if (v.phone) f.PhoneNumber = v.phone;
   if (v.on.length){ f["Serving@odata.type"] = "Collection(Edm.String)"; f.Serving = v.on.map(b => b.dataset.value); }
@@ -2416,7 +2371,7 @@ function newPersonForm(){
   return `<form class="panel stack" id="newPersonForm">
       <h2 class="section-label" style="margin:0">New Team Member</h2>
       <div class="field"><label for="np-name">Full Name</label><input id="np-name" maxlength="120" autocomplete="off" required placeholder="First and last name"></div>
-      <div class="field"><label for="np-email">Email</label><input id="np-email" type="email" maxlength="200" autocomplete="off" placeholder="The email they sign in with"></div>
+      <div class="field"><label for="np-email">Email</label><input id="np-email" type="email" maxlength="200" autocomplete="off" required placeholder="The email they sign in with"></div>
       <div class="field"><label for="np-bday">Birthday</label><input id="np-bday" type="date"></div>
       <div class="field"><label for="np-phone">Phone Number</label><input id="np-phone" type="tel" maxlength="40"></div>
       ${(S.servingChoices || []).length ? `<div class="field"><span class="label">Places They Serve</span><div class="checklist">${S.servingChoices.map(x => `<button type="button" class="serve-opt" data-act="serve-toggle" data-value="${esc(x)}" aria-pressed="false"><span class="box" aria-hidden="true">${ICON.check}</span>${esc(x)}</button>`).join("")}</div></div>` : ""}
@@ -2426,12 +2381,11 @@ const LINK_COL = "PersonLookupId";
 /* Admins: link Roster people whose email is waiting (added before they had access). Runs quietly after loading. */
 async function linkPendingPeople(){
   if (DEMO || !isEditor()) return;
-  const todo = S.items.filter(i => isProfile(i) && !i.gone && !i.personId && i.pendingEmail).slice(0, 10);
-  for (const p of todo){
-    const id = await siteUserId(p.pendingEmail); if (!id) continue;
-    try { await API.update(p.id, { [LINK_COL]: id, Notes: "" }); p.personId = id; p.email = lc(p.pendingEmail); p.pendingEmail = ""; } catch(e){}
-  }
+  const todo = S.items.filter(p => Onboarding.writable(p) && !p.gone && p.accessStatus === "Pending" && Onboarding.email(p)).slice(0, 10);
+  for (const p of todo) await Onboarding.run(p, false);
+  if (todo.length && S.phase === "ready") render();
 }
+
 /* About page (admins): help give someone without a linked account access to the SharePoint site. */
 /* Admins can archive someone (hidden from the Team Directory, birthdays and scheduling, but kept in the list
    so they can be restored) or delete their Roster row. Archived = Archive Status is set to Archived. */
@@ -2468,12 +2422,12 @@ function archivedSection(){
 /* Admin Home: people added with an email who can't sign in yet (the site hasn't been shared with them). */
 function waitingPanel(){
   if (!isEditor()) return "";
-  const list = S.items.filter(p => isProfile(p) && !p.gone && !p.personId && p.pendingEmail);
+  const list = S.items.filter(p => Onboarding.writable(p) && !p.gone && ["Pending", "Failed"].includes(p.accessStatus));
   if (!list.length) return "";
-  return `<section><h2 class="section-label">Waiting for Access <span class="count hot">${list.length}</span></h2>
-    <div class="list">${list.map(p => `<div class="panel wait-row">${avatar(p)}<div class="wait-info"><b>${esc(p.fullName)}</b><span class="sub" style="margin:0">${esc(p.pendingEmail)}</span></div>
-      <div class="wait-btns"><button class="btn blue" data-act="share-site" data-email="${esc(p.pendingEmail)}">Share</button><button class="btn" data-act="member" data-id="${esc(p.id)}">Open</button></div></div>`).join("")}</div>
-    <p class="sub" style="margin:6px 0 0">Tap <b>Share</b> to give them access. If the app can't do that directly yet, it copies their email and opens SharePoint's Add Members page instead. Once they accept and sign in, the app links them and they drop off this list.</p></section>`;
+  return `<section><h2 class="section-label">Access to Check <span class="count hot">${list.length}</span></h2>
+    <div class="list">${list.map(p => `<div class="panel wait-row">${avatar(p)}<div class="wait-info"><b>${esc(p.fullName)}</b><span class="sub" style="margin:0">${esc(p.accessStatus || "Pending")}</span></div>
+      <button class="btn" data-act="member" data-id="${esc(p.id)}">Open Profile</button></div>`).join("")}</div>
+    <p class="sub" style="margin:6px 0 0">Open a profile to check Microsoft access or retry setup. A linked email alone does not confirm access.</p></section>`;
 }
 /* "Admin" tag on the profile of anyone in CONFIG.editors (matched by their linked or pending email). */
 function adminTag(p){
@@ -2481,15 +2435,7 @@ function adminTag(p){
   const norm = e => { const x = String(e || "").toLowerCase().trim(), m = x.match(/^(.+)_([^_#]+\.[^_#]+)#ext#@/); return m ? `${m[1]}@${m[2]}` : x; };
   const hit = [p && p.email, p && p.pendingEmail].filter(Boolean).some(e => ed.includes(norm(e)));
   return hit ? `<span class="pill admin-tag" title="Can edit the schedule and announcements">★ Admin</span>` : "";
-}
-function accessPanel(p){
-  if (!isEditor() || !p || p.personId || p.id == null || String(p.id).startsWith("p-")) return "";
-  const em = p.pendingEmail || "";
-  return `<section class="panel stack access-panel"><h2 class="section-label" style="margin:0">Give Them Access</h2>
-    <p style="margin:0">${em ? `<b>${esc(em)}</b> isn't linked to a sign-in yet.` : "No email is linked to this person yet."} To sign in, they need access to the team's SharePoint site.</p>
-    <ol style="margin:0;padding-left:20px"><li><b>Share the Site</b> shares it with their email right away. If the app doesn't have permission to do that yet, it copies the email and opens SharePoint's Add Members page for you to finish.</li>
-      <li>Once they've accepted it and signed in, tap <b>Link Account</b> (the app also tries this on its own when an admin opens it).</li></ol>
-    <div class="actions"><button class="btn blue" data-act="share-site" data-email="${esc(em)}">Share the Site</button><button class="btn" data-act="link-acct" data-id="${esc(p.id)}">Link Account</button></div></section>`;
+
 }
 /* The site user id for an email (adds the person to the site's user list if needed). */
 async function siteUserId(email){
@@ -2506,12 +2452,222 @@ async function siteUserId(email){
   } catch(e){ return ""; }
 }
 
+/* Onboarding uses the signed-in leader's delegated permissions. No service keys. */
+const Onboarding = {
+  field: null, schemaError: '', details: new Map(), busy: new Set(),
+  siteUrl(){ return `https://${CONFIG.siteHost}${CONFIG.sitePath}`; },
+  email(p){ return (p.pendingEmail || p.email || '').trim().toLowerCase(); },
+  writable(p){ return isProfile(p) && p.editable !== false && /^\d+$/.test(String(p.id)); },
+  async schema(){
+    if (this.field) return this.field;
+    const cols = await API.g(`/sites/${API.siteId}/lists/${CONFIG.listId}/columns?$select=name,displayName,choice`);
+    const col = cols.value.find(c => c.name === 'AccessStatus' || c.displayName === 'Access Status');
+    if (!col || !['Pending','Complete','Failed'].every(v => col.choice?.choices?.includes(v)))
+      throw new Error('The Access Status choice column must contain Pending, Complete, and Failed.');
+    this.field = col.name; this.schemaError = ''; return this.field;
+  },
+  async load(items){
+    if (DEMO) return;
+    try {
+      const field = await this.schema();
+      const rows = await API.all(`/sites/${API.siteId}/lists/${CONFIG.listId}/items?$expand=fields($select=${field})&$top=500`);
+      const statuses = new Map(rows.map(r => [String(r.id), r.fields[field]]));
+      for (const p of items) p.accessStatus = statuses.get(String(p.id)) || '';
+    } catch(e){ this.schemaError = e.message; }
+  },
+  async token(scopes, interactive=false){
+    const request = { scopes, account: API.account };
+    try { return (await API.msal.acquireTokenSilent(request)).accessToken; }
+    catch(e){
+      if (!interactive) throw new Error('Microsoft authorization is needed. Select Retry Setup as a site or team owner. ' + (e.errorCode || ''));
+      return (await API.msal.acquireTokenPopup(request)).accessToken;
+    }
+  },
+  async sp(path, opts={}, token){
+    const bearer = token || await this.token([`https://${CONFIG.siteHost}/AllSites.FullControl`]);
+    const res = await fetch(this.siteUrl() + '/_api/' + path, { ...opts, headers: {
+      Authorization: 'Bearer ' + bearer, Accept: 'application/json;odata=nometadata',
+      ...(opts.body ? {'Content-Type':'application/json;odata=verbose'} : {}), ...(opts.headers || {})
+    }});
+    const body = res.status === 204 ? null : await res.json().catch(() => null);
+    if (!res.ok){ const e = new Error(body?.error?.message?.value || body?.error?.message || `SharePoint returned ${res.status}.`); e.status = res.status; throw e; }
+    return body?.d ?? body;
+  },
+  async graph(path, opts={}, token){
+    const res = await fetch('https://graph.microsoft.com/v1.0' + path, { ...opts, headers:{
+      Authorization:'Bearer ' + token, 'Content-Type':'application/json', ...(opts.headers || {})
+    }});
+    const body = res.status === 204 ? null : await res.json().catch(() => null);
+    if (!res.ok){ const e = new Error(body?.error?.message || `Microsoft returned ${res.status}.`); e.status=res.status; e.code=body?.error?.code; throw e; }
+    return body;
+  },
+  async graphAll(path, token){
+    let out=[];
+    while(path){ const data=await this.graph(path,{},token); out.push(...(data.value || []));
+      const next=data['@odata.nextLink'];
+      if(next && !next.startsWith('https://graph.microsoft.com/v1.0/')) throw new Error('Unexpected Microsoft paging address.');
+      path=next ? next.slice('https://graph.microsoft.com/v1.0'.length) : null;
+    }
+    return out;
+  },
+  async status(p, value, detail=''){
+    await API.update(p.id, { [await this.schema()]: value });
+    p.accessStatus=value; this.details.set(String(p.id),detail);
+    const current=S.items.find(i=>String(i.id)===String(p.id)); if(current) current.accessStatus=value;
+  },
+  hasPermissions(data, mask){
+    const p=data?.GetUserEffectivePermissions || data?.getUserEffectivePermissions || data;
+    if(p?.Low == null) return false;
+    return (BigInt(p.Low) & BigInt(mask)) === BigInt(mask);
+  },
+  userQuery(login){ return '?@u=' + encodeURIComponent("'" + login.replace(/'/g,"''") + "'"); },
+  listPath(id){
+    if(!/^[a-f\d-]{36}$/i.test(id)) throw new Error('Invalid list identity.');
+    return `web/lists(guid'${id}')`;
+  },
+  async user(email, token){
+    return this.sp('web/ensureuser',{method:'POST',body:JSON.stringify({logonName:email})},token);
+  },
+  async verify(p, token, repair=false){
+    const email=this.email(p); if(!email) return {complete:false,detail:'An email address is needed to check access.'};
+    let user;
+    try { user=await this.user(email,token); }
+    catch(e){ if(e.status===400 || e.status===404) return {complete:false,detail:'Waiting for Microsoft to make the account available.'}; throw e; }
+    if(!user?.Id || !user.LoginName) throw new Error('Microsoft did not return a linked account.');
+    const q=this.userQuery(user.LoginName);
+    const web=await this.sp('web/getusereffectivepermissions(@u)' + q,{},token);
+    if(!this.hasPermissions(web,65536)) return {complete:false,detail:'The account cannot open the team site yet.',user};
+    const required=[{id:CONFIG.listId,mask:7,label:'schedule and roster'}];
+    if(CONFIG.announcementsListId) required.push({id:CONFIG.announcementsListId,mask:1,label:'announcements'});
+    if(CONFIG.messagesListId) required.push({id:CONFIG.messagesListId,mask:3,label:'birthday messages'});
+    for(const list of required){
+      const effective=await this.sp(this.listPath(list.id)+'/getusereffectivepermissions(@u)'+q,{},token);
+      if(!this.hasPermissions(effective,list.mask)) {
+        if (repair && !CONFIG.onboardingChannel) {
+          // Preserve unique permissions. Add only this roster member, never reset inheritance.
+          const role=await this.sp(`web/roledefinitions/getbytype(${list.mask===1?2:3})?$select=Id`,{},token);
+          if(!role?.Id) throw new Error('The required SharePoint permission level could not be found.');
+          await this.sp(this.listPath(list.id)+`/roleassignments/addroleassignment(principalid=${Number(user.Id)},roledefid=${Number(role.Id)})`,{method:'POST'},token);
+          const confirmed=await this.sp(this.listPath(list.id)+'/getusereffectivepermissions(@u)'+q,{},token);
+          if(!this.hasPermissions(confirmed,list.mask)) throw new Error(`Microsoft did not confirm permission for ${list.label}.`);
+        } else return {complete:false,detail:`The account needs permission for ${list.label}. ${CONFIG.onboardingChannel?'Teams may still be syncing membership.':'Select Retry Setup to repair access.'}`,user};
+      }
+    }
+    return {complete:true,detail:'Site and required list access verified. New guests must still accept their invitation and sign in.',user};
+  },
+  async link(p,user){
+    if(!user?.Id) return;
+    const key=API.col?.Name ? API.col.Name+'LookupId' : LINK_COL;
+    // Keep the onboarding email; a directory lookup is not evidence of access.
+    await API.update(p.id,{[key]:String(user.Id)});
+    p.personId=String(user.Id); p.email=this.email(p);
+  },
+  async share(email,token){
+    const group=await this.sp('web/associatedmembergroup?$select=Id',{},token);
+    if(!group?.Id) throw new Error('The site has no Members group. A site owner must configure it.');
+    const data=await this.sp('SP.Web.ShareObject',{method:'POST',body:JSON.stringify({
+      url:this.siteUrl(),peoplePickerInput:JSON.stringify([{Key:email}]),roleValue:'group:'+group.Id,
+      groupId:0,propagateAcl:false,sendEmail:true,includeAnonymousLinkInEmail:false,
+      emailSubject:`Access to ${APP_NAME}`,
+      emailBody:`You have been added to ${APP_NAME}. Accept this invitation, then open ${location.origin + location.pathname}?install to add the app to your home screen and sign in.`
+    })},token);
+    const result=data?.ShareObject || data;
+    // A 200 response can contain a rejected invitation. Require explicit success.
+    if(!result || Number(result.StatusCode)!==0 || result.ErrorMessage)
+      throw new Error(result?.ErrorMessage || 'Microsoft did not confirm that site sharing succeeded.');
+  },
+  async channel(token){
+    const cfg=CONFIG.onboardingChannel;
+    const channels=await this.graphAll(`/teams/${cfg.teamId}/channels?$select=id,displayName,membershipType`,token);
+    const matches=channels.filter(c=>c.displayName===cfg.name && c.membershipType==='private');
+    if(matches.length!==1) throw new Error('The configured private Teams channel could not be identified uniquely.');
+    return `/teams/${cfg.teamId}/channels/${encodeURIComponent(matches[0].id)}/members`;
+  },
+  async channelGrant(email,token){
+    const cfg=CONFIG.onboardingChannel;
+    const quoted=email.replace(/'/g,"''");
+    const users=await this.graphAll('/users?$select=id,mail,userPrincipalName&$filter='+encodeURIComponent(`mail eq '${quoted}' or userPrincipalName eq '${quoted}'`),token);
+    if(users.length>1) throw new Error('More than one Microsoft account matches this email. A team owner must resolve it.');
+    let user=users[0];
+    if(!user){
+      if(email.endsWith('@therampchurch.com')) throw new Error('This church account does not exist in Microsoft yet. Create the account first.');
+      const invite=await this.graph('/invitations',{method:'POST',body:JSON.stringify({invitedUserEmailAddress:email,
+        inviteRedirectUrl:location.origin+location.pathname+'?install',sendInvitationMessage:true})},token);
+      user=invite?.invitedUser;
+      if(!user?.id) throw new Error('Microsoft did not return the invited guest account.');
+    }
+    const body=JSON.stringify({'@odata.type':'#microsoft.graph.aadUserConversationMember',roles:[],
+      'user@odata.bind':`https://graph.microsoft.com/v1.0/users('${user.id}')`});
+    const teamPath=`/teams/${cfg.teamId}/members`;
+    const members=await this.graphAll(teamPath,token);
+    if(!members.some(m=>m.userId===user.id)) { await this.graph(teamPath,{method:'POST',body},token); await new Promise(resolve=>setTimeout(resolve,2000)); }
+    const path=await this.channel(token);
+    const channelMembers=await this.graphAll(path,token);
+    if(!channelMembers.some(m=>m.userId===user.id)) await this.graph(path,{method:'POST',body},token);
+    const confirmed=await this.graphAll(path,token);
+    if(!confirmed.some(m=>m.userId===user.id)) throw new Error('Microsoft has not confirmed channel membership yet.');
+  },
+  async run(p,grant=false){
+    if(DEMO || !isEditor() || !this.writable(p) || p.gone) return;
+    const id=String(p.id); if(this.busy.has(id)) return; this.busy.add(id);
+    try {
+      await this.schema();
+      const email=this.email(p); if(!email) throw new Error('Add the person’s sign-in email before setting up access.');
+      await this.status(p,'Pending','Checking Microsoft access…');
+      const spToken=await this.token([`https://${CONFIG.siteHost}/AllSites.FullControl`],grant);
+      let check=await this.verify(p,spToken,true);
+      if(!check.complete && grant){
+        if(CONFIG.onboardingChannel){
+          const graphToken=await this.token(['User.ReadBasic.All','User.Invite.All','TeamMember.Read.All','TeamMember.ReadWriteNonOwnerRole.All','ChannelMember.ReadWrite.All','Channel.ReadBasic.All'],true);
+          await this.channelGrant(email,graphToken);
+        } else {
+          if (!check.user || check.detail === 'The account cannot open the team site yet.') await this.share(email,spToken);
+        }
+        check=await this.verify(p,spToken,true);
+      }
+      if(check.complete && check.user) await this.link(p,check.user);
+      await this.status(p,check.complete?'Complete':'Pending',check.detail);
+    } catch(e){
+      this.details.set(id,e.message);
+      try { await this.status(p,'Failed',e.message); }
+      catch(saveError){ this.details.set(id,`${e.message} Status could not be saved: ${saveError.message}`); this.schemaError=saveError.message; }
+    } finally { this.busy.delete(id); }
+  },
+  panel(p){
+    if(!isEditor() || !this.writable(p)) return '';
+    const status=['Pending','Complete','Failed'].includes(p.accessStatus)?p.accessStatus:'Pending';
+    const id=String(p.id), busy=this.busy.has(id);
+    const detail=this.schemaError || this.details.get(id) || (p.accessStatus==='Complete'
+      ? 'Site and required list permissions were verified. Guests may still need to accept their invitation.'
+      : p.accessStatus==='Failed' ? 'Setup failed. Select Retry Setup to see the Microsoft error and retry.'
+      : 'Access has not been verified yet. Select Check Access, or Retry Setup to grant access.');
+    return `<section class="panel stack" aria-label="Admin onboarding"><div class="page-h" style="margin:0"><h2 class="section-label" style="margin:0">Access Status</h2><strong role="status" class="pill">${esc(status)}</strong></div>
+      <p class="hint" style="margin:0">${esc(detail)}</p><p class="hint" style="margin:0">${esc(this.email(p) || 'No sign-in email recorded.')}</p>
+      ${p.gone?'':`<div class="actions"><button class="btn" data-act="access-check" data-id="${esc(id)}" ${busy?'disabled':''}>Check Access</button><button class="btn blue" data-act="access-setup" data-id="${esc(id)}" ${busy?'disabled':''}>${busy?'Checking…':'Retry Setup'}</button></div>`}</section>`;
+  },
+  async action(id,grant,email){
+    if(!isEditor()) return;
+    const p=S.items.find(i=>String(i.id)===String(id)) || S.items.find(i=>this.writable(i) && this.email(i)===lc(email));
+    if(!p) { toast('Open the person’s roster profile to set up access.',true); return; }
+    if(!this.email(p)){
+      const value=(prompt('Their Microsoft sign-in email address:','')||'').trim().toLowerCase();
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return;
+      // Existing roster records may predate onboarding. Persist the email before retrying.
+      const fields=LINK_COL==='PersonLookupId' ? {Notes:'Pending sign-in: '+value} : {Title:value};
+      await API.update(p.id,fields); p.pendingEmail=value;
+    }
+    const work=this.run(p,grant); render(); await work; render();
+    toast(this.details.get(String(p.id)) || 'Access status updated.',p.accessStatus==='Failed');
+  }
+};
+
 async function start(){
   S.phase = "boot"; render();
   try {
     const signedIn = await API.init();
     if (!signedIn){ S.phase = "signin"; render(); return; }
     const data = await API.load();
+    await Onboarding.load(data.items);
     S.me = data.me; S.items = data.items; S.names = [...new Set([...(data.names || []), ...data.items.filter(isProfile).map(i => i.fullName).filter(Boolean)])];   // Roster names added in the app aren't Full Name choices yet
     S.servingChoices = data.servingChoices || []; S.choices = data.choices || {}; S.users = data.users || []; S.announcements = data.announcements || []; markNewAnns(); setTimeout(linkPendingPeople, 1500); S.messages = data.messages || [];
     const t = new Date(); S.cal.month = new Date(t.getFullYear(), t.getMonth(), 1); S.cal.sel = todayKey();
@@ -2550,4 +2706,5 @@ document.addEventListener("visibilitychange", async () => {
 </script>
 </body>
 </html>
+
 
