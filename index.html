@@ -571,7 +571,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "79";
+const APP_VERSION = "80";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -658,7 +658,7 @@ function normalize(id, f, emailById){
     gone: lc(f.ArchiveStatus) === "archived",
     active: f.ActiveStatus || "",
     likes: f[CONFIG.likesCol] || "",
-    pendingEmail: ((f.Notes || "").match(/^Pending sign-in: (\S+@\S+)/) || [])[1] || ""
+    pendingEmail: ((f.Notes || "").match(/Pending sign-in:\s*([^<\s]+@[^<\s]+)/) || [])[1] || ""
   };
 }
 
