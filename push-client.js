@@ -78,7 +78,8 @@ function createPushClient({ appId, apiBaseUrl, getToken, onChange, isDemo, stand
     if (!supported()) return shell("<p>This browser doesn't support push notifications. Open the app in a supported browser.</p>");
     if (!base) return shell("<p>Lock-screen notifications are awaiting activation by your team administrator.</p>");
     if (Notification.permission === "denied") return shell("<p>Notifications are off. Allow notifications for this app in your device Settings, then reopen it.</p>");
-    return shell(`${enabled ? "" : `<p>Receive schedule requests and team updates, even when the app is closed.</p>`}${error ? `<p role="alert">${escape(error)}</p>` : ""}<button class="btn badge-red" data-act="${enabled ? "push-off" : "badge-on"}" ${busy ? "disabled" : ""}>${busy ? "Please wait…" : enabled ? "Turn Off on This Device" : ready ? "Enable Notifications" : "Retry Connection"}</button>`);
+    if (enabled) return "";   // Once on, this panel is only for turning notifications on; turning off is a device-Settings action.
+    return shell(`<p>Receive schedule requests and team updates, even when the app is closed.</p>${error ? `<p role="alert">${escape(error)}</p>` : ""}<button class="btn badge-red" data-act="badge-on" ${busy ? "disabled" : ""}>${busy ? "Please wait…" : ready ? "Enable Notifications" : "Retry Connection"}</button>`);
   }
   return { init, enable, disable, panel };
 }
