@@ -278,6 +278,7 @@ a.btn{text-decoration:none}
 .btn.accept{background:var(--go);border-color:var(--go);color:#FFFFFF}
 .btn.decline{background:var(--stop);border-color:var(--stop);color:#FFFFFF}
 .btn.decline-soft{color:var(--bad)}
+.pill.admin-tag{background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent);font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:11.5px;padding:3px 10px}
 /* Next 7 Days on Home: theme-colored cards (navy date block, gold details) */
 .next7 .cue:not(.abs){border:1px solid color-mix(in srgb,var(--accent) 40%,var(--line));border-left:4px solid var(--accent);background:var(--surface);box-shadow:0 4px 16px -12px var(--accent)}
 .next7 .cue:not(.abs) .when{background:#0B1D33;color:#FFFFFF}
@@ -570,7 +571,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "76";
+const APP_VERSION = "77";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1398,7 +1399,7 @@ function viewMember(){
   const t = todayKey();
   const next = assignments().filter(i => i.date >= t && approved(i) && ((p.email && i.email === p.email) || i.fullName === p.fullName)).sort(byDate).slice(0,3);
   return `${backBar("About " + (p.first || firstOf(p.fullName)))}${accessPanel(p)}${goneNote(p)}
-    <section class="panel profile-hero">${avatar(p,"lg")}<h2>${esc(p.fullName)}</h2>
+    <section class="panel profile-hero">${avatar(p,"lg")}<h2>${esc(p.fullName)}</h2>${adminTag(p)}
       ${p.email && myProfile()?.id !== p.id ? `<a class="btn blue" href="mailto:${esc(p.email)}">${ICON.mail}Email Me</a><span class="sub email-addr">${esc(p.email)}</span>` : ""}</section>
     <section class="panel"><dl class="kv">
       <dt>First Name</dt><dd>${esc(p.first || "—")}</dd>
@@ -1487,7 +1488,7 @@ function viewProfile(){
   if (!p) return `<div class="page-h"><h1>My Profile</h1></div>${noProfileMsg()}`;
   const choices = [...new Set([...(S.servingChoices || []), ...p.serving])];
   return `<div class="page-h"><h1>My Profile</h1><span style="flex:1"></span><button class="btn" data-act="signout">${ICON.out.replace("<svg",'<svg width="16" height="16"')}Sign Out</button></div>
-    <section class="panel profile-hero">${avatar(p,"lg")}
+    <section class="panel profile-hero">${avatar(p,"lg")}${adminTag(p)}
       <label class="btn" for="pf-photo" style="cursor:pointer">Change Photo</label>
       <input id="pf-photo" type="file" accept="image/*" hidden>
       <span class="sub" style="margin:0;font-size:13px">Your teammates see this on the calendar and team list.</span></section>
@@ -2473,6 +2474,13 @@ function waitingPanel(){
     <div class="list">${list.map(p => `<div class="panel wait-row">${avatar(p)}<div class="wait-info"><b>${esc(p.fullName)}</b><span class="sub" style="margin:0">${esc(p.pendingEmail)}</span></div>
       <div class="wait-btns"><button class="btn blue" data-act="share-site" data-email="${esc(p.pendingEmail)}">Share</button><button class="btn" data-act="member" data-id="${esc(p.id)}">Open</button></div></div>`).join("")}</div>
     <p class="sub" style="margin:6px 0 0">Tap <b>Share</b> to give them access. If the app can't do that directly yet, it copies their email and opens SharePoint's Add Members page instead. Once they accept and sign in, the app links them and they drop off this list.</p></section>`;
+}
+/* "Admin" tag on the profile of anyone in CONFIG.editors (matched by their linked or pending email). */
+function adminTag(p){
+  const ed = (CONFIG.editors || []).map(e => String(e).toLowerCase());
+  const norm = e => { const x = String(e || "").toLowerCase().trim(), m = x.match(/^(.+)_([^_#]+\.[^_#]+)#ext#@/); return m ? `${m[1]}@${m[2]}` : x; };
+  const hit = [p && p.email, p && p.pendingEmail].filter(Boolean).some(e => ed.includes(norm(e)));
+  return hit ? `<span class="pill admin-tag" title="Can edit the schedule and announcements">★ Admin</span>` : "";
 }
 function accessPanel(p){
   if (!isEditor() || !p || p.personId || p.id == null || String(p.id).startsWith("p-")) return "";
