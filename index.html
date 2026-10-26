@@ -297,6 +297,14 @@ a.btn{text-decoration:none}
 .ann-card.ann-today{border:2px solid var(--accent);background:linear-gradient(135deg,var(--accent-soft),var(--surface) 70%);box-shadow:0 6px 22px -12px var(--accent)}
 ul.ann li.ann-today{background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:8px;padding-left:10px}
 .pill.today-pill{background:var(--accent);color:var(--accent-ink);font-weight:800}
+.replies{padding:0;overflow:hidden}
+.reply-row{display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid var(--line)}
+.reply-row:first-child{border-top:none}
+.reply-row.fresh{background:var(--accent-soft)}
+.reply-row .av.mini,.reply-row .av{width:30px;height:30px;font-size:11px;flex:none}
+.reply-info{display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;min-width:0}
+.reply-info small{flex-basis:100%;color:var(--muted);font-size:12.5px}
+.pill.ok{background:var(--ok-soft,rgba(46,160,67,.15));color:var(--ok,#2E8B57)}
 .today-hero{position:relative;display:flex;flex-direction:column;gap:10px;padding:16px 16px 14px;border-radius:var(--r);border:2px solid var(--accent);background:linear-gradient(135deg,var(--accent-soft),var(--surface) 70%);box-shadow:0 6px 22px -10px var(--accent)}
 .today-h{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
 .today-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 0 var(--accent);animation:todayPulse 1.8s ease-out infinite}
@@ -546,7 +554,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "66";
+const APP_VERSION = "67";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -688,7 +696,7 @@ const LiveAPI = {
       });
     } catch(e){ console.warn("Could not read User Information List; matching by name instead.", e); }
     const sel = "Title,ServiceDates,ServiceCategory,CallTime,ServiceTime,ChoiceNames,PersonLookupId,Status,Published,Notes,Name,TimeOffDate,Birthday,Photo,PhoneNumber,Serving,ArchiveStatus,ActiveStatus";
-    const rows = await this.all(`${base}/${CONFIG.listId}/items?$expand=fields($select=${sel})&$top=500`);
+    const rows = await this.all(`${base}/${CONFIG.listId}/items?$expand=fields($select=${sel})&$top=500`); S.modById = new Map(rows.map(r => [String(r.id), { at: r.lastModifiedDateTime || "", by: lc(r.lastModifiedBy?.user?.email || ""), byName: r.lastModifiedBy?.user?.displayName || "" }]));   // who last changed each row, for Recent Replies
     let names = [], servingChoices = [], choices = {};
     try {
       const cols = await this.g(`${base}/${CONFIG.listId}/columns?$select=name,choice`);
@@ -1207,6 +1215,7 @@ function viewHome(){
   return `
     <div><h1 class="greet">Welcome ${esc(first)}</h1><p class="sub">${esc(fmtLong(t))}</p></div>
     ${todayHero()}
+    ${repliesPanel()}
     <section><div class="day-h"><h2 class="section-label">Announcements</h2>${annEditBtn()}</div>
       ${anns.length ? `<div class="list">${anns.map(a => annCard(a)).join("")}</div>` : `<div class="empty">We have no upcoming announcements at this time.</div>`}
       ${S.annEdit ? `<div class="panel" style="margin-top:10px">${annForm()}</div>` : ""}
@@ -1665,10 +1674,46 @@ function viewAdmin(){
 }
 
 /* ---------- red badge on the app icon for pending requests ---------- */
+/* ---------- Admins: Recent Replies (who accepted or declined, newest first) ----------
+   A reply is a schedule row whose Status is Accepted or Declined and which was last changed by that same person
+   (not by an admin) in the last 14 days. "New" = since this admin last opened Home on this device. */
+const REPLY_KEY = "replies-seen:" + location.pathname;
+let repliesSeenAt = (() => { try { return Number(localStorage.getItem(REPLY_KEY) || 0); } catch(_){ return 0; } })();
+function recentReplies(){
+  if (!isEditor() || !S.modById) return [];
+  const since = Date.now() - 14 * 864e5, out = [];
+  for (const i of assignments()){
+    const st = lc(i.status || ""); if (st !== "accepted" && st !== "declined") continue;
+    const m = S.modById.get(String(i.rowId || i.id).split(":")[0]); if (!m || !m.at) continue;
+    const at = Date.parse(m.at); if (!(at >= since)) continue;
+    const byThem = (m.by && i.email && m.by === lc(i.email)) || (m.byName && i.fullName && lc(m.byName) === lc(i.fullName));
+    if (!byThem) continue;
+    out.push({ i, at, accepted: st === "accepted" });
+  }
+  return out.sort((a, b) => b.at - a.at).slice(0, 12);
+}
+const newReplyCount = () => recentReplies().filter(r => r.at > repliesSeenAt).length;
+function replyAgo(ms){
+  const m = Math.round((Date.now() - ms) / 60000);
+  if (m < 1) return "just now"; if (m < 60) return m + " min ago";
+  const h = Math.round(m / 60); if (h < 24) return h + " hr ago";
+  const d = Math.round(h / 24); return d === 1 ? "yesterday" : d + " days ago";
+}
+function repliesPanel(){
+  const list = recentReplies(); if (!isEditor() || !list.length) return "";
+  const fresh = list.filter(r => r.at > repliesSeenAt).length;
+  const html = `<section><h2 class="section-label">Recent Replies <span class="count ${fresh ? "hot" : ""}">${fresh || list.length}</span></h2>
+    <div class="panel replies">${list.map(({ i, at, accepted }) => `<div class="reply-row ${at > repliesSeenAt ? "fresh" : ""}">${avatar(i, "mini")}
+      <div class="reply-info"><b>${esc(i.fullName || "Someone")}</b> <span class="pill ${accepted ? "ok" : "bad"}">${accepted ? "Accepted" : "Declined"}</span>
+        <small>${esc(i.role || "")}${i.role ? " · " : ""}${esc(fmtShort(i.date))} · ${esc(replyAgo(at))}</small></div></div>`).join("")}</div></section>`;
+  // Seen once shown; the highlight stays until the app is opened again.
+  try { localStorage.setItem(REPLY_KEY, String(Date.now())); } catch(_){}
+  return html;
+}
 const pendingCount = () => S.me ? assignments().filter(i => mine(i) && pending(i) && i.date >= todayKey()).length : 0;
 function updateBadge(){
   if (DEMO || !("setAppBadge" in navigator)) return;
-  const n = pendingCount();
+  const n = pendingCount() + newReplyCount();   // admins also count new replies
   (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {});
 }
 function badgePanel(){
