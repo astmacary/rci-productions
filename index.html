@@ -281,14 +281,19 @@ a.btn{text-decoration:none}
 /* iPhone zooms the page when a box under 16px text is tapped, and then the menu bar seems to scroll with the page. */
 @media (max-width:820px){input,select,textarea{font-size:16px!important}}
 .today-btns{display:flex;flex-wrap:wrap;gap:8px}
-.today-cant{align-self:flex-start;margin-top:6px;padding:6px 12px;border-color:var(--bad);color:var(--bad);background:transparent;font-weight:700}
+.today-item{position:relative}
+.today-cant{position:absolute;top:0;right:0;font:inherit;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:3px 10px;border-radius:999px;border:1px solid var(--bad);color:var(--bad);background:var(--bad-soft);cursor:pointer;white-space:nowrap}
+.today-item .today-role{padding-right:118px}
 .today-hero .confirm-row{margin-top:6px}
 .install-guide{border:2px solid var(--accent);background:linear-gradient(135deg,var(--accent-soft),var(--surface) 70%)}
+.ig-signin{margin:6px 0 0;font-size:14px;line-height:1.45}
 .install-guide ol{margin:4px 0 0;padding-left:22px;display:flex;flex-direction:column;gap:4px}
 .install-guide .ig-share{display:inline-grid;place-items:center;vertical-align:-4px}
 .install-guide .ig-share svg{width:18px;height:18px}
 .share-app{margin-left:auto;display:inline-flex;align-items:center;gap:6px;border-color:var(--accent);color:var(--accent);font-weight:700;padding:7px 12px}
 .share-app svg{width:16px;height:16px}
+.badge-ask{border:2px solid var(--bad)}
+.btn.badge-red{background:var(--bad);border-color:var(--bad);color:#FFFFFF;font-weight:700;align-self:flex-start}
 .today-hero{position:relative;display:flex;flex-direction:column;gap:10px;padding:16px 16px 14px;border-radius:var(--r);border:2px solid var(--accent);background:linear-gradient(135deg,var(--accent-soft),var(--surface) 70%);box-shadow:0 6px 22px -10px var(--accent)}
 .today-h{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
 .today-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 0 var(--accent);animation:todayPulse 1.8s ease-out infinite}
@@ -538,7 +543,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "64";
+const APP_VERSION = "65";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1177,13 +1182,13 @@ function todayHero(){
   return `<section class="today-hero" aria-label="Where you're serving today">
     <div class="today-h"><span class="today-dot" aria-hidden="true"></span>You're Serving Today</div>
     ${list.map(i => `<div class="today-item">
+      ${S.confirm === i.id ? "" : `<button class="today-cant" data-act="ask-decline" data-id="${esc(i.id)}">Can't Make It</button>`}
       <div class="today-role">${esc(roleOf(i))}</div>
       <div class="today-meta">${esc(i.category || "")}${i.call ? ` · Call Time <b>${esc(i.call)}</b>` : ""}${i.svcTime ? ` · Service <b>${esc(i.svcTime)}</b>` : ""}</div>
       ${pending(i) ? `<div class="today-act"><span class="pill pending-pill">Needs your reply</span><button class="btn accept" data-act="accept" data-id="${esc(i.id)}" ${S.busy.has(i.id) ? "disabled" : ""}>${S.busy.has(i.id) ? "Saving…" : "Accept"}</button></div>` : ""}
       ${S.confirm === i.id ? `<div class="confirm-row">Let the team know you can't make it today?
           <button class="btn decline-soft" data-act="decline" data-id="${esc(i.id)}" ${S.busy.has(i.id) ? "disabled" : ""}>${S.busy.has(i.id) ? "Sending…" : "Yes, I Can't Make It"}</button>
-          <button class="btn" data-act="cancel">Keep It</button></div>`
-        : `<button class="btn today-cant" data-act="ask-decline" data-id="${esc(i.id)}">Can't Make It</button>`}
+          <button class="btn" data-act="cancel">Keep It</button></div>` : ""}
     </div>`).join("")}
     <div class="today-btns"><button class="btn today-team" data-act="team" data-date="${t}">See Today's Team</button>${S.items.some(i => i.date === t && (typeof isNotesRow === "function" ? isNotesRow(i) : i.role === CONFIG.notesRole) && i.notes) ? `<button class="btn today-team" data-act="notes" data-date="${t}">See Today's Notes</button>` : ""}</div></section>`;
 }
@@ -1439,8 +1444,9 @@ function viewProfile(){
       <div class="field"><label for="pf-bday">Birthday</label><input id="pf-bday" type="date" value="${esc(p.birthday)}"></div>
       <div class="field"><label for="pf-phone">Phone Number</label><input id="pf-phone" type="tel" value="${esc(p.phone)}" maxlength="255"></div>
       <div class="field"><span class="label">Places I Serve</span>
-        <span class="hint">Check the places you serve, then save.</span>
-        <div class="checklist">${choices.map(x => `<button type="button" class="serve-opt" data-act="serve-toggle" data-value="${esc(x)}" aria-pressed="${p.serving.includes(x)}"><span class="box" aria-hidden="true">${ICON.check}</span>${esc(x)}</button>`).join("")}</div></div>
+        ${isEditor() ? `<span class="hint">Check the places you serve, then save.</span>
+        <div class="checklist">${choices.map(x => `<button type="button" class="serve-opt" data-act="serve-toggle" data-value="${esc(x)}" aria-pressed="${p.serving.includes(x)}"><span class="box" aria-hidden="true">${ICON.check}</span>${esc(x)}</button>`).join("")}</div>`
+        : `<span class="hint">Set by the schedule admins.</span>${p.serving.length ? `<ul class="panel rows" style="margin:0">${p.serving.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<span class="sub" style="margin:0">None listed yet.</span>`}`}</div>
       <button class="btn blue block" type="submit" id="pf-save">Save Profile</button></form>
     ${isEditor() ? `<section class="panel install"><h2 class="section-label" style="margin:0">Admin</h2><p>Assign people, and change Status and Published on the upcoming schedule.</p><button class="btn blue" data-act="admin-open">${ICON.cal.replace("<svg",'<svg width="16" height="16"')}Edit Schedule</button></section>` : ""}
     ${badgePanel()}${installPanel()}`;
@@ -1668,8 +1674,8 @@ function badgePanel(){
   // iPhones only show the badge after notifications are allowed for the installed app.
   if (!("setAppBadge" in navigator) || !("Notification" in window) || !isStandalone()) return "";
   if (Notification.permission === "granted") return "";
-  if (Notification.permission === "denied") return `<section class="panel install"><h2 class="section-label" style="margin:0">App Badge</h2><p>Badges are turned off. To see a red dot on the app icon for pending requests, allow notifications for RCI Productions in your phone's Settings.</p></section>`;
-  return `<section class="panel install"><h2 class="section-label" style="margin:0">App Badge</h2><p>Show a red number on the app icon when you have pending requests.</p><button class="btn blue" data-act="badge-on">Turn On App Badge</button></section>`;
+  if (Notification.permission === "denied") return `<section class="panel install badge-ask"><h2 class="section-label" style="margin:0">Notifications &amp; App Badge</h2><p>Notifications are turned off. To see a red number on the app icon for pending requests, allow notifications for ${esc(document.title)} in your phone's Settings.</p></section>`;
+  return `<section class="panel install badge-ask"><h2 class="section-label" style="margin:0">Notifications &amp; App Badge</h2><p>Allow notifications so the app icon shows a red number when you have a request waiting.</p><button class="btn badge-red" data-act="badge-on">Allow Notifications</button></section>`;
 }
 
 /* ---------- install to home screen ---------- */
@@ -1694,9 +1700,9 @@ function installGuide(){
   const inApp = /FBAN|FBAV|Instagram|Line\/|GSA\/|Teams|Outlook|Gmail|wv\)/i.test(navigator.userAgent);
   let steps;
   if (deferredInstall) steps = `<p>Tap <b>Install App</b> to put ${esc(APP_NAME)} on your home screen.</p><button class="btn primary" data-act="install">Install App</button>`;
-  else if (isIOS()) steps = `<ol>${inApp || !/Safari/i.test(navigator.userAgent) || /CriOS|FxiOS|EdgiOS/i.test(navigator.userAgent) ? `<li>Open this link in <b>Safari</b> (tap ⋯ or the compass, then <b>Open in Safari</b>).</li>` : ""}<li>Tap the <b>Share</b> button <span class="ig-share" aria-hidden="true">${ICON.share}</span> at the bottom of Safari.</li><li>Scroll down and tap <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open ${esc(APP_NAME)} from your home screen and sign in.</li></ol>`;
-  else steps = `<ol>${inApp ? `<li>Open this link in <b>Chrome</b> (⋮ → <b>Open in Chrome</b>).</li>` : ""}<li>Tap the menu <b>⋮</b> at the top right.</li><li>Tap <b>Install app</b> or <b>Add to Home screen</b>.</li><li>Open ${esc(APP_NAME)} from your home screen and sign in.</li></ol>`;
-  return `<section class="panel install install-guide"><h2 class="section-label" style="margin:0;color:var(--accent)">Add ${esc(APP_NAME)} to Your Home Screen</h2>${steps}<button class="linkbtn" data-act="install-hide" style="align-self:flex-start">Not now</button></section>`;
+  else if (isIOS() && !/CriOS|FxiOS|EdgiOS/i.test(navigator.userAgent)) steps = `<ol>${inApp || !/Safari/i.test(navigator.userAgent) ? `<li>Open this link in <b>Safari</b> first (tap ⋯ or the compass, then <b>Open in Safari</b>).</li>` : ""}<li>Tap the <b>two lines</b> on the web address bar below.</li><li>Tap the <b>Share</b> button <span class="ig-share" aria-hidden="true">${ICON.share}</span>.</li><li>Tap the <b>View More</b> drop-down menu.</li><li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open ${esc(APP_NAME)} from your home screen and sign in.</li></ol>`;
+  else steps = `<ol>${inApp ? `<li>Open this link in <b>Chrome</b> first.</li>` : ""}<li>Tap the <b>Share</b> button <span class="ig-share" aria-hidden="true">${ICON.share}</span> on the web address bar at the top.</li><li>Tap the <b>View More</b> drop-down menu.</li><li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open ${esc(APP_NAME)} from your home screen and sign in.</li></ol>`;
+  return `<section class="panel install install-guide"><h2 class="section-label" style="margin:0;color:var(--accent)">Add ${esc(APP_NAME)} to Your Home Screen</h2>${steps}<p class="ig-signin"><b>Signing in:</b> if your team leader already has your email address in the system, sign in with <b>that email address</b>. The sign-in page says Microsoft; that's expected. Just follow the prompts (you may get a one-time code by email).</p><button class="linkbtn" data-act="install-hide" style="align-self:flex-start">Not now</button></section>`;
 }
 function installPanel(){
   if (isStandalone()) return "";
@@ -1732,7 +1738,7 @@ function render(){
   saveNav();
   const active = ["notes","team","member","admin"].includes(S.view) ? (S.stack[0]?.view || "home") : S.view;
   const demoBar = DEMO ? `<div class="demo"><span><strong>Demo mode.</strong> Sample people and dates; nothing is saved to SharePoint. Add your app's client ID in the configuration to connect the Serving Schedule list.</span></div>` : "";
-  app.innerHTML = header + `<main><div class="wrap">${demoBar}${S.view === "home" ? installGuide() : ""}${views[S.view]()}</div></main>
+  app.innerHTML = header + `<main><div class="wrap">${demoBar}${S.view === "home" ? installGuide() + badgePanel() : ""}${views[S.view]()}</div></main>
     <nav class="tabs" aria-label="Main"><div class="wrap">${TABS.map(([v,l,ic]) => `<button data-act="tab" data-view="${v}" ${v===active?'aria-current="page"':""}>${ic}<span>${l}</span></button>`).join("")}</div></nav>`;
   hydratePhotos(); hydrateFlyers();
 }
@@ -2125,8 +2131,9 @@ document.addEventListener("submit", async e => {
     return;
   }
   if (e.target.id === "profileForm"){
-    const serving = [...document.querySelectorAll('.serve-opt[aria-pressed="true"]')].map(b => b.dataset.value);
-    const f = { Birthday: toSp($("#pf-bday").value), PhoneNumber: $("#pf-phone").value.trim(), "Serving@odata.type": "Collection(Edm.String)", Serving: serving };
+    const serving = isEditor() ? [...document.querySelectorAll('.serve-opt[aria-pressed="true"]')].map(b => b.dataset.value) : p.serving;
+    const f = { Birthday: toSp($("#pf-bday").value), PhoneNumber: $("#pf-phone").value.trim() };
+    if (isEditor()){ f["Serving@odata.type"] = "Collection(Edm.String)"; f.Serving = serving; }   // only admins set Places I Serve
     const btn = $("#pf-save"); btn.disabled = true; btn.textContent = "Saving…";
     try {
       await API.update(p.id, f);
