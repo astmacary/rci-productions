@@ -571,7 +571,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "80";
+const APP_VERSION = "81";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -658,7 +658,7 @@ function normalize(id, f, emailById){
     gone: lc(f.ArchiveStatus) === "archived",
     active: f.ActiveStatus || "",
     likes: f[CONFIG.likesCol] || "",
-    pendingEmail: ((f.Notes || "").match(/Pending sign-in:\s*([^<\s]+@[^<\s]+)/) || [])[1] || ""
+    pendingEmail: (annText(f.Notes || "").match(/Pending sign-in:\s*([^<\s]+@[^<\s]+)/) || [])[1] || ""
   };
 }
 
@@ -2357,7 +2357,7 @@ const newPill = () => `<span class="pill new-pill">NEW</span> `;
 
 /* ---------- Admins: add a new person to the Roster from the Team page ---------- */
 function newPersonRow(v){
-  const f = { Title: v.name, ServiceCategory: CONFIG.profileCategory, ChoiceNames: v.name, Name: firstOf(v.name) };
+  const f = { Title: "Birthday", ServiceCategory: CONFIG.profileCategory, ChoiceNames: v.name, Name: firstOf(v.name) };
   if (v.userId) f.PersonLookupId = String(v.userId);
   if (v.email) f.Notes = "Pending sign-in: " + v.email;   // remembered until they can be linked
   if (v.birthday) f.Birthday = v.birthday + "T12:00:00Z";
