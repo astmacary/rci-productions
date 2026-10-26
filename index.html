@@ -278,6 +278,8 @@ a.btn{text-decoration:none}
 .btn.accept{background:var(--go);border-color:var(--go);color:#FFFFFF}
 .btn.decline{background:var(--stop);border-color:var(--stop);color:#FFFFFF}
 .btn.decline-soft{color:var(--bad)}
+.cal-roster .tile .av{aspect-ratio:4/3}
+.cal-roster .tile .av img{object-position:center 25%}
 .access-flag{font-size:10px !important;padding:2px 8px !important;top:8px !important;right:8px !important;letter-spacing:.05em}
 .profile-hero:has(.access-flag){padding-top:30px}
 .access-box{text-align:center;align-items:center}
@@ -589,7 +591,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "85";
+const APP_VERSION = "86";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1340,7 +1342,7 @@ function viewCalendar(){
         ${isEditor() ? `<button class="iconbtn notes-btn" data-act="admin-open" data-date="${sel}" aria-label="Edit this day's schedule" title="Edit schedule">${ICON.pencil}</button>` : ""}</div>
       ${ev.none ? `<div class="no-service"><span aria-hidden="true">❌</span> No Service</div>` : ""}
       ${bdayRows ? `<div class="list" style="margin-bottom:10px">${bdayRows}</div>` : ""}
-      ${team ? bySection(ev.a, part => `<div class="roster">${part.map(i => tile(i, i.role, "member-of", i.id)).join("")}</div>`, "cal") : (bdayRows || ev.none ? "" : `<div class="empty">No events scheduled.</div>`)}
+      ${team ? bySection(ev.a, part => `<div class="roster cal-roster">${part.map(i => tile(i, i.role, "member-of", i.id)).join("")}</div>`, "cal") : (bdayRows || ev.none ? "" : `<div class="empty">No events scheduled.</div>`)}
     </section>`;
 }
 
@@ -1418,11 +1420,16 @@ function viewMember(){
   const next = assignments().filter(i => i.date >= t && approved(i) && ((p.email && i.email === p.email) || i.fullName === p.fullName)).sort(byDate).slice(0,3);
   return `${backBar("About " + (p.first || firstOf(p.fullName)))}${goneNote(p)}
     <section class="panel profile-hero">${Onboarding.flag(p)}${avatar(p,"lg")}<h2>${esc(p.fullName)}</h2>${adminSlot(p)}
-      ${p.email && myProfile()?.id !== p.id ? `<a class="btn blue" href="mailto:${esc(p.email)}">${ICON.mail}Email Me</a><span class="sub email-addr">${esc(p.email)}</span>` : ""}</section>${Onboarding.panel(p)}
+      ${p.email && myProfile()?.id !== p.id ? `<a class="btn blue" href="mailto:${esc(p.email)}">${ICON.mail}Email Me</a>` : ""}</section>${Onboarding.panel(p)}
     <section class="panel"><dl class="kv">
-      <dt>First Name</dt><dd>${esc(p.first || "—")}</dd>
+      <dt>First Name</dt><dd>${esc(p.first || firstOf(p.fullName) || "—")}</dd>
       <dt>Birthday</dt><dd>${esc(bd)}</dd>
+      ${(() => { const em = p.email || p.pendingEmail || ""; return `<dt>Email</dt><dd>${em ? `<a href="mailto:${esc(em)}" style="color:var(--accent);font-weight:600;word-break:break-all">${esc(em)}</a>` : "—"}</dd>`; })()}
+      <dt>Phone</dt><dd>${p.phone ? `<a href="tel:${esc(p.phone.replace(/[^\d+]/g, ""))}" style="color:var(--accent);font-weight:600">${esc(p.phone)}</a>` : "—"}</dd>
     </dl></section>
+    ${likesSection(p)}
+    ${wallSection(p)}
+    ${next.length ? `<section><h2 class="section-label">Serving Next</h2><div class="list">${next.map(i=>`<div class="panel" style="padding:10px 14px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>${esc(i.role)}</b><span class="sub" style="margin:0">${esc(fmtShort(i.date))}</span></div>`).join("")}</div></section>` : ""}
     ${isEditor() ? (() => { const choices = [...new Set([...(S.servingChoices || []), ...p.serving])];
       return `<section><h2 class="section-label">Places They Serve</h2>
       <form class="panel stack" id="memberServeForm" data-id="${esc(p.id)}">
@@ -1435,9 +1442,6 @@ function viewMember(){
         <button class="btn blue block" type="submit" id="ms-save">Save Places &amp; Status</button></form></section>`; })()
     : `<section><h2 class="section-label">Places I Serve</h2>
       ${p.serving.length ? `<ul class="panel rows">${p.serving.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<div class="empty">No serving areas listed yet.</div>`}</section>`}
-    ${likesSection(p)}
-    ${wallSection(p)}
-    ${next.length ? `<section><h2 class="section-label">Serving Next</h2><div class="list">${next.map(i=>`<div class="panel" style="padding:10px 14px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>${esc(i.role)}</b><span class="sub" style="margin:0">${esc(fmtShort(i.date))}</span></div>`).join("")}</div></section>` : ""}
     ${managePanel(p)}`;
 }
 
