@@ -278,6 +278,17 @@ a.btn{text-decoration:none}
 .btn.accept{background:var(--go);border-color:var(--go);color:#FFFFFF}
 .btn.decline{background:var(--stop);border-color:var(--stop);color:#FFFFFF}
 .btn.decline-soft{color:var(--bad)}
+/* Oct 26: tighter Serving Team spacing and compact list cards (text the size of the date, not bold) */
+.day-h:has(+ .team-h){margin-bottom:0 !important}
+.team-h{margin:0 0 6px !important}
+.cal-cards{gap:6px !important}
+.cal-card{padding:6px 10px !important;gap:10px !important;min-height:0 !important}
+.cal-card .cc-face .av{width:40px !important;height:40px !important;font-size:13px !important}
+.cal-card .cc-info{gap:0 !important}
+.cal-card .cc-name{font-size:15px !important;font-weight:400 !important;line-height:1.25 !important}
+.cal-card .cc-pos{font-family:inherit !important;font-size:15px !important;font-weight:400 !important;letter-spacing:0 !important;line-height:1.25 !important}
+.cal-card .chev svg{width:16px !important;height:16px !important}
+
 .team-h{margin:4px 0 8px !important;justify-content:flex-start;gap:10px}
 .team-h .section-label{flex:none !important;font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:.06em;color:var(--fg);padding-left:10px;border-left:4px solid var(--accent);line-height:1.1}
 .view-toggle .iconbtn.on{background:transparent !important;border:1.5px solid var(--accent) !important;opacity:1}
@@ -643,7 +654,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "90";
+const APP_VERSION = "91";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
