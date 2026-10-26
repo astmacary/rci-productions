@@ -1,6 +1,6 @@
 /* Shared by the four RCI apps. No server secrets belong in this file. */
 function createPushClient({ appId, apiBaseUrl, getToken, onChange, isDemo, standalone, ios }) {
-  let key = "", enabled = false, busy = false, error = "", ready = false;
+  let key = "", enabled = false, busy = false, error = "", ready = false, checked = false;
   const supported = () => window.isSecureContext && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
   const escape = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const base = apiBaseUrl.replace(/\/$/, "");
@@ -23,7 +23,7 @@ function createPushClient({ appId, apiBaseUrl, getToken, onChange, isDemo, stand
   }
   async function init() {
     if (isDemo() || !base || !supported() || (ios() && !standalone())) return;
-    busy = true; error = ""; onChange();
+    busy = true; error = "";   // no re-render here: the panel stays hidden while this first check runs
     try {
       const cfg = await request("/push/config?appId=" + encodeURIComponent(appId), null, false);
       key = cfg.publicKey; if (!key) throw new Error("Notifications aren't configured yet.");
@@ -35,11 +35,12 @@ function createPushClient({ appId, apiBaseUrl, getToken, onChange, isDemo, stand
         if (currentKey && btoa(String.fromCharCode(...new Uint8Array(currentKey))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "") !== key) {
           await sub.unsubscribe();
         } else {
-          await request("/push/subscriptions", { action: "upsert", subscription: sub.toJSON() }); enabled = true;
+          enabled = true;   // already on for this phone; refreshing the server copy can fail quietly
+          try { await request("/push/subscriptions", { action: "upsert", subscription: sub.toJSON() }); } catch (_) {}
         }
       }
     } catch (e) { error = e.message; enabled = false; }
-    finally { busy = false; onChange(); }
+    finally { busy = false; checked = true; onChange(); }
   }
   async function enable() {
     if (busy) return;
@@ -78,7 +79,8 @@ function createPushClient({ appId, apiBaseUrl, getToken, onChange, isDemo, stand
     if (!supported()) return shell("<p>This browser doesn't support push notifications. Open the app in a supported browser.</p>");
     if (!base) return shell("<p>Lock-screen notifications are awaiting activation by your team administrator.</p>");
     if (Notification.permission === "denied") return shell("<p>Notifications are off. Allow notifications for this app in your device Settings, then reopen it.</p>");
-    if (enabled) return "";   // Once on, this panel is only for turning notifications on; turning off is a device-Settings action.
+    if (enabled) return "";   // once on, this panel is only for turning notifications on
+    if (!checked) return "";   // still checking this phone: show nothing until we know notifications are off
     return shell(`<p>Receive schedule requests and team updates, even when the app is closed.</p>${error ? `<p role="alert">${escape(error)}</p>` : ""}<button class="btn badge-red" data-act="badge-on" ${busy ? "disabled" : ""}>${busy ? "Please wait…" : ready ? "Enable Notifications" : "Retry Connection"}</button>`);
   }
   return { init, enable, disable, panel };

@@ -65,7 +65,7 @@ header.top .wrap{display:flex;align-items:center;gap:12px;padding-top:16px;paddi
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .wm-light{display:none}:root:not([data-theme="light"]) .wm-dark{display:block}}
 :root[data-theme="dark"] .wm-light{display:none}
 :root[data-theme="dark"] .wm-dark{display:block}
-.center-screen .wm{height:auto;width:min(280px,80%);object-position:center}
+.center-screen .wm{height:auto;width:min(280px,80%);object-position:center;margin-inline:auto;align-self:center}
 .install{display:flex;flex-direction:column;gap:8px}
 .install p{margin:0;color:var(--muted);font-size:14px}
 .install b{color:var(--fg)}
@@ -570,7 +570,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "75";
+const APP_VERSION = "76";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
