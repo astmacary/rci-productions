@@ -554,7 +554,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "68";
+const APP_VERSION = "69";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1983,16 +1983,52 @@ document.addEventListener("click", async e => {
       break;
     }
     case "share-site": {
-      const em = b.dataset.email || "", w = window.open("", "_blank");
-      try { if (em) await navigator.clipboard.writeText(em); } catch(e){}
-      let url = `https://${CONFIG.siteHost}${CONFIG.sitePath}/_layouts/15/user.aspx`;
+      const em = b.dataset.email || "";
+      const siteUrl = `https://${CONFIG.siteHost}${CONFIG.sitePath}`;
+      const openSharePointPage = async () => {
+        const w = window.open("", "_blank");
+        try { if (em) await navigator.clipboard.writeText(em); } catch(e){}
+        let url = `${siteUrl}/_layouts/15/user.aspx`;
+        try {
+          const tok = (await API.msal.acquireTokenSilent({ scopes: [`https://${CONFIG.siteHost}/AllSites.Write`], account: API.account })).accessToken;
+          const g = await fetch(`${siteUrl}/_api/web/associatedmembergroup?$select=Id`, { headers: { Authorization: "Bearer " + tok, Accept: "application/json;odata=nometadata" } }).then(r => r.json());
+          if (g && g.Id) url = `${siteUrl}/_layouts/15/aclinv.aspx?GroupId=${g.Id}`;
+        } catch(e){}
+        if (w) w.location.href = url; else location.href = url;
+        toast(em ? "Email copied. Paste it in SharePoint and tap Share." : "Type their email in SharePoint and tap Share.");
+      };
+      // Tries to share the site directly (needs the AllSites.FullControl permission, granted once in Entra).
+      // If that permission isn't there yet, or the call fails for any reason, falls back to the old
+      // copy-email-and-open-SharePoint flow so Give Them Access / Share the Site never breaks.
+      if (!em){ await openSharePointPage(); break; }
+      const prevLabel = b.textContent; b.disabled = true; b.textContent = "Sharing…";
       try {
-        const tok = (await API.msal.acquireTokenSilent({ scopes: [`https://${CONFIG.siteHost}/AllSites.Write`], account: API.account })).accessToken;
-        const g = await fetch(`https://${CONFIG.siteHost}${CONFIG.sitePath}/_api/web/associatedmembergroup?$select=Id`, { headers: { Authorization: "Bearer " + tok, Accept: "application/json;odata=nometadata" } }).then(r => r.json());
-        if (g && g.Id) url = `https://${CONFIG.siteHost}${CONFIG.sitePath}/_layouts/15/aclinv.aspx?GroupId=${g.Id}`;
-      } catch(e){}
-      if (w) w.location.href = url; else location.href = url;
-      toast(em ? "Email copied. Paste it in SharePoint and tap Share." : "Type their email in SharePoint and tap Share.");
+        const tok = (await API.msal.acquireTokenSilent({ scopes: [`https://${CONFIG.siteHost}/AllSites.FullControl`], account: API.account })).accessToken;
+        const r = await fetch(`${siteUrl}/_api/web/shareobject`, {
+          method: "POST",
+          headers: { Authorization: "Bearer " + tok, Accept: "application/json;odata=nometadata", "Content-Type": "application/json;odata=verbose" },
+          body: JSON.stringify({
+            url: siteUrl,
+            peoplePickerInput: JSON.stringify([{ Key: em }]),
+            roleValue: "role:1073741827",
+            groupId: 0,
+            propagateAcl: false,
+            sendEmail: true,
+            useSimplifiedRoles: true
+          })
+        });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        const data = await r.json().catch(() => null);
+        const results = Array.isArray(data) ? data : (data && Array.isArray(data.value) ? data.value : (data ? [data] : []));
+        const bad = results.find(x => x && x.ErrorMessage);
+        if (bad) throw new Error(bad.ErrorMessage);
+        toast(`Shared the site with ${em}. They'll get an invitation email, and the app will link them once they accept and sign in.`);
+      } catch(err){
+        console.warn("Couldn't share the site directly (permission may not be granted yet); opening the SharePoint page instead.", err);
+        await openSharePointPage();
+      } finally {
+        b.disabled = false; b.textContent = prevLabel;
+      }
       break;
     }
     case "link-acct": {
@@ -2381,14 +2417,14 @@ function waitingPanel(){
   return `<section><h2 class="section-label">Waiting for Access <span class="count hot">${list.length}</span></h2>
     <div class="list">${list.map(p => `<div class="panel wait-row">${avatar(p)}<div class="wait-info"><b>${esc(p.fullName)}</b><span class="sub" style="margin:0">${esc(p.pendingEmail)}</span></div>
       <div class="wait-btns"><button class="btn blue" data-act="share-site" data-email="${esc(p.pendingEmail)}">Share</button><button class="btn" data-act="member" data-id="${esc(p.id)}">Open</button></div></div>`).join("")}</div>
-    <p class="sub" style="margin:6px 0 0">Tap <b>Share</b>, paste their email in SharePoint and tap Share. Once they accept and sign in, the app links them and they drop off this list.</p></section>`;
+    <p class="sub" style="margin:6px 0 0">Tap <b>Share</b> to give them access. If the app can't do that directly yet, it copies their email and opens SharePoint's Add Members page instead. Once they accept and sign in, the app links them and they drop off this list.</p></section>`;
 }
 function accessPanel(p){
   if (!isEditor() || !p || p.personId || p.id == null || String(p.id).startsWith("p-")) return "";
   const em = p.pendingEmail || "";
   return `<section class="panel stack access-panel"><h2 class="section-label" style="margin:0">Give Them Access</h2>
     <p style="margin:0">${em ? `<b>${esc(em)}</b> isn't linked to a sign-in yet.` : "No email is linked to this person yet."} To sign in, they need access to the team's SharePoint site.</p>
-    <ol style="margin:0;padding-left:20px"><li><b>Share the Site</b> copies their email and opens SharePoint's Add Members page. Paste the email and tap <b>Share</b>; they get an invitation email.</li>
+    <ol style="margin:0;padding-left:20px"><li><b>Share the Site</b> shares it with their email right away. If the app doesn't have permission to do that yet, it copies the email and opens SharePoint's Add Members page for you to finish.</li>
       <li>Once they've accepted it and signed in, tap <b>Link Account</b> (the app also tries this on its own when an admin opens it).</li></ol>
     <div class="actions"><button class="btn blue" data-act="share-site" data-email="${esc(em)}">Share the Site</button><button class="btn" data-act="link-acct" data-id="${esc(p.id)}">Link Account</button></div></section>`;
 }
