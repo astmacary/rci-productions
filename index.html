@@ -571,7 +571,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "78";
+const APP_VERSION = "79";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -658,7 +658,7 @@ function normalize(id, f, emailById){
     gone: lc(f.ArchiveStatus) === "archived",
     active: f.ActiveStatus || "",
     likes: f[CONFIG.likesCol] || "",
-    pendingEmail: f.PersonLookupId == null ? (((f.Notes || "").match(/^Pending sign-in: (\S+@\S+)/) || [])[1] || "") : ""
+    pendingEmail: ((f.Notes || "").match(/^Pending sign-in: (\S+@\S+)/) || [])[1] || ""
   };
 }
 
@@ -2101,7 +2101,7 @@ document.addEventListener("submit", async e => {
     try {
       if (!email) throw new Error("Enter the email they will use to sign in.");
       if (!DEMO) await Onboarding.schema();
-      const userId = await siteUserId(email);
+      const userId = ""; // Link only after the exact directory identity and access are verified.
       const on = [...e.target.querySelectorAll('.serve-opt[aria-pressed="true"]')];
       const f = newPersonRow({ name, email, userId, birthday: $("#np-bday").value, phone: $("#np-phone").value.trim(), on });
       if (DEMO){ toast(`Demo: ${name} would be added to the Roster.`); S.addPerson = false; render(); return; }
@@ -2454,7 +2454,7 @@ async function siteUserId(email){
 
 /* Onboarding uses the signed-in leader's delegated permissions. No service keys. */
 const Onboarding = {
-  field: null, schemaError: '', details: new Map(), busy: new Set(),
+  field: null, schemaError: '', details: new Map(), busy: new Set(), identities: new Map(),
   siteUrl(){ return `https://${CONFIG.siteHost}${CONFIG.sitePath}`; },
   email(p){ return (p.pendingEmail || p.email || '').trim().toLowerCase(); },
   writable(p){ return isProfile(p) && p.editable !== false && /^\d+$/.test(String(p.id)); },
@@ -2525,15 +2525,44 @@ const Onboarding = {
     if(!/^[a-f\d-]{36}$/i.test(id)) throw new Error('Invalid list identity.');
     return `web/lists(guid'${id}')`;
   },
+  async directory(email, create=false, suppliedToken){
+    if(this.identities.has(email)) return this.identities.get(email);
+    const token=suppliedToken || await this.token(['User.ReadBasic.All', ...(create?['User.Invite.All']:[])],create);
+    const quoted=email.replace(/'/g,"''");
+    const users=await this.graphAll('/users?$select=id,mail,userPrincipalName&$filter='+encodeURIComponent(`mail eq '${quoted}' or userPrincipalName eq '${quoted}'`),token);
+    if(users.length>1) throw new Error('More than one Microsoft account matches this email. A team owner must resolve it.');
+    let user=users[0];
+    if(!user && create){
+      if(email.endsWith('@therampchurch.com')) throw new Error('This church account does not exist in Microsoft yet. Create the account first.');
+      const invitation=await this.graph('/invitations',{method:'POST',body:JSON.stringify({invitedUserEmailAddress:email,invitedUserType:'Guest',
+        inviteRedirectUrl:location.origin+location.pathname+'?install',sendInvitationMessage:true})},token);
+      if(!invitation?.invitedUser?.id) throw new Error('Microsoft did not return the invited guest account.');
+      user=await this.graph(`/users/${encodeURIComponent(invitation.invitedUser.id)}?$select=id,mail,userPrincipalName`,{},token);
+    }
+    if(user){
+      if(!user.id || !user.userPrincipalName) throw new Error('Microsoft did not return an exact sign-in identity.');
+      this.identities.set(email,user);
+    }
+    return user || null;
+  },
   async user(email, token){
-    return this.sp('web/ensureuser',{method:'POST',body:JSON.stringify({logonName:email})},token);
+    const identity=await this.directory(email);
+    if(!identity) return null;
+    // Resolve the authoritative directory principal, never a fuzzy email/name match.
+    const user=await this.sp('web/ensureuser',{method:'POST',body:JSON.stringify({logonName:identity.userPrincipalName})},token);
+    const login=String(user?.LoginName || '').split('|').pop().toLowerCase();
+    if(login !== identity.userPrincipalName.toLowerCase()){
+      const error=new Error('SharePoint resolved a different account. The sign-in link was not accepted.'); error.identityMismatch=true; throw error;
+    }
+    return user;
   },
   async verify(p, token, repair=false){
     const email=this.email(p); if(!email) return {complete:false,detail:'An email address is needed to check access.'};
     let user;
     try { user=await this.user(email,token); }
     catch(e){ if(e.status===400 || e.status===404) return {complete:false,detail:'Waiting for Microsoft to make the account available.'}; throw e; }
-    if(!user?.Id || !user.LoginName) throw new Error('Microsoft did not return a linked account.');
+    if(!user) return {complete:false,detail:'Waiting for a Microsoft guest invitation and account setup.'};
+    if(!user.Id || !user.LoginName) throw new Error('Microsoft did not return a linked account.');
     const q=this.userQuery(user.LoginName);
     const web=await this.sp('web/getusereffectivepermissions(@u)' + q,{},token);
     if(!this.hasPermissions(web,65536)) return {complete:false,detail:'The account cannot open the team site yet.',user};
@@ -2585,17 +2614,7 @@ const Onboarding = {
   },
   async channelGrant(email,token){
     const cfg=CONFIG.onboardingChannel;
-    const quoted=email.replace(/'/g,"''");
-    const users=await this.graphAll('/users?$select=id,mail,userPrincipalName&$filter='+encodeURIComponent(`mail eq '${quoted}' or userPrincipalName eq '${quoted}'`),token);
-    if(users.length>1) throw new Error('More than one Microsoft account matches this email. A team owner must resolve it.');
-    let user=users[0];
-    if(!user){
-      if(email.endsWith('@therampchurch.com')) throw new Error('This church account does not exist in Microsoft yet. Create the account first.');
-      const invite=await this.graph('/invitations',{method:'POST',body:JSON.stringify({invitedUserEmailAddress:email,
-        inviteRedirectUrl:location.origin+location.pathname+'?install',sendInvitationMessage:true})},token);
-      user=invite?.invitedUser;
-      if(!user?.id) throw new Error('Microsoft did not return the invited guest account.');
-    }
+    const user=await this.directory(email,true,token);
     const body=JSON.stringify({'@odata.type':'#microsoft.graph.aadUserConversationMember',roles:[],
       'user@odata.bind':`https://graph.microsoft.com/v1.0/users('${user.id}')`});
     const teamPath=`/teams/${cfg.teamId}/members`;
@@ -2621,13 +2640,17 @@ const Onboarding = {
           const graphToken=await this.token(['User.ReadBasic.All','User.Invite.All','TeamMember.Read.All','TeamMember.ReadWriteNonOwnerRole.All','ChannelMember.ReadWrite.All','Channel.ReadBasic.All'],true);
           await this.channelGrant(email,graphToken);
         } else {
-          if (!check.user || check.detail === 'The account cannot open the team site yet.') await this.share(email,spToken);
+          if (!check.user || check.detail === 'The account cannot open the team site yet.') {
+            const identity=await this.directory(email,true);
+            await this.share(identity.userPrincipalName,spToken);
+          }
         }
         check=await this.verify(p,spToken,true);
       }
       if(check.complete && check.user) await this.link(p,check.user);
       await this.status(p,check.complete?'Complete':'Pending',check.detail);
     } catch(e){
+      if(e.identityMismatch) { try { await API.update(p.id,{[API.col?.Name ? API.col.Name+'LookupId' : LINK_COL]:null}); p.personId=''; } catch(_){} }
       this.details.set(id,e.message);
       try { await this.status(p,'Failed',e.message); }
       catch(saveError){ this.details.set(id,`${e.message} Status could not be saved: ${saveError.message}`); this.schemaError=saveError.message; }
