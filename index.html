@@ -278,6 +278,18 @@ a.btn{text-decoration:none}
 .btn.accept{background:var(--go);border-color:var(--go);color:#FFFFFF}
 .btn.decline{background:var(--stop);border-color:var(--stop);color:#FFFFFF}
 .btn.decline-soft{color:var(--bad)}
+.team-h{margin:4px 0 8px !important;justify-content:flex-start;gap:10px}
+.team-h .section-label{flex:none !important;font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:.06em;color:var(--fg);padding-left:10px;border-left:4px solid var(--accent);line-height:1.1}
+.view-toggle .iconbtn.on{background:transparent !important;border:1.5px solid var(--accent) !important;opacity:1}
+.cal-cards{display:flex;flex-direction:column;gap:8px}
+.cal-card{display:flex;align-items:center;gap:12px;padding:10px 12px;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.cal-card .cc-face .av{width:56px;height:56px;font-size:18px;border-radius:50%}
+.cal-card .cc-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.cal-card .cc-name{font-size:16px;line-height:1.2;overflow-wrap:break-word}
+.cal-card .cc-pos{font-family:var(--display);font-weight:700;font-size:19px;letter-spacing:.02em;color:var(--accent);line-height:1.15;overflow-wrap:break-word}
+.cal-card .chev{color:var(--muted);flex:none;display:grid;place-items:center}
+.cal-card .chev svg{width:18px;height:18px}
+
 .fold-sec.closed > :not(.fold-head){display:none}
 .fold-head{margin:0 0 8px}
 .fold-head .section-label{flex:none}
@@ -631,7 +643,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "89";
+const APP_VERSION = "90";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1383,8 +1395,9 @@ function calViewToggle(){
 function rosterBlock(list, roleOf){
   const ro = roleOf || (i => i.role || "");
   const link = i => { const pr = profileOf(i); return pr ? ["member", pr.id] : ["member-of", i.id]; };
-  if (calView() === "list") return `<div class="panel daylist cal-list">${list.map(i => { const [a, id] = link(i);
-    return `<button type="button" class="row" data-act="${a}" data-id="${esc(id)}"><span class="who">${avatar(i, "mini")}<b>${esc(i.fullName || "Unassigned")}</b></span><span>${esc(ro(i))}</span></button>`; }).join("")}</div>`;
+  // List view: one card per person, laid out like the Productions Edit Schedule cards (photo, name, gold position).
+  if (calView() === "list") return `<div class="cal-cards">${list.map(i => { const [a, id] = link(i);
+    return `<button type="button" class="panel cal-card" data-act="${a}" data-id="${esc(id)}"><span class="cc-face">${avatar(i, "face")}</span><span class="cc-info"><b class="cc-name">${esc(i.fullName || "Unassigned")}</b><span class="cc-pos">${esc(ro(i) || "—")}</span></span><span class="chev" aria-hidden="true">${ICON.next}</span></button>`; }).join("")}</div>`;
   return `<div class="roster cal-roster">${list.map(i => { const [a, id] = link(i); return tile(i, ro(i), a, id); }).join("")}</div>`;
 }
 function viewCalendar(){
