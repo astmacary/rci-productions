@@ -571,7 +571,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "81";
+const APP_VERSION = "82";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -2628,7 +2628,7 @@ const Onboarding = {
   },
   async run(p,grant=false){
     if(DEMO || !isEditor() || !this.writable(p) || p.gone) return;
-    const id=String(p.id); if(this.busy.has(id)) return; this.busy.add(id);
+    const id=String(p.id), prior=p.accessStatus; if(this.busy.has(id)) return; this.busy.add(id);
     try {
       await this.schema();
       const email=this.email(p); if(!email) throw new Error('Add the person’s sign-in email before setting up access.');
@@ -2648,7 +2648,10 @@ const Onboarding = {
         check=await this.verify(p,spToken,true);
       }
       if(check.complete && check.user) await this.link(p,check.user);
-      await this.status(p,check.complete?'Complete':'Pending',check.detail);
+      const identity=await this.directory(email);
+      const awaitingSignIn=check.complete && /#ext#@/i.test(identity?.userPrincipalName || '') && prior!=='Complete';
+      await this.status(p,check.complete && !awaitingSignIn?'Complete':'Pending',awaitingSignIn
+        ? 'Access granted. Waiting for this guest to accept the invitation and sign in to the app.' : check.detail);
     } catch(e){
       if(e.identityMismatch) { try { await API.update(p.id,{[API.col?.Name ? API.col.Name+'LookupId' : LINK_COL]:null}); p.personId=''; } catch(_){} }
       this.details.set(id,e.message);
@@ -2656,12 +2659,27 @@ const Onboarding = {
       catch(saveError){ this.details.set(id,`${e.message} Status could not be saved: ${saveError.message}`); this.schemaError=saveError.message; }
     } finally { this.busy.delete(id); }
   },
+  async confirmSelf(){
+    if(DEMO || !S.me || this.schemaError) return;
+    const normal=value=>String(value || '').trim().toLowerCase();
+    const myEmails=new Set(S.me.emails.map(normal));
+    // Use exact email/UPN matching, never a display name, to confirm a first sign-in.
+    const profiles=S.items.filter(p=>this.writable(p) && !p.gone && (myEmails.has(normal(this.email(p))) || (!this.email(p) && myEmails.has(normal(p.email)))));
+    if(profiles.length!==1 || profiles[0].accessStatus==='Complete') return;
+    const p=profiles[0];
+    try {
+      for(const id of [CONFIG.listId,CONFIG.announcementsListId,CONFIG.messagesListId].filter(Boolean))
+        await API.g(`/sites/${API.siteId}/lists/${id}/items?$top=1&$select=id`);
+      // This write also proves that the actual signed-in account can update its roster.
+      await this.status(p,'Complete','First app sign-in and required list access verified.');
+    } catch(e){ this.details.set(String(p.id),'Sign-in succeeded, but required list access could not be confirmed: '+e.message); }
+  },
   panel(p){
     if(!isEditor() || !this.writable(p)) return '';
     const status=['Pending','Complete','Failed'].includes(p.accessStatus)?p.accessStatus:'Pending';
     const id=String(p.id), busy=this.busy.has(id);
     const detail=this.schemaError || this.details.get(id) || (p.accessStatus==='Complete'
-      ? 'Site and required list permissions were verified. Guests may still need to accept their invitation.'
+      ? 'Microsoft access and onboarding are complete.'
       : p.accessStatus==='Failed' ? 'Setup failed. Select Retry Setup to see the Microsoft error and retry.'
       : 'Access has not been verified yet. Select Check Access, or Retry Setup to grant access.');
     return `<section class="panel stack" aria-label="Admin onboarding"><div class="page-h" style="margin:0"><h2 class="section-label" style="margin:0">Access Status</h2><strong role="status" class="pill">${esc(status)}</strong></div>
@@ -2695,6 +2713,7 @@ async function start(){
     S.servingChoices = data.servingChoices || []; S.choices = data.choices || {}; S.users = data.users || []; S.announcements = data.announcements || []; markNewAnns(); setTimeout(linkPendingPeople, 1500); S.messages = data.messages || [];
     const t = new Date(); S.cal.month = new Date(t.getFullYear(), t.getMonth(), 1); S.cal.sel = todayKey();
     restoreNav();
+    await Onboarding.confirmSelf();
     S.phase = "ready"; render(); maybeConfetti(); updateBadge();
     void Push.init();
   } catch(e){
