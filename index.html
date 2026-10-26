@@ -445,6 +445,8 @@ ul.rows li:first-child{border-top:none}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:10px 18px;margin:0}
 .kv dt{color:var(--muted);font-size:13.5px}
 .kv dd{margin:0;font-weight:600;min-width:0;overflow-wrap:anywhere;user-select:text}
+.kv.likes dd{white-space:normal}
+.likes-form .field{margin:0}
 .done{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:28px 16px}
 .done .check{width:56px;height:56px;border-radius:50%;background:var(--ok-soft);color:var(--ok);display:grid;place-items:center}
 .done .check svg{width:28px;height:28px}
@@ -551,12 +553,15 @@ const CONFIG = {
   // Only these sign-ins see the pencil to edit Announcements and Production Notes.
   editors: ["ashley.stmacary@therampchurch.com", "ward.shaquille93@gmail.com", "morgandmosby@gmail.com"],
   wallDays: 30,                    // birthday wall: open for posting and visible for this many days
-  guidelinesUrl: ""                // optional link shown under announcements
+  guidelinesUrl: "",               // optional link shown under announcements
+  likesCol: "GettoKnow",           // "Get to Know Me" (Roster rows; each person edits only their own)
+  // Questions used when someone's "Get to Know Me" is still empty (same as the list's template).
+  likesTemplate: ["Favorite place to shop:", "Favorite fast food:", "Favorite candy:", "Favorite restaurant:", "Favorite hot drink:", "Favorite cold drink:", "Favorite sweet snack:", "Favorite salty snack:", "Favorite Starbucks order:", "Aversions or Allergies?", "How do you like to be celebrated?"]
 };
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "71";
+const APP_VERSION = "72";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -642,6 +647,7 @@ function normalize(id, f, emailById){
     serving: Array.isArray(f.Serving) ? f.Serving.slice() : [],
     gone: lc(f.ArchiveStatus) === "archived",
     active: f.ActiveStatus || "",
+    likes: f[CONFIG.likesCol] || "",
     pendingEmail: f.PersonLookupId == null ? (((f.Notes || "").match(/^Pending sign-in: (\S+@\S+)/) || [])[1] || "") : ""
   };
 }
@@ -697,7 +703,7 @@ const LiveAPI = {
         if (email && email.includes("@")) users.push({ id: String(u.id), email: lc(email), name: u.fields.Title || email });
       });
     } catch(e){ console.warn("Could not read User Information List; matching by name instead.", e); }
-    const sel = "Title,ServiceDates,ServiceCategory,CallTime,ServiceTime,ChoiceNames,PersonLookupId,Status,Published,Notes,Name,TimeOffDate,Birthday,Photo,PhoneNumber,Serving,ArchiveStatus,ActiveStatus";
+    const sel = `Title,ServiceDates,ServiceCategory,CallTime,ServiceTime,ChoiceNames,PersonLookupId,Status,Published,Notes,Name,TimeOffDate,Birthday,Photo,PhoneNumber,Serving,ArchiveStatus,ActiveStatus,${CONFIG.likesCol}`;
     const rows = await this.all(`${base}/${CONFIG.listId}/items?$expand=fields($select=${sel})&$top=500`); S.modById = new Map(rows.map(r => [String(r.id), { at: r.lastModifiedDateTime || "", by: lc(r.lastModifiedBy?.user?.email || ""), byName: r.lastModifiedBy?.user?.displayName || "" }]));   // who last changed each row, for Recent Replies
     let names = [], servingChoices = [], choices = {};
     try {
@@ -1062,6 +1068,26 @@ function ago(iso){
   const h = Math.round(mins / 60); if (h < 24) return `${h} hr ago`;
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
+/* "Get to Know Me": one "Question: answer" (or "Question? answer") per line. */
+function parseLikes(text){
+  const lines = String(text || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const qa = [], extra = [];
+  lines.forEach(l => {
+    const m = l.match(/^(.{2,80}?[:?])\s*(.*)$/);
+    if (m) qa.push({ q: m[1], a: m[2].trim() }); else extra.push(l);
+  });
+  if (!qa.length) CONFIG.likesTemplate.forEach(q => qa.push({ q, a: "" }));
+  return { qa, extra: extra.join("\n") };
+}
+function likesLabel(q){ return q.replace(/:$/, ""); }
+function likesSection(p){
+  const { qa, extra } = parseLikes(p.likes);
+  const filled = qa.filter(x => x.a);
+  if (!filled.length && !extra) return `<section><h2 class="section-label">Get to Know ${esc(p.first || firstOf(p.fullName) || "Me")}</h2><div class="empty">Nothing shared yet.</div></section>`;
+  return `<section><h2 class="section-label">Get to Know ${esc(p.first || firstOf(p.fullName) || "Me")}</h2><div class="panel"><dl class="kv likes">
+    ${filled.map(x => `<dt>${esc(likesLabel(x.q))}</dt><dd>${esc(x.a)}</dd>`).join("")}
+    ${extra ? `<dt>More</dt><dd style="white-space:pre-line">${esc(extra)}</dd>` : ""}</dl></div></section>`;
+}
 function wallSection(p){
   const msgs = wallMessages(p), open = wallOpen(p), own = myProfile()?.id === p.id;
   if (!open && !msgs.length) return "";
@@ -1381,6 +1407,7 @@ function viewMember(){
         <button class="btn blue block" type="submit" id="ms-save">Save Places &amp; Status</button></form></section>`; })()
     : `<section><h2 class="section-label">Places I Serve</h2>
       ${p.serving.length ? `<ul class="panel rows">${p.serving.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<div class="empty">No serving areas listed yet.</div>`}</section>`}
+    ${likesSection(p)}
     ${wallSection(p)}
     ${next.length ? `<section><h2 class="section-label">Serving Next</h2><div class="list">${next.map(i=>`<div class="panel" style="padding:10px 14px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>${esc(i.role)}</b><span class="sub" style="margin:0">${esc(fmtShort(i.date))}</span></div>`).join("")}</div></section>` : ""}
     ${managePanel(p)}`;
@@ -1464,6 +1491,12 @@ function viewProfile(){
         <div class="checklist">${choices.map(x => `<button type="button" class="serve-opt" data-act="serve-toggle" data-value="${esc(x)}" aria-pressed="${p.serving.includes(x)}"><span class="box" aria-hidden="true">${ICON.check}</span>${esc(x)}</button>`).join("")}</div>`
         : `<span class="hint">Set by the schedule admins.</span>${p.serving.length ? `<ul class="panel rows" style="margin:0">${p.serving.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<span class="sub" style="margin:0">None listed yet.</span>`}`}</div>
       <button class="btn blue block" type="submit" id="pf-save">Save Profile</button></form>
+    <form class="panel stack likes-form" id="likesForm">
+      <h2 class="section-label" style="margin:0">Get to Know Me</h2>
+      <span class="hint" style="margin-top:-6px">Share a few favorites so the team can get to know you. Fill in what you like, then save.</span>
+      ${(() => { const { qa, extra } = parseLikes(p.likes); return qa.map((x, n) => `<div class="field"><label for="lk-${n}">${esc(likesLabel(x.q))}</label><input id="lk-${n}" data-q="${esc(x.q)}" value="${esc(x.a)}" maxlength="300"></div>`).join("")
+        + `<div class="field"><label for="lk-extra">Anything Else</label><textarea id="lk-extra" maxlength="1000">${esc(extra)}</textarea></div>`; })()}
+      <button class="btn blue block" type="submit" id="lk-save">Save</button></form>
     ${isEditor() ? `<section class="panel install"><h2 class="section-label" style="margin:0">Admin</h2><p>Assign people, and change Status and Published on the upcoming schedule.</p><button class="btn blue" data-act="admin-open">${ICON.cal.replace("<svg",'<svg width="16" height="16"')}Edit Schedule</button></section>` : ""}
     ${badgePanel()}${installPanel()}`;
 }
@@ -2246,6 +2279,17 @@ document.addEventListener("submit", async e => {
       Object.assign(p, { birthday: $("#pf-bday").value, phone: f.PhoneNumber, serving });
       toast("Profile updated"); render();
     } catch(err){ toast("Couldn't save your profile. " + err.message, true); btn.disabled = false; btn.textContent = "Save Profile"; }
+  }
+  if (e.target.id === "likesForm"){
+    // Get to Know Me is saved only to the signed-in person's own Roster row (p here is always myProfile()), even for admins.
+    const lines = [...e.target.querySelectorAll("input[data-q]")].map(x => `${x.dataset.q} ${x.value.trim()}`.trimEnd());
+    const extra = $("#lk-extra").value.trim();
+    const text = lines.join("\n") + "\n" + (extra ? extra + "\n" : "");
+    const btn = $("#lk-save"); btn.disabled = true; btn.textContent = "Saving…";
+    try {
+      await API.update(p.id, { [CONFIG.likesCol]: text });
+      p.likes = text; toast("Saved"); render();
+    } catch(err){ toast("Couldn't save. " + err.message, true); btn.disabled = false; btn.textContent = "Save"; }
   }
 });
 
