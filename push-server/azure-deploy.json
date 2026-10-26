@@ -1,0 +1,176 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "eastus"
+    },
+    "functionAppName": {
+      "type": "string",
+      "defaultValue": "rci-push-astmacary-16343"
+    },
+    "storageAccountName": {
+      "type": "string",
+      "defaultValue": "rcipush1a7cb84c"
+    },
+    "vapidPublicKey": {
+      "type": "string",
+      "metadata": {
+        "description": "Public key from the separately delivered VAPID pair."
+      }
+    },
+    "vapidPrivateKey": {
+      "type": "secureString",
+      "metadata": {
+        "description": "Private key from the separately delivered VAPID pair. Never commit it."
+      }
+    },
+    "vapidSubject": {
+      "type": "string",
+      "defaultValue": "mailto:ashley.stmacary@therampchurch.com"
+    },
+    "packageUri": {
+      "type": "string",
+      "defaultValue": "https://raw.githubusercontent.com/astmacary/rci-productions/codex/lock-screen-push/push-server/deploy/rci-push.zip"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-05-01",
+      "name": "[parameters('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "kind": "StorageV2",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "properties": {
+        "supportsHttpsTrafficOnly": true,
+        "minimumTlsVersion": "TLS1_2",
+        "allowBlobPublicAccess": false,
+        "accessTier": "Hot"
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2023-05-01",
+      "name": "[concat(parameters('storageAccountName'),'/default/deployments')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts',parameters('storageAccountName'))]"
+      ],
+      "properties": {
+        "publicAccess": "None"
+      }
+    },
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2024-04-01",
+      "name": "[concat(parameters('functionAppName'),'-plan')]",
+      "location": "[parameters('location')]",
+      "kind": "functionapp",
+      "sku": {
+        "name": "FC1",
+        "tier": "FlexConsumption"
+      },
+      "properties": {
+        "reserved": true
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2024-04-01",
+      "name": "[parameters('functionAppName')]",
+      "location": "[parameters('location')]",
+      "kind": "functionapp,linux",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts',parameters('storageAccountName'))]",
+        "[resourceId('Microsoft.Web/serverfarms',concat(parameters('functionAppName'),'-plan'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers',parameters('storageAccountName'),'default','deployments')]"
+      ],
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms',concat(parameters('functionAppName'),'-plan'))]",
+        "reserved": true,
+        "httpsOnly": true,
+        "publicNetworkAccess": "Enabled",
+        "functionAppConfig": {
+          "runtime": {
+            "name": "node",
+            "version": "22"
+          },
+          "deployment": {
+            "storage": {
+              "type": "blobContainer",
+              "value": "[format('https://{0}.blob.{1}/deployments',parameters('storageAccountName'),environment().suffixes.storage)]",
+              "authentication": {
+                "type": "StorageAccountConnectionString",
+                "storageAccountConnectionStringName": "PUSH_STORAGE_CONNECTION_STRING"
+              }
+            }
+          },
+          "scaleAndConcurrency": {
+            "maximumInstanceCount": 40,
+            "instanceMemoryMB": 512
+          }
+        },
+        "siteConfig": {
+          "minTlsVersion": "1.2",
+          "scmMinTlsVersion": "1.2",
+          "ftpsState": "Disabled",
+          "cors": {
+            "allowedOrigins": [
+              "https://productions.therampchurch.com",
+              "https://security.therampchurch.com",
+              "https://ushers.therampchurch.com",
+              "https://worship.therampchurch.com",
+              "https://astmacary.github.io",
+              "https://rci-productions.netlify.app",
+              "https://rci-security.netlify.app"
+            ]
+          },
+          "appSettings": [
+            {
+              "name": "AzureWebJobsStorage",
+              "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1};EndpointSuffix={2}',parameters('storageAccountName'),listKeys(resourceId('Microsoft.Storage/storageAccounts',parameters('storageAccountName')),'2023-05-01').keys[0].value,environment().suffixes.storage)]"
+            },
+            {
+              "name": "PUSH_STORAGE_CONNECTION_STRING",
+              "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1};EndpointSuffix={2}',parameters('storageAccountName'),listKeys(resourceId('Microsoft.Storage/storageAccounts',parameters('storageAccountName')),'2023-05-01').keys[0].value,environment().suffixes.storage)]"
+            },
+            {
+              "name": "VAPID_PUBLIC_KEY",
+              "value": "[parameters('vapidPublicKey')]"
+            },
+            {
+              "name": "VAPID_PRIVATE_KEY",
+              "value": "[parameters('vapidPrivateKey')]"
+            },
+            {
+              "name": "VAPID_SUBJECT",
+              "value": "[parameters('vapidSubject')]"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites/extensions",
+      "apiVersion": "2022-09-01",
+      "name": "[concat(parameters('functionAppName'),'/onedeploy')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites',parameters('functionAppName'))]"
+      ],
+      "properties": {
+        "packageUri": "[parameters('packageUri')]",
+        "remoteBuild": false
+      }
+    }
+  ],
+  "outputs": {
+    "apiBaseUrl": {
+      "type": "string",
+      "value": "[format('https://{0}/api',reference(resourceId('Microsoft.Web/sites',parameters('functionAppName'))).defaultHostName)]"
+    }
+  }
+}
