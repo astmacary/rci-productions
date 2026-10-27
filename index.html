@@ -616,6 +616,7 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 
 <script src="push-config.js"></script>
 <script src="push-client.js"></script>
+<script src="team-switch.js"></script>
 <script>
 /* ============================================================
    CONFIGURATION — fill these in after registering the app in
@@ -662,7 +663,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "93";
+const APP_VERSION = "94";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1901,8 +1902,10 @@ function repliesPanel(){
 }
 const pendingCount = () => S.me ? assignments().filter(i => mine(i) && pending(i) && i.date >= todayKey()).length : 0;
 function updateBadge(){
+  // RCI Serve: keeps this team's count in the shared hub state; inside RCI Serve, adds the other teams' requests.
+  const otherTeams = (window.RCIServe && S.me) ? RCIServe.extra(pendingCount(), S.me) : 0;
   if (DEMO || !("setAppBadge" in navigator)) return;
-  const n = pendingCount() + newReplyCount();   // admins also count new replies
+  const n = pendingCount() + newReplyCount() + otherTeams;   // admins also count new replies
   (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {});
 }
 function badgePanel(){ return Push.panel(); }
