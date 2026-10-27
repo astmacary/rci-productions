@@ -40,8 +40,9 @@
   /* ---- styles (uses each app's own colour variables) ---- */
   var css = document.createElement("style");
   css.textContent =
-    ".rs-btn{flex:none;display:inline-flex;align-items:center;gap:4px;height:40px;padding:0 10px 0 8px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--fg);font:inherit;font-weight:700;font-size:12px;letter-spacing:.04em;text-transform:uppercase;position:relative;cursor:pointer}" +
-    ".rs-btn .rs-dot{position:absolute;top:-2px;right:-2px;width:11px;height:11px;border-radius:50%;background:var(--bad,#B3261E);border:2px solid var(--surface)}" +
+    ".rs-btn{flex:none;display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;padding:0;border-radius:999px;border:1px solid var(--line);background:none;color:var(--muted);position:relative;cursor:pointer}" +
+    ".rs-btn svg{width:18px;height:18px}" +
+    ".rs-btn .rs-dot{position:absolute;top:1px;right:1px;width:11px;height:11px;border-radius:50%;background:var(--bad,#B3261E);border:2px solid var(--surface)}" +
     ".rs-back{position:fixed;inset:0;z-index:90;background:rgba(3,17,31,.55)}" +
     ".rs-sheet{position:fixed;left:0;right:0;bottom:0;z-index:91;max-width:560px;margin:0 auto;background:var(--surface);color:var(--fg);border-radius:20px 20px 0 0;padding:10px 16px calc(24px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:6px;box-shadow:0 -8px 30px rgba(3,17,31,.3);max-height:85vh;overflow:auto}" +
     ".rs-grab{width:40px;height:5px;border-radius:3px;background:var(--line);align-self:center;margin-bottom:6px}" +
@@ -49,7 +50,7 @@
     ".rs-head h2{margin:0;font-family:var(--display,inherit);font-weight:700;font-size:24px;letter-spacing:.04em;text-transform:uppercase}" +
     ".rs-x{width:40px;height:40px;border-radius:50%;border:0;background:var(--surface-2);color:var(--fg);display:grid;place-items:center;cursor:pointer}" +
     ".rs-row{display:flex;align-items:center;gap:12px;min-height:58px;padding:0 12px;border-radius:12px;border:1px solid var(--line);text-decoration:none;color:var(--fg)}" +
-    ".rs-row.rs-home{background:var(--accent-soft);border-color:transparent}" +
+    ".rs-row.rs-home{background:var(--accent-soft);border:2px solid var(--accent)}" +
     ".rs-row.rs-here{border:2px solid var(--t)}" +
     ".rs-ic{width:36px;height:36px;border-radius:10px;background:var(--tl);color:#FFFFFF;display:grid;place-items:center;flex:none}" +
     ".rs-home .rs-ic{background:#0B1D33;color:#D2B07C}" +
@@ -66,7 +67,7 @@
     var btn = wrap.querySelector(".rs-btn");
     if (!shown()){ if (btn) btn.remove(); return; }
     var s = mine(), dot = othersPending(s) > 0;
-    var html = svg('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>', 16) + "Teams" + svg('<path d="m6 9 6 6 6-6"/>', 14) + (dot ? '<span class="rs-dot" aria-hidden="true"></span>' : "");
+    var html = svg('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>') + (dot ? '<span class="rs-dot" aria-hidden="true"></span>' : "");
     if (!btn){
       btn = document.createElement("button");
       btn.type = "button"; btn.className = "rs-btn";
