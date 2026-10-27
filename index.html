@@ -494,7 +494,7 @@ ul.ann li.ann-today{background:var(--accent-soft);border-left:4px solid var(--ac
 .av.lg{width:104px;height:104px;font-size:36px}
 .av.sm{width:50px;height:50px;font-size:16px}
 .me-btn{position:relative;padding:0;border:2px solid var(--accent);background:var(--accent-soft);width:50px;height:50px;overflow:visible}
-.me-btn .av{width:100%;height:100%}
+button.me-btn .av{width:100%;height:100%}
 .red-dot{position:absolute;top:0;right:0;width:14px;height:14px;border-radius:50%;background:var(--stop);border:2px solid var(--surface)}
 
 /* Notes */
@@ -664,7 +664,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "94";
+const APP_VERSION = "95";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
