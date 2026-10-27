@@ -105,7 +105,7 @@
     sheet = document.createElement("section"); sheet.className = "rs-sheet"; sheet.setAttribute("role", "dialog"); sheet.setAttribute("aria-modal", "true"); sheet.setAttribute("aria-label", "Switch team");
     sheet.innerHTML = '<div class="rs-grab" aria-hidden="true"></div><div class="rs-head"><h2>Switch Team</h2><button type="button" class="rs-x" aria-label="Close">' + svg('<path d="M18 6 6 18M6 6l12 12"/>') + '</button></div>' +
       '<a class="rs-row rs-home" href="/"><span class="rs-ic">' + svg('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>') + '</span>' +
-      '<span class="rs-info"><b>All Teams Home</b><small>' + (total ? total + (total === 1 ? " request" : " requests") + " on your other teams" : "RCI Serve") + '</small></span><span style="color:var(--accent)">' + svg('<path d="m9 6 6 6-6 6"/>') + '</span></a>' +
+      '<span class="rs-info"><b>RCI Serve</b><small>' + (total ? total + (total === 1 ? " request" : " requests") + " on your other teams" : "All Teams Home") + '</small></span><span style="color:var(--accent)">' + svg('<path d="m9 6 6 6-6 6"/>') + '</span></a>' +
       '<div class="rs-label">Your teams</div>' + rows;
     sheet.querySelector(".rs-x").addEventListener("click", close);
     sheet.addEventListener("keydown", function(ev){ if (ev.key === "Escape") close(); });
