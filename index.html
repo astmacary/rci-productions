@@ -664,7 +664,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "95";
+const APP_VERSION = "98";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -2039,7 +2039,7 @@ document.addEventListener("click", async e => {
   const b = e.target.closest("[data-act]"); if (!b) return;
   const act = b.dataset.act, item = S.items.find(i => i.id === b.dataset.id);
   switch(act){
-    case "tab": S.stack = []; S.absenceDone = false; S.absConfirm = null; if (b.dataset.view === "absence"){ S.absFor = null; S.abs = null; } S.notesEdit = null; S.annEdit = false; S.annConfirm = null; go(b.dataset.view, null, false); break;
+    case "tab": S.stack = []; S.absenceDone = false; S.absConfirm = null; if (b.dataset.view === "absence"){ S.absFor = null; S.abs = null; } if (b.dataset.view === "calendar" && S.view !== "calendar"){ const t = new Date(); S.cal.month = new Date(t.getFullYear(), t.getMonth(), 1); S.cal.sel = todayKey(); } S.notesEdit = null; S.annEdit = false; S.annConfirm = null; go(b.dataset.view, null, false); break;
     case "notes-edit": S.notesEdit = S.arg; render(); setTimeout(() => $("#notes-editor")?.focus(), 0); break;
     case "notes-cancel": S.notesEdit = null; render(); break;
     case "fmt": {
