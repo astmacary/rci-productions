@@ -500,8 +500,10 @@ button.me-btn .av{width:100%;height:100%}
 /* Notes */
 .notes{overflow-x:auto}
 .notes-date{margin-top:-12px;font-size:19px;font-weight:600;color:var(--fg)}
-.notes-tools{display:flex;gap:6px;flex-wrap:wrap}
+.notes-tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .tool{border:1px solid var(--line);background:var(--surface-2);color:var(--fg);border-radius:8px;padding:6px 12px;font-size:14px;font-weight:600;min-width:44px}
+.tool.swatch{width:30px;height:30px;min-width:30px;padding:0;border-radius:50%}
+.tool.swatch.reset{background:var(--surface-2);font-weight:700;color:var(--muted)}
 .notes-editor{min-height:240px;outline:none;border-color:var(--blue);line-height:1.55}
 .notes-editor:focus{box-shadow:0 0 0 2px var(--blue)}
 .notes :where(h1,h2,h3,h4){font-family:var(--display);letter-spacing:.02em;margin:.6em 0 .3em}
@@ -664,7 +666,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "98";
+const APP_VERSION = "99";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1459,8 +1461,31 @@ function viewCalendar(){
     </section>`;
 }
 
-/* Rich-text notes from SharePoint: keep structure, drop scripts, styles and attributes. */
+/* Rich-text notes from SharePoint: keep structure, drop scripts, and only a safe subset of inline styles. */
 const KEEP = new Set(["P","DIV","BR","B","STRONG","I","EM","U","UL","OL","LI","H1","H2","H3","H4","TABLE","THEAD","TBODY","TR","TD","TH","SPAN","A","HR","BLOCKQUOTE"]);
+// Basic text-color choices offered in the notes toolbar (data-val on the swatch buttons).
+const NOTES_COLORS = [
+  { label: "Red", hex: "#C0392B" },
+  { label: "Orange", hex: "#D98E04" },
+  { label: "Green", hex: "#1E8449" },
+  { label: "Blue", hex: "#2E5EAA" },
+  { label: "Purple", hex: "#6C3483" }
+];
+function notesToolbar(){
+  return `<div class="notes-tools" role="toolbar" aria-label="Formatting">
+      <button type="button" class="tool" data-act="fmt" data-cmd="bold" aria-label="Bold"><b>B</b></button>
+      <button type="button" class="tool" data-act="fmt" data-cmd="italic" aria-label="Italic"><i>I</i></button>
+      <button type="button" class="tool" data-act="fmt" data-cmd="insertUnorderedList" aria-label="Bulleted list">• List</button>
+      <button type="button" class="tool" data-act="fmt" data-cmd="insertOrderedList" aria-label="Numbered list">1. List</button>
+      <button type="button" class="tool" data-act="fmt" data-cmd="outdent" aria-label="Decrease indent">⇤</button>
+      <button type="button" class="tool" data-act="fmt" data-cmd="indent" aria-label="Increase indent">⇥</button>
+    </div>
+    <div class="notes-tools" role="toolbar" aria-label="Text color">
+      <span class="hint" style="margin:0 2px 0 0">Color</span>
+      ${NOTES_COLORS.map(c => `<button type="button" class="tool swatch" data-act="fmt" data-cmd="foreColor" data-val="${c.hex}" style="background:${c.hex}" aria-label="${c.label} text" title="${c.label}"></button>`).join("")}
+      <button type="button" class="tool swatch reset" data-act="fmt" data-cmd="foreColor" data-val="reset" aria-label="Default text color" title="Default">×</button>
+    </div>`;
+}
 function cleanHtml(raw){
   const doc = new DOMParser().parseFromString(`<div>${raw}</div>`, "text/html");
   const walk = node => {
@@ -1470,12 +1495,24 @@ function cleanHtml(raw){
       walk(n);
       if (!KEEP.has(n.tagName)){ n.replaceWith(...n.childNodes); return; }
       const href = n.tagName === "A" ? n.getAttribute("href") : null;
+      const style = n.getAttribute("style");
       [...n.attributes].forEach(a => n.removeAttribute(a.name));
       if (href && /^https?:\/\//i.test(href)){ n.setAttribute("href", href); n.setAttribute("target","_blank"); n.setAttribute("rel","noopener"); }
+      if (style) safeStyle(n, style);
     });
   };
   const root = doc.body.firstChild; walk(root);
   return root.innerHTML;
+}
+/* Only a text color and/or an indent margin survive from a pasted or toolbar-applied style="…" —
+   everything else (urls, positioning, etc.) is dropped so saved Notes HTML can't carry anything unsafe. */
+function safeStyle(n, style){
+  const out = [];
+  const color = style.match(/(?:^|;)\s*color\s*:\s*(#[0-9a-fA-F]{3,8}|rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\))\s*(?:;|$)/i);
+  if (color) out.push(`color:${color[1]}`);
+  const margin = style.match(/(?:^|;)\s*margin(-left)?\s*:\s*((?:\d{1,4}(?:px|em)\s*){1,4})(?:;|$)/i);
+  if (margin) out.push(`margin${margin[1] || ""}:${margin[2].trim()}`);
+  if (out.length) n.setAttribute("style", out.join(";"));
 }
 
 function backBar(title){ return `<div class="page-h"><button class="back" data-act="back">${ICON.back}Back</button></div><div class="page-h"><h1>${esc(title)}</h1></div>`; }
@@ -1502,12 +1539,7 @@ function viewNotes(){
   if (editing){
     const start = html || `<p><strong>${esc(CONFIG.notesMarker)}</strong></p><ol><li></li></ol>`;
     return `${head}
-      <div class="notes-tools" role="toolbar" aria-label="Formatting">
-        <button type="button" class="tool" data-act="fmt" data-cmd="bold" aria-label="Bold"><b>B</b></button>
-        <button type="button" class="tool" data-act="fmt" data-cmd="italic" aria-label="Italic"><i>I</i></button>
-        <button type="button" class="tool" data-act="fmt" data-cmd="insertUnorderedList" aria-label="Bulleted list">• List</button>
-        <button type="button" class="tool" data-act="fmt" data-cmd="insertOrderedList" aria-label="Numbered list">1. List</button>
-      </div>
+      ${notesToolbar()}
       <div class="panel notes notes-editor" id="notes-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Production Notes">${start}</div>
       <div class="actions"><button class="btn blue" data-act="notes-save" data-date="${k}" id="notes-save">Save Notes</button><button class="btn" data-act="notes-cancel">Cancel</button></div>`;
   }
@@ -2046,7 +2078,9 @@ document.addEventListener("click", async e => {
       const ed = $("#notes-editor"); if (!ed) break;
       ed.focus();
       if (notesRange){ const sel = getSelection(); sel.removeAllRanges(); sel.addRange(notesRange); }
-      try { document.execCommand(b.dataset.cmd, false, null); } catch(err){}
+      const cmd = b.dataset.cmd;
+      const val = cmd === "foreColor" ? (b.dataset.val === "reset" ? getComputedStyle(ed).color : b.dataset.val) : null;
+      try { document.execCommand(cmd, false, val); } catch(err){}
       break;
     }
     case "notes-save": {
