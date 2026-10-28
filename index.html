@@ -666,7 +666,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "99";
+const APP_VERSION = "100";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1493,7 +1493,12 @@ function cleanHtml(raw){
       if (n.nodeType === 3) return;
       if (n.nodeType !== 1 || /^(SCRIPT|STYLE|IFRAME|OBJECT|EMBED|NOSCRIPT|TEMPLATE)$/.test(n.tagName)){ n.remove(); return; }
       walk(n);
-      if (!KEEP.has(n.tagName)){ n.replaceWith(...n.childNodes); return; }
+      if (!KEEP.has(n.tagName)){
+        // Safari/older engines write foreColor as <font color="…"> instead of a styled span; keep the color, drop the tag's "font" semantics.
+        if (n.tagName === "FONT" && n.getAttribute("color")) safeStyle(n, `color:${n.getAttribute("color")}`, "SPAN");
+        else n.replaceWith(...n.childNodes);
+        return;
+      }
       const href = n.tagName === "A" ? n.getAttribute("href") : null;
       const style = n.getAttribute("style");
       [...n.attributes].forEach(a => n.removeAttribute(a.name));
@@ -1506,13 +1511,16 @@ function cleanHtml(raw){
 }
 /* Only a text color and/or an indent margin survive from a pasted or toolbar-applied style="…" —
    everything else (urls, positioning, etc.) is dropped so saved Notes HTML can't carry anything unsafe. */
-function safeStyle(n, style){
+function safeStyle(n, style, renameTo){
   const out = [];
   const color = style.match(/(?:^|;)\s*color\s*:\s*(#[0-9a-fA-F]{3,8}|rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\))\s*(?:;|$)/i);
   if (color) out.push(`color:${color[1]}`);
-  const margin = style.match(/(?:^|;)\s*margin(-left)?\s*:\s*((?:\d{1,4}(?:px|em)\s*){1,4})(?:;|$)/i);
+  const margin = style.match(/(?:^|;)\s*margin(-left)?\s*:\s*((?:\d{1,4}(?:\.\d+)?(?:px|em)?\s*){1,4})(?:;|$)/i);
   if (margin) out.push(`margin${margin[1] || ""}:${margin[2].trim()}`);
-  if (out.length) n.setAttribute("style", out.join(";"));
+  if (out.length){
+    if (renameTo){ const r = n.ownerDocument.createElement(renameTo); r.append(...n.childNodes); r.setAttribute("style", out.join(";")); n.replaceWith(r); }
+    else n.setAttribute("style", out.join(";"));
+  } else if (renameTo) n.replaceWith(...n.childNodes);
 }
 
 function backBar(title){ return `<div class="page-h"><button class="back" data-act="back">${ICON.back}Back</button></div><div class="page-h"><h1>${esc(title)}</h1></div>`; }
@@ -2080,7 +2088,7 @@ document.addEventListener("click", async e => {
       if (notesRange){ const sel = getSelection(); sel.removeAllRanges(); sel.addRange(notesRange); }
       const cmd = b.dataset.cmd;
       const val = cmd === "foreColor" ? (b.dataset.val === "reset" ? getComputedStyle(ed).color : b.dataset.val) : null;
-      try { document.execCommand(cmd, false, val); } catch(err){}
+      try { document.execCommand("styleWithCSS", false, true); document.execCommand(cmd, false, val); } catch(err){}
       break;
     }
     case "notes-save": {
