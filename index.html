@@ -666,7 +666,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "101";
+const APP_VERSION = "102";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -2749,6 +2749,7 @@ async function siteUserId(email){
 /* Onboarding uses the signed-in leader's delegated permissions. No service keys. */
 const Onboarding = {
   field: null, schemaError: '', details: new Map(), busy: new Set(), identities: new Map(),
+  invitationMessage(){ return "Welcome to the RCI Productions team!\n\nYou’ve been invited to use our team app to view your schedule, respond to serving requests, and stay connected.\n\nTo get started:\n\n1. Accept this invitation using the acceptance button or link in this email.\n2. Sign in with the same email address that received this invitation.\n3. Open the RCI Productions App: https://astmacary.github.io/rci-productions/?install\n4. Follow the instructions to add the app to your device’s home screen.\n\nOnce you’ve accepted the invitation and signed in, your onboarding will complete automatically.\n\nIf you need help, contact your team leader. We’re glad to serve alongside you!"; },
   siteUrl(){ return `https://${CONFIG.siteHost}${CONFIG.sitePath}`; },
   email(p){ return (p.pendingEmail || p.email || '').trim().toLowerCase(); },
   writable(p){ return isProfile(p) && p.editable !== false && /^\d+$/.test(String(p.id)); },
@@ -2829,7 +2830,8 @@ const Onboarding = {
     if(!user && create){
       if(email.endsWith('@therampchurch.com')) throw new Error('This church account does not exist in Microsoft yet. Create the account first.');
       const invitation=await this.graph('/invitations',{method:'POST',body:JSON.stringify({invitedUserEmailAddress:email,invitedUserType:'Guest',
-        inviteRedirectUrl:location.origin+location.pathname+'?install',sendInvitationMessage:true})},token);
+        inviteRedirectUrl:location.origin+location.pathname+'?install',sendInvitationMessage:true,
+        invitedUserMessageInfo:{customizedMessageBody:this.invitationMessage()}})},token);
       if(!invitation?.invitedUser?.id) throw new Error('Microsoft did not return the invited guest account.');
       user=await this.graph(`/users/${encodeURIComponent(invitation.invitedUser.id)}?$select=id,mail,userPrincipalName`,{},token);
     }
@@ -2892,7 +2894,7 @@ const Onboarding = {
       url:this.siteUrl(),peoplePickerInput:JSON.stringify([{Key:email}]),roleValue:'group:'+group.Id,
       groupId:0,propagateAcl:false,sendEmail:true,includeAnonymousLinkInEmail:false,
       emailSubject:`Access to ${APP_NAME}`,
-      emailBody:`You have been added to ${APP_NAME}. Accept this invitation, then open ${location.origin + location.pathname}?install to add the app to your home screen and sign in.`
+      emailBody:this.invitationMessage()
     })},token);
     const result=data?.ShareObject || data;
     // A 200 response can contain a rejected invitation. Require explicit success.
