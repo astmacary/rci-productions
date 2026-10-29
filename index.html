@@ -2001,7 +2001,7 @@ function render(){
   if (S.phase !== "ready"){
     let body = "";
     if (S.phase === "boot") body = `<div class="center-screen"><span class="spinner" role="status" aria-label="Loading"></span><p>Loading the schedule…</p></div>`;
-    if (S.phase === "signin") body = installGuide() + `<div class="center-screen"><img class="wm wm-light" src="icons/wordmark.png?v=${APP_VERSION}" alt="RCI Productions"><img class="wm wm-dark" src="icons/wordmark-dark.png?v=${APP_VERSION}" alt="RCI Productions"><p>Sign in with your church Microsoft account to see your schedule, reply to requests and update your profile.</p><button class="btn primary" data-act="signin">Sign in with Microsoft</button></div>`;
+    if (S.phase === "signin") body = installGuide() || `<div class="center-screen"><img class="wm wm-light" src="icons/wordmark.png?v=${APP_VERSION}" alt="RCI Productions"><img class="wm wm-dark" src="icons/wordmark-dark.png?v=${APP_VERSION}" alt="RCI Productions"><p>Sign in with your church Microsoft account to see your schedule, reply to requests and update your profile.</p><button class="btn primary" data-act="signin">Sign in with Microsoft</button></div>`;
     if (S.phase === "error") body = `<div class="center-screen"><h1>Can't reach the schedule</h1><p>The app couldn't load the Serving Schedule list. Check that you're a member of the RCI Productions SharePoint site, then try again.</p><div class="err">${esc(S.error)}</div><button class="btn primary" data-act="retry">Try again</button></div>`;
     app.innerHTML = header + `<main><div class="wrap">${body}</div></main>`;
     return;
