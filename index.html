@@ -22,6 +22,7 @@
 .add-tile .meta b{color:var(--accent)}
 .access-panel{border-color:var(--accent);background:var(--accent-soft)}
 .access-panel .actions{display:flex;gap:8px;flex-wrap:wrap}
+.comm{display:flex;flex-direction:column;gap:14px}.comm h1{margin:0}.comm h2,.comm h3{margin:0;font-size:17px}.comm .panel.pad{padding:14px;display:flex;flex-direction:column;gap:10px;margin:0}.comm-text{white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0}.comm-record+.comm-record{border-top:1px solid var(--line);padding-top:12px}.comm-topic{justify-content:flex-start;text-align:left;white-space:normal;overflow-wrap:anywhere}.comm time{display:block}.comm .chiprow{display:flex;flex-wrap:wrap;gap:8px}.comm .chipcheck{padding:8px 12px;border-radius:20px;background:var(--surface);color:var(--fg);border:1px solid var(--line);font:inherit;font-size:13px}.comm .chipcheck[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}nav.tabs button{position:relative}.comm-unread{position:absolute;right:3px;top:0;border-radius:10px;background:var(--accent);color:var(--accent-ink);padding:1px 4px;font-size:10px;min-width:16px}@media(max-width:430px){nav.tabs button{font-size:10px;letter-spacing:0;padding-inline:1px}}
 </style>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -557,7 +558,7 @@ ul.rows li:first-child{border-top:none}
 
 /* Bottom nav */
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
-nav.tabs .wrap{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;padding-block:2px}
+nav.tabs .wrap{display:grid;grid-template-columns:repeat(6,1fr);gap:2px;padding-block:2px}
 nav.tabs button{background:none;border:none;border-radius:8px;display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 2px;color:var(--muted);font-family:var(--display);font-weight:600;font-size:11px;letter-spacing:.02em;text-transform:uppercase;min-width:0}
 nav.tabs button span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 nav.tabs button svg{width:20px;height:20px}
@@ -620,6 +621,7 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 <script src="push-config.js"></script>
 <script src="push-client.js"></script>
 <script src="team-switch.js"></script>
+<script src="communications.js?v=103"></script>
 <script>
 /* ============================================================
    CONFIGURATION — fill these in after registering the app in
@@ -666,7 +668,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "102";
+const APP_VERSION = "103";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -2007,7 +2009,7 @@ if ("serviceWorker" in navigator && location.protocol === "https:" && window.top
   navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {});
 }
 
-const TABS = [["home","Home",ICON.home],["calendar","Calendar",ICON.cal],["absence","Absence",ICON.away],["directory","Team",ICON.team],["profile","Profile",ICON.user]];
+const TABS = [["home","Home",ICON.home],["calendar","Calendar",ICON.cal],["absence","Absence",ICON.away],["directory","Team",ICON.team],["messages","Messages",'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5Z"/></svg>'],["profile","Profile",ICON.user]];
 
 function render(){
   const app = $("#app");
@@ -2022,13 +2024,13 @@ function render(){
     app.innerHTML = header + `<main><div class="wrap">${body}</div></main>`;
     return;
   }
-  const views = { admin: viewAdmin, directory: viewDirectory, home: viewHome, schedule: viewSchedule, calendar: viewCalendar, notes: viewNotes, team: viewTeam, member: viewMember, absence: viewAbsence, profile: viewProfile };
+  const views = { messages: () => Comm.view(), admin: viewAdmin, directory: viewDirectory, home: viewHome, schedule: viewSchedule, calendar: viewCalendar, notes: viewNotes, team: viewTeam, member: viewMember, absence: viewAbsence, profile: viewProfile };
   if (!views[S.view]){ S.view = "home"; S.arg = null; }
   saveNav();
   const active = ["notes","team","member","admin"].includes(S.view) ? (S.stack[0]?.view || "home") : S.view;
   const demoBar = DEMO ? `<div class="demo"><span><strong>Demo mode.</strong> Sample people and dates; nothing is saved to SharePoint. Add your app's client ID in the configuration to connect the Serving Schedule list.</span></div>` : "";
   app.innerHTML = header + `<main><div class="wrap">${demoBar}${S.view === "home" ? installGuide() + badgePanel() : ""}${views[S.view]()}</div></main>
-    <nav class="tabs" aria-label="Main"><div class="wrap">${TABS.map(([v,l,ic]) => `<button data-act="tab" data-view="${v}" ${v===active?'aria-current="page"':""}>${ic}<span>${l}</span></button>`).join("")}</div></nav>`;
+    <nav class="tabs" aria-label="Main"><div class="wrap">${TABS.map(([v,l,ic]) => `<button data-act="tab" data-view="${v}" ${v===active?'aria-current="page"':""}>${ic}<span>${l}</span>${v === "messages" && Comm.totalUnread() ? `<span class="comm-unread" aria-label="${Comm.totalUnread()} unread messages">${Comm.totalUnread()}</span>` : ""}</button>`).join("")}</div></nav>`;
   hydratePhotos(); hydrateFlyers();
 }
 
@@ -2291,7 +2293,7 @@ document.addEventListener("click", async e => {
     case "abs-prev": { const A = absState(); A.month = new Date(A.month.getFullYear(), A.month.getMonth()-1, 1); render(); break; }
     case "abs-next": { const A = absState(); A.month = new Date(A.month.getFullYear(), A.month.getMonth()+1, 1); render(); break; }
     case "signin": API.signIn(); break;
-    case "signout": try { await Push.disable(); API.signOut(); } catch(err){ toast(err.message, true); } break;
+    case "signout": Comm.data = {}; Comm.meta = {}; Comm.drafts = {}; try { await Push.disable(); API.signOut(); } catch(err){ toast(err.message, true); } break;
     case "retry": start(); break;
     case "install": if (deferredInstall){ deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall = null; render(); } break;
   }
@@ -3025,6 +3027,7 @@ async function start(){
     const t = new Date(); S.cal.month = new Date(t.getFullYear(), t.getMonth(), 1); S.cal.sel = todayKey();
     restoreNav();
     await Onboarding.confirmSelf();
+    await Comm.load();
     S.phase = "ready"; render(); maybeConfetti(); updateBadge(); loadAdmins();
     void Push.init();
   } catch(e){
