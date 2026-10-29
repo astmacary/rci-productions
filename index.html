@@ -666,7 +666,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "100";
+const APP_VERSION = "101";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1511,10 +1511,26 @@ function cleanHtml(raw){
 }
 /* Only a text color and/or an indent margin survive from a pasted or toolbar-applied style="…" —
    everything else (urls, positioning, etc.) is dropped so saved Notes HTML can't carry anything unsafe. */
+/* Pasted text (from Word, Outlook, Notes, etc.) almost always carries an explicit near-black or near-white
+   color left over from the source app, not a deliberate choice — left in place, it can go invisible against
+   the editor's own background when the theme is switched. Treat those as "no color set" so the text instead
+   inherits the editor's normal (theme-aware) text color; real color choices (the swatch palette, etc.) stay. */
+function isNeutralColor(c){
+  let r, g, b;
+  if (c[0] === "#"){
+    let h = c.slice(1); if (h.length === 3) h = h.split("").map(ch => ch + ch).join("");
+    r = parseInt(h.slice(0,2),16); g = parseInt(h.slice(2,4),16); b = parseInt(h.slice(4,6),16);
+  } else {
+    const m = c.match(/rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i); if (!m) return false;
+    r = +m[1]; g = +m[2]; b = +m[3];
+  }
+  if ([r,g,b].some(v => Number.isNaN(v))) return false;
+  return (r < 40 && g < 40 && b < 40) || (r > 215 && g > 215 && b > 215);
+}
 function safeStyle(n, style, renameTo){
   const out = [];
   const color = style.match(/(?:^|;)\s*color\s*:\s*(#[0-9a-fA-F]{3,8}|rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\))\s*(?:;|$)/i);
-  if (color) out.push(`color:${color[1]}`);
+  if (color && !isNeutralColor(color[1])) out.push(`color:${color[1]}`);
   const margin = style.match(/(?:^|;)\s*margin(-left)?\s*:\s*((?:\d{1,4}(?:\.\d+)?(?:px|em)?\s*){1,4})(?:;|$)/i);
   if (margin) out.push(`margin${margin[1] || ""}:${margin[2].trim()}`);
   if (out.length){
