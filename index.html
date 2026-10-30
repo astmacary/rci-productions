@@ -625,6 +625,7 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 <script src="push-client.js"></script>
 <script src="team-switch.js"></script>
 <script src="communications.js?v=109"></script>
+<script src="serve-profile.js?v=1"></script>
 <script>
 /* ============================================================
    CONFIGURATION — fill these in after registering the app in
@@ -671,7 +672,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "109";
+const APP_VERSION = "110";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -2030,7 +2031,7 @@ function render(){
     if (S.phase === "boot") body = `<div class="center-screen"><p role="status">Opening RCI Productions…</p></div>`;
     if (S.phase === "signin") body = installGuide() || `<div class="center-screen"><img class="wm wm-light" src="icons/wordmark.png?v=${APP_VERSION}" alt="RCI Productions"><img class="wm wm-dark" src="icons/wordmark-dark.png?v=${APP_VERSION}" alt="RCI Productions"><p>Sign in with your church Microsoft account to see your schedule, reply to requests and update your profile.</p><button class="btn primary" data-act="signin">Sign in with Microsoft</button></div>`;
     if (S.phase === "error") body = `<div class="center-screen"><h1>Can't reach the schedule</h1><p>The app couldn't load the Serving Schedule list. Check that you're a member of the RCI Productions SharePoint site, then try again.</p><div class="err">${esc(S.error)}</div><button class="btn primary" data-act="retry">Try again</button></div>`;
-    app.innerHTML = header + `<main><div class="wrap">${body}</div></main>`;
+    app.innerHTML = header + `<main><div class="wrap">${body}${ServeProfile.link()}</div></main>`;
     return;
   }
   const views = { messages: () => Comm.view(), admin: viewAdmin, directory: viewDirectory, home: viewHome, schedule: viewSchedule, calendar: viewCalendar, notes: viewNotes, team: viewTeam, member: viewMember, absence: viewAbsence, profile: viewProfile };
@@ -2057,19 +2058,21 @@ if (OPEN_HOME){
 }
 const NAV_SKIP = { doc: "docs" };   // pages that can't be rebuilt on their own go to their parent
 function saveNav(){
-  try { sessionStorage.setItem(NAV_KEY, JSON.stringify({ view: S.view, arg: S.arg, stack: S.stack.slice(-10),
+  try { sessionStorage.setItem(NAV_KEY, JSON.stringify({ view: S.view, arg: S.arg, serveReturn: ServeProfile.active, stack: S.stack.slice(-10),
     adminDate: S.adminDate || null, adminExtra: S.adminExtra || null, calSel: S.cal.sel, calMonth: S.cal.month ? keyOf(S.cal.month) : null })); } catch(_){}
 }
 function restoreNav(){
   if (OPEN_HOME) return;
   try {
     const n = JSON.parse(sessionStorage.getItem(NAV_KEY) || "null"); if (!n || !n.view) return;
+    ServeProfile.active = n.serveReturn === true;
     S.view = NAV_SKIP[n.view] || n.view; S.arg = NAV_SKIP[n.view] ? null : n.arg; S.stack = Array.isArray(n.stack) ? n.stack : [];
     if (n.adminDate) S.adminDate = n.adminDate; if (n.adminExtra) S.adminExtra = n.adminExtra;
     if (n.calSel) S.cal.sel = n.calSel; if (n.calMonth) S.cal.month = fromKey(n.calMonth);
   } catch(_){}
 }
 function go(view, arg=null, push=true){
+  if (!push && view !== "member") ServeProfile.active = false;
   if (push) S.stack.push({ view: S.view, arg: S.arg });
   S.view = view; S.arg = arg; S.confirm = null; render(); window.scrollTo(0,0);
 }
@@ -2217,7 +2220,7 @@ document.addEventListener("click", async e => {
       S.annConfirm = null; render(); break;
     }
     case "ann-flyer-clear": annDraftSave(); S.annDraft.file = null; S.annDraft.preview = ""; render(); break;
-    case "back": { S.notesEdit = null; const prev = S.stack.pop() || { view: "home" }; go(prev.view, prev.arg, false); break; }
+    case "back": { if (ServeProfile.back()) break; S.notesEdit = null; const prev = S.stack.pop() || { view: "home" }; go(prev.view, prev.arg, false); break; }
     case "theme": toggleTheme(); break;
     case "np-open": if (isEditor()){ S.addPerson = true; render(); $("#np-name")?.focus(); } break;
     case "np-close": S.addPerson = false; render(); break;
@@ -3044,6 +3047,7 @@ async function start(){
     S.servingChoices = data.servingChoices || []; S.choices = data.choices || {}; S.users = data.users || []; S.announcements = data.announcements || []; markNewAnns(); setTimeout(linkPendingPeople, 1500); S.messages = data.messages || [];
     const t = new Date(); S.cal.month = new Date(t.getFullYear(), t.getMonth(), 1); S.cal.sel = todayKey();
     restoreNav();
+    ServeProfile.apply();
     if (ROSTER_ADD){ try { sessionStorage.removeItem(ROSTER_ADD_KEY); } catch (_) {} S.view = "directory"; S.arg = null; S.stack = []; S.addPerson = isEditor(); S.rosterRouteHandled = S.addPerson; }
     S.phase = "ready"; render(); maybeConfetti(); updateBadge();
     const renderIdle = () => { if (S.phase === 'ready' && !Comm.busy && !S.busy.size && !document.activeElement?.closest('input,textarea,select,[contenteditable="true"]')) render(); };
