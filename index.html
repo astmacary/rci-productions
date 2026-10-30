@@ -25,6 +25,7 @@
 .comm{display:flex;flex-direction:column;gap:14px}.comm h1{margin:0}.comm h2,.comm h3{margin:0;font-size:17px}.comm .panel.pad{padding:14px;display:flex;flex-direction:column;gap:10px;margin:0}.comm-text{white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0}.comm-record+.comm-record{border-top:1px solid var(--line);padding-top:12px}.comm-topic{justify-content:flex-start;text-align:left;white-space:normal;overflow-wrap:anywhere}.comm time{display:block}.comm .chiprow{display:flex;flex-wrap:wrap;gap:8px}.comm .chipcheck{padding:8px 12px;border-radius:20px;background:var(--surface);color:var(--fg);border:1px solid var(--line);font:inherit;font-size:13px}.comm .chipcheck[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}nav.tabs button{position:relative}.comm-unread{position:absolute;right:3px;top:0;border-radius:10px;background:var(--accent);color:var(--accent-ink);padding:1px 4px;font-size:10px;min-width:16px}@media(max-width:430px){nav.tabs button{font-size:10px;letter-spacing:0;padding-inline:1px}}
 .comm-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.comm-head .iconbtn{flex:none}.comm-head .iconbtn svg{width:20px;height:20px}
 .comm-head,.comm-record-head,.comm-topic-line{display:flex;align-items:center;justify-content:space-between;gap:12px}.comm-head h1{margin:0}.comm-actions{display:flex;gap:4px;align-items:center;margin-left:auto;flex:none}.comm-actions:empty{display:none}.comm-actions .iconbtn,.comm-head .iconbtn{flex:none}.comm-actions svg,.comm-head svg{width:19px;height:19px}.comm-topic-line .comm-topic{flex:1;min-width:0}.comm-edit-form{display:flex;flex-direction:column;gap:10px;width:100%;margin-top:8px}.comm-edit-buttons{display:flex;gap:8px;flex-wrap:wrap}.comm-record-head{align-items:flex-start}
+.opening-placeholder{width:min(100%,430px);display:grid;gap:12px}.opening-placeholder span{display:block;height:74px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}.comm-hidden-label{display:block;border-left:3px solid var(--accent);padding-left:8px}
 </style>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -623,7 +624,7 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 <script src="push-config.js"></script>
 <script src="push-client.js"></script>
 <script src="team-switch.js"></script>
-<script src="communications.js?v=105"></script>
+<script src="communications.js?v=106"></script>
 <script>
 /* ============================================================
    CONFIGURATION — fill these in after registering the app in
@@ -670,7 +671,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "105";
+const APP_VERSION = "106";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -798,8 +799,10 @@ const LiveAPI = {
     return out;
   },
   async load(){
-    const me = await this.g("/me?$select=displayName,mail,userPrincipalName");
-    const site = await this.g(`/sites/${CONFIG.siteHost}:${CONFIG.sitePath}`);
+    const [me, site] = await Promise.all([
+      this.g("/me?$select=id,displayName,mail,userPrincipalName"),
+      this.g(`/sites/${CONFIG.siteHost}:${CONFIG.sitePath}`)
+    ]);
     this.siteId = site.id;
     const base = `/sites/${this.siteId}/lists`;
     // Person column only returns a lookup id; the site's hidden user list maps it to an email.
@@ -821,12 +824,12 @@ const LiveAPI = {
       names = ch("ChoiceNames"); servingChoices = ch("Serving");
       choices = { status: ch("Status"), published: ch("Published") }; S.categories = ch("ServiceCategory");
     } catch(e){}
+    const [messages, announcements] = await Promise.all([this.messages(), this.announcements()]);
     return {
-      me: { name: me.displayName || this.account.name || "", emails: [me.mail, me.userPrincipalName, this.account.username].filter(Boolean).map(lc) },
+      me: { id: me.id, name: me.displayName || this.account.name || "", emails: [me.mail, me.userPrincipalName, this.account.username].filter(Boolean).map(lc) },
       items: rows.map(r => normalize(r.id, r.fields, emailById)),
       names, servingChoices, choices, users,
-      messages: await this.messages(),
-      announcements: await this.announcements()
+      messages, announcements
     };
   },
   async messages(){
@@ -2020,7 +2023,7 @@ function render(){
     ${S.me ? (() => { const n = S.phase === "ready" ? pendingCount() : 0; return `<button class="iconbtn me-btn" data-act="tab" data-view="profile" aria-label="My Profile${n ? `, ${n} pending request${n > 1 ? "s" : ""}` : ""}">${avatar(myProfile() || {fullName:S.me.name, email:S.me.emails[0]}, "sm")}${n ? '<span class="red-dot" aria-hidden="true"></span>' : ""}</button>`; })() : ""}</div></header>`;
   if (S.phase !== "ready"){
     let body = "";
-    if (S.phase === "boot") body = `<div class="center-screen"><span class="spinner" role="status" aria-label="Loading"></span><p>Loading the schedule…</p></div>`;
+    if (S.phase === "boot") body = `<div class="center-screen"><div class="opening-placeholder" role="status" aria-label="Loading"><span></span><span></span></div><p>Loading the schedule…</p></div>`;
     if (S.phase === "signin") body = installGuide() || `<div class="center-screen"><img class="wm wm-light" src="icons/wordmark.png?v=${APP_VERSION}" alt="RCI Productions"><img class="wm wm-dark" src="icons/wordmark-dark.png?v=${APP_VERSION}" alt="RCI Productions"><p>Sign in with your church Microsoft account to see your schedule, reply to requests and update your profile.</p><button class="btn primary" data-act="signin">Sign in with Microsoft</button></div>`;
     if (S.phase === "error") body = `<div class="center-screen"><h1>Can't reach the schedule</h1><p>The app couldn't load the Serving Schedule list. Check that you're a member of the RCI Productions SharePoint site, then try again.</p><div class="err">${esc(S.error)}</div><button class="btn primary" data-act="retry">Try again</button></div>`;
     app.innerHTML = header + `<main><div class="wrap">${body}</div></main>`;
@@ -2677,9 +2680,9 @@ async function readAdminsFile(id){
   catch(e){ if (e.status === 404) return []; throw e; }
 }
 function applyAdmins(list){ EXTRA_ADMINS = [...new Set(list)]; CONFIG.editors = [...new Set([...BASE_EDITORS, ...EXTRA_ADMINS])]; }
-async function loadAdmins(){
+async function loadAdmins(shouldRender=true){
   if (DEMO) return;
-  try { applyAdmins(await readAdminsFile(await appAssetsDrive())); render(); } catch(e){ console.warn("Admins list:", e); }
+  try { applyAdmins(await readAdminsFile(await appAssetsDrive())); if (shouldRender) render(); } catch(e){ console.warn("Admins list:", e); }
 }
 async function setAdmin(email, on){
   if (DEMO){ applyAdmins(on ? [...EXTRA_ADMINS, email] : EXTRA_ADMINS.filter(e => e !== email)); return; }
@@ -3023,14 +3026,15 @@ async function start(){
     const signedIn = await API.init();
     if (!signedIn){ S.phase = "signin"; render(); return; }
     const data = await API.load();
-    await Onboarding.load(data.items);
     S.me = data.me; S.items = data.items; S.names = [...new Set([...(data.names || []), ...data.items.filter(isProfile).map(i => i.fullName).filter(Boolean)])];   // Roster names added in the app aren't Full Name choices yet
     S.servingChoices = data.servingChoices || []; S.choices = data.choices || {}; S.users = data.users || []; S.announcements = data.announcements || []; markNewAnns(); setTimeout(linkPendingPeople, 1500); S.messages = data.messages || [];
     const t = new Date(); S.cal.month = new Date(t.getFullYear(), t.getMonth(), 1); S.cal.sel = todayKey();
     restoreNav();
-    await Onboarding.confirmSelf();
-    await Comm.load();
-    S.phase = "ready"; render(); maybeConfetti(); updateBadge(); loadAdmins();
+    S.phase = "ready"; render(); maybeConfetti(); updateBadge();
+    const renderIdle = () => { if (S.phase === 'ready' && !Comm.busy && !S.busy.size && !document.activeElement?.closest('input,textarea,select,[contenteditable="true"]')) render(); };
+    void Comm.load().then(renderIdle);
+    void Onboarding.load(S.items).then(() => Onboarding.confirmSelf()).then(renderIdle);
+    void loadAdmins(false).then(renderIdle);
     void Push.init();
   } catch(e){
     console.error(e); S.error = e.message || String(e); S.phase = "error"; render();
