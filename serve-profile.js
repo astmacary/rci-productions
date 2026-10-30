@@ -24,7 +24,7 @@ const ServeProfile = {
     this.requested = null;
     try { sessionStorage.removeItem(this.key); } catch (_) {}
   },
-  link() { return this.requested || this.active ? '<a class="btn" href="/?teams" data-serve-return>Back to RCI Serve Teams</a>' : ''; },
+  link() { if (S.phase === 'boot') return ''; return this.requested || this.active ? '<a class="btn" href="/?teams" data-serve-return>Back to RCI Serve Teams</a>' : ''; },
   returnToTeams() {
     try { sessionStorage.removeItem(this.key); } catch (_) {}
     this.requested = null; this.active = false;

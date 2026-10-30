@@ -625,7 +625,7 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 <script src="push-client.js"></script>
 <script src="team-switch.js"></script>
 <script src="communications.js?v=109"></script>
-<script src="serve-profile.js?v=1"></script>
+<script src="serve-profile.js?v=2"></script>
 <script>
 /* ============================================================
    CONFIGURATION — fill these in after registering the app in
@@ -672,7 +672,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "110";
+const APP_VERSION = "111";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
