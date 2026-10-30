@@ -25,7 +25,7 @@
 .comm{display:flex;flex-direction:column;gap:14px}.comm h1{margin:0}.comm h2,.comm h3{margin:0;font-size:17px}.comm .panel.pad{padding:14px;display:flex;flex-direction:column;gap:10px;margin:0}.comm-text{white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0}.comm-record+.comm-record{border-top:1px solid var(--line);padding-top:12px}.comm-topic{justify-content:flex-start;text-align:left;white-space:normal;overflow-wrap:anywhere}.comm time{display:block}.comm .chiprow{display:flex;flex-wrap:wrap;gap:8px}.comm .chipcheck{padding:8px 12px;border-radius:20px;background:var(--surface);color:var(--fg);border:1px solid var(--line);font:inherit;font-size:13px}.comm .chipcheck[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}nav.tabs button{position:relative}.comm-unread{position:absolute;right:3px;top:0;border-radius:10px;background:var(--accent);color:var(--accent-ink);padding:1px 4px;font-size:10px;min-width:16px}@media(max-width:430px){nav.tabs button{font-size:10px;letter-spacing:0;padding-inline:1px}}
 .comm-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.comm-head .iconbtn{flex:none}.comm-head .iconbtn svg{width:20px;height:20px}
 .comm-head,.comm-record-head,.comm-topic-line{display:flex;align-items:center;justify-content:space-between;gap:12px}.comm-head h1{margin:0}.comm-actions{display:flex;gap:4px;align-items:center;margin-left:auto;flex:none}.comm-actions:empty{display:none}.comm-actions .iconbtn,.comm-head .iconbtn{flex:none}.comm-actions svg,.comm-head svg{width:19px;height:19px}.comm-topic-line .comm-topic{flex:1;min-width:0}.comm-edit-form{display:flex;flex-direction:column;gap:10px;width:100%;margin-top:8px}.comm-edit-buttons{display:flex;gap:8px;flex-wrap:wrap}.comm-record-head{align-items:flex-start}
-.opening-placeholder{width:min(100%,430px);display:grid;gap:12px}.opening-placeholder span{display:block;height:74px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}.comm-hidden-label{display:block;border-left:3px solid var(--accent);padding-left:8px}
+.comm-hidden-label{display:block;border-left:3px solid var(--accent);padding-left:8px}
 </style>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -624,7 +624,7 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 <script src="push-config.js"></script>
 <script src="push-client.js"></script>
 <script src="team-switch.js"></script>
-<script src="communications.js?v=106"></script>
+<script src="communications.js?v=107"></script>
 <script>
 /* ============================================================
    CONFIGURATION — fill these in after registering the app in
@@ -671,7 +671,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "106";
+const APP_VERSION = "107";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -806,25 +806,29 @@ const LiveAPI = {
     this.siteId = site.id;
     const base = `/sites/${this.siteId}/lists`;
     // Person column only returns a lookup id; the site's hidden user list maps it to an email.
+    const sel = `Title,ServiceDates,ServiceCategory,CallTime,ServiceTime,ChoiceNames,PersonLookupId,Status,Published,Notes,Name,TimeOffDate,Birthday,Photo,PhoneNumber,Serving,ArchiveStatus,ActiveStatus,${CONFIG.likesCol}`;
+    const [userRows, columnData, messages, announcements, rows] = await Promise.all([
+      this.all(`${base}/${encodeURIComponent("User Information List")}/items?$expand=fields($select=EMail,UserName,Title)&$top=999`).catch(e => { console.warn("Could not read User Information List; matching by name instead.", e); return []; }),
+      this.g(`${base}/${CONFIG.listId}/columns?$select=name,choice`).catch(e => { console.warn("Could not read list columns.", e); return { value: [] }; }),
+      this.messages(), this.announcements(), this.all(`${base}/${CONFIG.listId}/items?$expand=fields($select=${sel})&$top=500`)
+    ]);
     let emailById = {}, users = [];
     try {
-      const uil = await this.all(`${base}/${encodeURIComponent("User Information List")}/items?$expand=fields($select=EMail,UserName,Title)&$top=999`);
+      const uil = userRows;
       uil.forEach(u => {
         const email = u.fields.EMail || u.fields.UserName || "";
         emailById[u.id] = email;
         if (email && email.includes("@")) users.push({ id: String(u.id), email: lc(email), name: u.fields.Title || email });
       });
     } catch(e){ console.warn("Could not read User Information List; matching by name instead.", e); }
-    const sel = `Title,ServiceDates,ServiceCategory,CallTime,ServiceTime,ChoiceNames,PersonLookupId,Status,Published,Notes,Name,TimeOffDate,Birthday,Photo,PhoneNumber,Serving,ArchiveStatus,ActiveStatus,${CONFIG.likesCol}`;
-    const rows = await this.all(`${base}/${CONFIG.listId}/items?$expand=fields($select=${sel})&$top=500`); S.modById = new Map(rows.map(r => [String(r.id), { at: r.lastModifiedDateTime || "", by: lc(r.lastModifiedBy?.user?.email || ""), byName: r.lastModifiedBy?.user?.displayName || "" }]));   // who last changed each row, for Recent Replies
+    S.modById = new Map(rows.map(r => [String(r.id), { at: r.lastModifiedDateTime || "", by: lc(r.lastModifiedBy?.user?.email || ""), byName: r.lastModifiedBy?.user?.displayName || "" }]));   // who last changed each row, for Recent Replies
     let names = [], servingChoices = [], choices = {};
     try {
-      const cols = await this.g(`${base}/${CONFIG.listId}/columns?$select=name,choice`);
+      const cols = columnData;
       const ch = n => (cols.value.find(c => c.name === n)?.choice?.choices) || [];
       names = ch("ChoiceNames"); servingChoices = ch("Serving");
       choices = { status: ch("Status"), published: ch("Published") }; S.categories = ch("ServiceCategory");
     } catch(e){}
-    const [messages, announcements] = await Promise.all([this.messages(), this.announcements()]);
     return {
       me: { id: me.id, name: me.displayName || this.account.name || "", emails: [me.mail, me.userPrincipalName, this.account.username].filter(Boolean).map(lc) },
       items: rows.map(r => normalize(r.id, r.fields, emailById)),
@@ -2023,7 +2027,7 @@ function render(){
     ${S.me ? (() => { const n = S.phase === "ready" ? pendingCount() : 0; return `<button class="iconbtn me-btn" data-act="tab" data-view="profile" aria-label="My Profile${n ? `, ${n} pending request${n > 1 ? "s" : ""}` : ""}">${avatar(myProfile() || {fullName:S.me.name, email:S.me.emails[0]}, "sm")}${n ? '<span class="red-dot" aria-hidden="true"></span>' : ""}</button>`; })() : ""}</div></header>`;
   if (S.phase !== "ready"){
     let body = "";
-    if (S.phase === "boot") body = `<div class="center-screen"><div class="opening-placeholder" role="status" aria-label="Loading"><span></span><span></span></div><p>Loading the schedule…</p></div>`;
+    if (S.phase === "boot") body = `<div class="center-screen"><p role="status">Opening RCI Productions…</p></div>`;
     if (S.phase === "signin") body = installGuide() || `<div class="center-screen"><img class="wm wm-light" src="icons/wordmark.png?v=${APP_VERSION}" alt="RCI Productions"><img class="wm wm-dark" src="icons/wordmark-dark.png?v=${APP_VERSION}" alt="RCI Productions"><p>Sign in with your church Microsoft account to see your schedule, reply to requests and update your profile.</p><button class="btn primary" data-act="signin">Sign in with Microsoft</button></div>`;
     if (S.phase === "error") body = `<div class="center-screen"><h1>Can't reach the schedule</h1><p>The app couldn't load the Serving Schedule list. Check that you're a member of the RCI Productions SharePoint site, then try again.</p><div class="err">${esc(S.error)}</div><button class="btn primary" data-act="retry">Try again</button></div>`;
     app.innerHTML = header + `<main><div class="wrap">${body}</div></main>`;
@@ -2042,12 +2046,19 @@ function render(){
 /* Remember the page being viewed, so reloading the app (pull to refresh, the browser's reload, an update)
    comes back to the same page instead of Home. Kept for this tab/app window only. */
 const NAV_KEY = "rci-nav:" + location.pathname;
+// A launch from RCI Serve starts at Home; later reloads still restore the current page.
+const OPEN_HOME = new URLSearchParams(location.search).has("home");
+if (OPEN_HOME){
+  const url = new URL(location.href); url.searchParams.delete("home");
+  history.replaceState(history.state, "", url.pathname + url.search + url.hash);
+}
 const NAV_SKIP = { doc: "docs" };   // pages that can't be rebuilt on their own go to their parent
 function saveNav(){
   try { sessionStorage.setItem(NAV_KEY, JSON.stringify({ view: S.view, arg: S.arg, stack: S.stack.slice(-10),
     adminDate: S.adminDate || null, adminExtra: S.adminExtra || null, calSel: S.cal.sel, calMonth: S.cal.month ? keyOf(S.cal.month) : null })); } catch(_){}
 }
 function restoreNav(){
+  if (OPEN_HOME) return;
   try {
     const n = JSON.parse(sessionStorage.getItem(NAV_KEY) || "null"); if (!n || !n.view) return;
     S.view = NAV_SKIP[n.view] || n.view; S.arg = NAV_SKIP[n.view] ? null : n.arg; S.stack = Array.isArray(n.stack) ? n.stack : [];
