@@ -67,7 +67,7 @@ const Comm = {
     const spaces = this.spaces(), t = this.space();
     if (!t) return '<h1 class="page">Messages</h1><div class="empty">Your boards will appear after your ministry access is confirmed.</div>';
     const d = this.data[t.key], privateOn = DEMO || this.privateReady[t.key];
-    const chips = spaces.map(s => `<button class="chipcheck" data-comm="space" data-key="${s.key}" aria-pressed="${s.key === t.key}">${esc(s.name)}${this.unread(s.key) ? ` <span aria-label="${this.unread(s.key)} unread messages">(${this.unread(s.key)})</span>` : ''}</button>`).join('');
+
     let content = '';
     if (!d) content = '<div class="empty">Loading messages…</div>';
     else if (this.mode === 'contact') {
@@ -84,7 +84,7 @@ const Comm = {
         return `<article class="panel pad"><button class="btn comm-topic" data-comm="thread" data-id="${esc(r.id)}">${esc(r.title)}${fresh ? ' • Unread' : ''}</button><p class="hint">${esc(r.name)} · ${communicationPlural(replies.length,'reply','replies')}</p><p class="comm-text">${esc(r.text.slice(0,180))}</p></article>`;
       }).join('') : '<div class="empty">No conversations yet. Start the first one.</div>');
     }
-    return `<div class="comm"><h1 class="page">Messages</h1><div class="chiprow" aria-label="Choose a board">${chips}</div><h2>${esc(t.name)}</h2><div class="chiprow"><button class="chipcheck" data-comm="mode" data-mode="board" aria-pressed="${this.mode === 'board'}">Team board</button><button class="chipcheck" data-comm="mode" data-mode="contact" aria-pressed="${this.mode === 'contact'}">Contact leaders privately</button><button class="btn" data-comm="refresh">Refresh messages</button></div>${content}</div>`;
+    return `<div class="comm"><div class="comm-head"><h1 class="page">Messages</h1><button class="iconbtn" data-comm="refresh" aria-label="Refresh messages" title="Refresh messages"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.9-5L23 10M1 14l4.6 6A9 9 0 0 0 20.5 15"/></svg></button></div><div class="chiprow"><button class="chipcheck" data-comm="mode" data-mode="board" aria-pressed="${this.mode === 'board'}">Team board</button><button class="chipcheck" data-comm="mode" data-mode="contact" aria-pressed="${this.mode === 'contact'}">Contact leaders privately</button></div>${content}</div>`;
   },
   async send(form) {
     if (this.busy) return;

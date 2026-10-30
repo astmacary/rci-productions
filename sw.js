@@ -2,7 +2,7 @@
 // Keeps a copy of the app so it opens offline and can be installed, but always
 // asks the server for the newest version first, so updates show up right away.
 // Schedule data and sign-in always go to Microsoft live; they are never cached.
-const CACHE = "rci-productions-v103";
+const CACHE = "rci-productions-v104";
 const SHELL = ["./", "index.html", "communications.js", "manifest.webmanifest", "push-config.js", "push-client.js", "team-switch.js",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png",
   "icons/apple-touch-icon.png", "icons/favicon.png",

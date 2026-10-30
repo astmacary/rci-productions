@@ -23,6 +23,7 @@
 .access-panel{border-color:var(--accent);background:var(--accent-soft)}
 .access-panel .actions{display:flex;gap:8px;flex-wrap:wrap}
 .comm{display:flex;flex-direction:column;gap:14px}.comm h1{margin:0}.comm h2,.comm h3{margin:0;font-size:17px}.comm .panel.pad{padding:14px;display:flex;flex-direction:column;gap:10px;margin:0}.comm-text{white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0}.comm-record+.comm-record{border-top:1px solid var(--line);padding-top:12px}.comm-topic{justify-content:flex-start;text-align:left;white-space:normal;overflow-wrap:anywhere}.comm time{display:block}.comm .chiprow{display:flex;flex-wrap:wrap;gap:8px}.comm .chipcheck{padding:8px 12px;border-radius:20px;background:var(--surface);color:var(--fg);border:1px solid var(--line);font:inherit;font-size:13px}.comm .chipcheck[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}nav.tabs button{position:relative}.comm-unread{position:absolute;right:3px;top:0;border-radius:10px;background:var(--accent);color:var(--accent-ink);padding:1px 4px;font-size:10px;min-width:16px}@media(max-width:430px){nav.tabs button{font-size:10px;letter-spacing:0;padding-inline:1px}}
+.comm-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.comm-head .iconbtn{flex:none}.comm-head .iconbtn svg{width:20px;height:20px}
 </style>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -621,7 +622,7 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 <script src="push-config.js"></script>
 <script src="push-client.js"></script>
 <script src="team-switch.js"></script>
-<script src="communications.js?v=103"></script>
+<script src="communications.js?v=104"></script>
 <script>
 /* ============================================================
    CONFIGURATION — fill these in after registering the app in
@@ -668,7 +669,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "103";
+const APP_VERSION = "104";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
