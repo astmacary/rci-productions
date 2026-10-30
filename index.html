@@ -624,7 +624,7 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 <script src="push-config.js"></script>
 <script src="push-client.js"></script>
 <script src="team-switch.js"></script>
-<script src="communications.js?v=108"></script>
+<script src="communications.js?v=109"></script>
 <script>
 /* ============================================================
    CONFIGURATION — fill these in after registering the app in
@@ -671,7 +671,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "108";
+const APP_VERSION = "109";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -3044,12 +3044,12 @@ async function start(){
     S.servingChoices = data.servingChoices || []; S.choices = data.choices || {}; S.users = data.users || []; S.announcements = data.announcements || []; markNewAnns(); setTimeout(linkPendingPeople, 1500); S.messages = data.messages || [];
     const t = new Date(); S.cal.month = new Date(t.getFullYear(), t.getMonth(), 1); S.cal.sel = todayKey();
     restoreNav();
-    if (ROSTER_ADD){ try { sessionStorage.removeItem(ROSTER_ADD_KEY); } catch (_) {} S.view = "directory"; S.arg = null; S.stack = []; S.addPerson = isEditor(); }
+    if (ROSTER_ADD){ try { sessionStorage.removeItem(ROSTER_ADD_KEY); } catch (_) {} S.view = "directory"; S.arg = null; S.stack = []; S.addPerson = isEditor(); S.rosterRouteHandled = S.addPerson; }
     S.phase = "ready"; render(); maybeConfetti(); updateBadge();
     const renderIdle = () => { if (S.phase === 'ready' && !Comm.busy && !S.busy.size && !document.activeElement?.closest('input,textarea,select,[contenteditable="true"]')) render(); };
     void Comm.load().then(renderIdle);
     void Onboarding.load(S.items).then(() => Onboarding.confirmSelf()).then(renderIdle);
-    void loadAdmins(false).then(() => { if (ROSTER_ADD && S.view === "directory" && isEditor()) S.addPerson = true; renderIdle(); });
+    void loadAdmins(false).then(() => { if (ROSTER_ADD && !S.rosterRouteHandled && S.view === "directory" && isEditor()){ S.addPerson = true; S.rosterRouteHandled = true; } renderIdle(); });
     void Push.init();
   } catch(e){
     console.error(e); S.error = e.message || String(e); S.phase = "error"; render();
