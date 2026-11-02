@@ -623,6 +623,7 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 
 <script src="push-config.js"></script>
 <script src="push-client.js"></script>
+<script src="app-recovery.js"></script>
 <script src="team-switch.js"></script>
 <script src="communications.js?v=109"></script>
 <script src="serve-profile.js?v=2"></script>
@@ -672,7 +673,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "111";
+const APP_VERSION = "112";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -3037,14 +3038,21 @@ const Onboarding = {
   }
 };
 
-async function start(){
+const loadSchedule = createScheduleLoader(() => API.load());
+function applyScheduleData(data){
+  S.me = data.me; S.items = data.items;
+  S.names = [...new Set([...(data.names || []), ...data.items.filter(isProfile).map(i => i.fullName).filter(Boolean)])];
+  S.servingChoices = data.servingChoices || []; S.choices = data.choices || {}; S.users = data.users || [];
+  S.announcements = data.announcements || []; S.messages = data.messages || [];
+  markNewAnns();
+}
+async function startOnce(){
   S.phase = "boot"; render();
   try {
     const signedIn = await API.init();
     if (!signedIn){ S.phase = "signin"; render(); return; }
-    const data = await API.load();
-    S.me = data.me; S.items = data.items; S.names = [...new Set([...(data.names || []), ...data.items.filter(isProfile).map(i => i.fullName).filter(Boolean)])];   // Roster names added in the app aren't Full Name choices yet
-    S.servingChoices = data.servingChoices || []; S.choices = data.choices || {}; S.users = data.users || []; S.announcements = data.announcements || []; markNewAnns(); setTimeout(linkPendingPeople, 1500); S.messages = data.messages || [];
+    const data = await loadSchedule();
+    applyScheduleData(data); setTimeout(linkPendingPeople, 1500);
     const t = new Date(); S.cal.month = new Date(t.getFullYear(), t.getMonth(), 1); S.cal.sel = todayKey();
     restoreNav();
     ServeProfile.apply();
@@ -3056,9 +3064,20 @@ async function start(){
     void loadAdmins(false).then(() => { if (ROSTER_ADD && !S.rosterRouteHandled && S.view === "directory" && isEditor()){ S.addPerson = true; S.rosterRouteHandled = true; } renderIdle(); });
     void Push.init();
   } catch(e){
-    console.error(e); S.error = e.message || String(e); S.phase = "error"; render();
+    console.error(e); S.error = scheduleErrorMessage(e); S.phase = "error"; render();
   }
 }
+const start = singleFlight(startOnce);
+const refreshAfterPush = createPushRefresh({
+  isReady: () => S.phase === "ready",
+  isEditing: () => !!(S.annEdit || S.notesEdit || S.busy.size || S.confirm || S.cardEdit || S.addPerson || (S.view === 'absence' && (S.abs?.sel?.size || S.abs?.notes)) || S.absConfirm || S.annConfirm || S.tplAsk || S.noSvcAsk || S.delAsk || document.activeElement?.closest('input,textarea,select,[contenteditable="true"]') || document.querySelector('#wall-text, #ab-notes, #ann-text')?.value),
+  load: loadSchedule,
+  apply: data => { applyScheduleData(data); ServeProfile.apply(); render(); updateBadge(); },
+  onError: error => { console.warn("Notification schedule refresh failed", error); toast("Couldn't refresh your schedule. Close and reopen the app to retry.", true); }
+});
+navigator.serviceWorker?.addEventListener("message", event => {
+  if (event.data?.type === "RCI_PUSH_OPEN") void refreshAfterPush();
+});
 start();
 
 /* When someone comes back to an app that's already open, check for a newer version and refresh to it,
@@ -3087,5 +3106,6 @@ document.addEventListener("visibilitychange", async () => {
 </script>
 </body>
 </html>
+
 
 

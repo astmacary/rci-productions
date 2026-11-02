@@ -2,8 +2,8 @@
 // Keeps a copy of the app so it opens offline and can be installed, but always
 // asks the server for the newest version first, so updates show up right away.
 // Schedule data and sign-in always go to Microsoft live; they are never cached.
-const CACHE = "rci-productions-v111";
-const SHELL = ["./", "index.html", "communications.js", "serve-profile.js", "manifest.webmanifest", "push-config.js", "push-client.js", "team-switch.js",
+const CACHE = "rci-productions-v112";
+const SHELL = ["./", "index.html", "app-recovery.js", "communications.js", "serve-profile.js", "manifest.webmanifest", "push-config.js", "push-client.js", "team-switch.js",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png",
   "icons/apple-touch-icon.png", "icons/favicon.png",
   "icons/wordmark.png", "icons/wordmark-dark.png"];
@@ -75,10 +75,14 @@ self.addEventListener("notificationclick", event => {
     for (const client of windows) {
       const current = new URL(client.url);
       if (current.origin === scope.origin && current.pathname.startsWith(scope.pathname)) {
-        await client.navigate(url.href); await client.focus(); return;
+        // Reusing this window must not restart Microsoft sign-in or discard a draft.
+        await client.focus();
+        client.postMessage({ type: "RCI_PUSH_OPEN" });
+        return;
       }
     }
     await self.clients.openWindow(url.href);
   })());
 });
+
 

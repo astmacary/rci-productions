@@ -30,7 +30,7 @@ export function notification(body, app) {
   requireValue(Buffer.byteLength(payload) <= 3000, 'Notification is too large.');
   return { recipients, payload };
 }
-export function createHandlers({ apps, table, send, graph, publicKey }) {
+export function createHandlers({ apps, table, deliveries, send, graph, publicKey }) {
   function select(id) { const app = apps[id]; if (!app) throw new HttpError(400, 'Unknown appId.'); return app; }
   async function identity(request, app) {
     const token = request.headers.get('authorization');
@@ -62,12 +62,28 @@ export function createHandlers({ apps, table, send, graph, publicKey }) {
     requireValue(rows.length <= 200, 'Too many devices. Split this request into smaller groups.');
     const deliver = async row => {
       matched++;
+      let receipt, accepted = false, sending = false;
       try {
-        await send(subscription(JSON.parse(row.subscription)), payload);
+        receipt = await deliveries.claim(app.id, body.eventId, row.rowKey);
+        if (receipt === 'sent') return; // Already accepted for this device/event.
+        if (receipt === 'busy') { failed++; return; } // Retry after the other worker finishes.
+        const sub = subscription(JSON.parse(row.subscription));
+        sending = true;
+        await send(sub, payload);
+        sending = false;
+        accepted = true;
+        await deliveries.complete(receipt);
         sent++;
       } catch (e) {
-        if (e.statusCode === 404 || e.statusCode === 410) { await table.remove(app.id, row.rowKey); expired++; }
+        if (sending && (e.statusCode === 404 || e.statusCode === 410)) {
+          try { await table.remove(app.id, row.rowKey); expired++; } catch (_) { failed++; }
+        }
         else failed++;
+        // Retain an accepted-but-unconfirmed receipt until its lease expires.
+        // Releasing immediately could resend after a temporary storage outage.
+        if (receipt && typeof receipt === 'object' && !accepted) {
+          try { await deliveries.release(receipt); } catch (_) { /* The lease permits recovery after a storage outage. */ }
+        }
       }
     };
     // Bound concurrency and total work to stay within Azure's HTTP time limit.
@@ -76,3 +92,4 @@ export function createHandlers({ apps, table, send, graph, publicKey }) {
   }
   return { select, subscriptions, dispatch, publicKey };
 }
+

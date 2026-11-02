@@ -1,5 +1,44 @@
 # RCI lock-screen push service
 
+## Notification opening and duplicate-delivery update
+
+This update requires **both** publishing the Productions website and deploying
+the updated `push-server` runtime to the existing Azure Function App. `azure-update.json`
+updates only the existing app's code package; select Subscription 1 and the existing
+`rci-push-notifications` resource group. It does not recreate storage, keys, or a hosting plan.
+Its package URL is pinned to the CI-tested build. Merging
+the website change alone does not update the live Function App. Keep all existing
+VAPID keys, Function keys, and storage settings. Do not replace the storage account.
+
+The Productions worker now focuses an existing app window without navigating it
+again. A worker message refreshes schedule data without reinitializing Microsoft
+sign-in; active edits are preserved. Cold startup retries temporary network/server
+failures twice, while access-denied errors remain actionable and do not retry.
+
+The server uses conditional Azure Table writes to reserve each app/event/device
+delivery. Successful receipts survive restarts and overlapping flow runs. Retries
+send only to devices that have not already succeeded. Receipt rows use a separate
+`delivery:APP_ID` partition in the existing `PushSubscriptions` table and contain
+only a hashed identifier, delivery state, lease time, and completion time.
+
+Power Automate must keep `eventId` stable for the same serving request across
+retries/runs. Do not use the flow run ID or current time. A deliberately new request
+needs a new event ID. Separate phone installations/endpoints still each receive
+their own notification; this does not identify two installations as one physical
+phone. Check run history for a second sending action/flow if duplicates persist.
+
+A failed send releases its reservation. An abandoned reservation can be reclaimed
+after 60 seconds using an ETag check. Receipts are retained; no table cleanup is
+performed automatically. There remains an unavoidable delivery ambiguity if the
+push provider accepts a request but its acknowledgement or the receipt write is
+lost: retrying can resend. This is not an exactly-once guarantee.
+
+Acceptance check after deployment: send a request twice with the same event ID
+to one subscribed account. The second response should report `sent: 0` and
+`failed: 0`. Then tap a notification with the app already open and with it closed,
+and verify schedule loading and any active draft. Do not resubmit serving flows
+that would send approval emails to other people just to test this change.
+
 Deploy this **once** for all four RCI apps. Frontend changes in each app register
 the current phone; Power Automate sends the notifications. Existing email actions
 can remain enabled. The code is prepared, but Azure deployment and flow editing
@@ -139,3 +178,4 @@ still require the end-to-end phone test above.
 References: [Apple Web Push requirements](https://webkit.org/blog/13878/),
 [Azure Functions HTTP authorization](https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-http-webhook-trigger),
 [web-push library](https://github.com/web-push-libs/web-push).
+
