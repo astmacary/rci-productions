@@ -3,7 +3,10 @@
 ## Notification opening and duplicate-delivery update
 
 This update requires **both** publishing the Productions website and deploying
-the updated `push-server` runtime to the existing Azure Function App. Merging
+the updated `push-server` runtime to the existing Azure Function App. `azure-update.json`
+updates only the existing app's code package; select Subscription 1 and the existing
+`rci-push-notifications` resource group. It does not recreate storage, keys, or a hosting plan.
+Its package URL is pinned to the CI-tested build. Merging
 the website change alone does not update the live Function App. Keep all existing
 VAPID keys, Function keys, and storage settings. Do not replace the storage account.
 

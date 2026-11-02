@@ -1,0 +1,29 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "functionAppName": {
+      "type": "string",
+      "defaultValue": "rci-push-astmacary-16343"
+    },
+    "packageUri": {
+      "type": "string",
+      "defaultValue": "https://raw.githubusercontent.com/astmacary/rci-productions/eb98c9baff97f8c3ea7a24bd0be6530032ebb9e0/push-server/deploy/rci-push.zip",
+      "metadata": {
+        "description": "Pinned CI-tested notification recovery and duplicate-delivery update."
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Web/sites/extensions",
+      "apiVersion": "2022-09-01",
+      "name": "[concat(parameters('functionAppName'),'/onedeploy')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "packageUri": "[parameters('packageUri')]",
+        "remoteBuild": false
+      }
+    }
+  ]
+}
