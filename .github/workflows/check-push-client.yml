@@ -1,0 +1,19 @@
+name: Check Serve notification consent
+on:
+  pull_request:
+    paths: ['push-client.js', 'test/push-serve.test.cjs', '.github/workflows/check-push-client.yml']
+  push:
+    branches: [main]
+    paths: ['push-client.js', 'test/push-serve.test.cjs', '.github/workflows/check-push-client.yml']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check push-client.js
+      - run: node --test test/push-serve.test.cjs
