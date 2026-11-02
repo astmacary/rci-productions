@@ -70,7 +70,7 @@ header.top .wrap{display:flex;align-items:center;gap:12px;padding-top:16px;paddi
 :root[data-theme="dark"] .wm-light{display:none}
 :root[data-theme="dark"] .wm-dark{display:block}
 .center-screen .wm{height:auto;width:min(280px,80%);object-position:center;margin-inline:auto;align-self:center}
-.install{display:flex;flex-direction:column;gap:8px}.panel.pad{padding:14px;display:flex;flex-direction:column;gap:10px;margin:0}.acts2{display:flex;gap:8px;flex-wrap:wrap}
+.install{display:flex;flex-direction:column;gap:8px;border-color:var(--accent);background:var(--accent-soft)}.panel.pad{padding:14px;display:flex;flex-direction:column;gap:8px;margin:0}.acts2{display:flex;gap:8px;flex-wrap:wrap}
 .install p{margin:0;color:var(--muted);font-size:14px}
 .install b{color:var(--fg)}
 .brand b{font-family:var(--display);font-weight:700;font-size:24px;letter-spacing:.02em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -673,7 +673,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "114";
+const APP_VERSION = "115";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1999,12 +1999,14 @@ function shareBtn(){ return isEditor() ? `<button class="btn share-app" data-act
 const wantsInstall = /[?&]install\b/.test(location.search);
 function installGuide(){
   if (!wantsInstall || isStandalone() || S.installHidden) return "";
+  const safari = isIOS() && !/CriOS|FxiOS|EdgiOS/i.test(navigator.userAgent);
   const inApp = /FBAN|FBAV|Instagram|Line\/|GSA\/|Teams|Outlook|Gmail|wv\)/i.test(navigator.userAgent);
-  const steps = deferredInstall ? "" : isIOS() && !/CriOS|FxiOS|EdgiOS/i.test(navigator.userAgent)
-    ? `<ol>${inApp || !/Safari/i.test(navigator.userAgent) ? `<li>Open this link in <b>Safari</b> first (tap ⋯ or the compass, then <b>Open in Safari</b>).</li>` : ""}<li>Tap the <b>two lines</b> on the web address bar below.</li><li>Tap the <b>Share</b> button <span class="ig-share" aria-hidden="true">${ICON.share}</span>.</li><li>Tap the <b>View More</b> drop-down menu.</li><li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open ${esc(APP_NAME)} from your home screen.</li></ol>`
-    : `<ol>${inApp ? `<li>Open this link in <b>Chrome</b> first.</li>` : ""}<li>Tap the <b>Share</b> button <span class="ig-share" aria-hidden="true">${ICON.share}</span> on the web address bar at the top.</li><li>Tap the <b>View More</b> drop-down menu.</li><li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open ${esc(APP_NAME)} from your home screen.</li></ol>`;
-  return `<section class="panel pad install"><h2 style="font-size:18px;margin:0">Add ${esc(APP_NAME)} to Your Home Screen</h2>
-    <p class="hint" style="color:var(--fg)">Add ${esc(APP_NAME)} to your home screen so it opens like any other app.</p>
+  const first = inApp ? `<li>Open this link in <b>${safari ? "Safari" : "Chrome"}</b> (not inside another app).</li>` : "";
+  const steps = deferredInstall ? "" : safari
+    ? `<ol>${first}<li>Tap the two lines on the web address bar below.</li><li>Tap the <b>Share</b> button.</li><li>Tap the <b>View More</b> drop-down menu.</li><li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open ${esc(APP_NAME)} from your home screen and sign in.</li></ol>`
+    : `<ol>${first}<li>Tap the <b>Share</b> button on the web address bar at the top.</li><li>Tap the <b>View More</b> drop-down menu.</li><li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open ${esc(APP_NAME)} from your home screen and sign in.</li></ol>`;
+  return `<section class="panel pad install"><div class="sec"><h2 style="font-size:18px">Add ${esc(APP_NAME)} to Your Home Screen</h2></div>
+    <p class="hint" style="color:var(--fg)">One icon for ${esc(APP_NAME)}. You sign in once, and it's one tap away from your home screen.</p>
     ${steps}<div class="acts2">${deferredInstall ? `<button class="btn primary big" data-act="install">Install App</button>` : ""}<button class="btn" data-act="install-hide">Not now</button></div></section>`;
 }
 function installPanel(){
