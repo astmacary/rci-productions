@@ -7,7 +7,7 @@ const worker = readFileSync(new URL('../../sw.js', import.meta.url), 'utf8');
 function phone({ permission = 'default', failStore = false, existing = null } = {}) {
   const log = [];
   let sub = existing;
-  const reg = { pushManager: { getSubscription: async()=>sub, subscribe:async()=>{
+  const reg = { active: {}, pushManager: { getSubscription: async()=>sub, subscribe:async()=>{
     log.push('subscribe'); sub = { endpoint:'https://web.push.apple.com/a', toJSON:()=>({endpoint:'https://web.push.apple.com/a',keys:{}}), unsubscribe:async()=>{log.push('unsubscribe');sub=null;return true;} }; return sub;
   } } };
   const sandbox = { window:{isSecureContext:true,PushManager:{},Notification:{}}, navigator:{serviceWorker:{register:async()=>{log.push('register');return reg;},ready:Promise.resolve(reg),getRegistration:async()=>reg}},
@@ -55,4 +55,5 @@ test('worker shows fallback notifications and blocks off-site click destinations
   handlers.notificationclick({notification:{close(){},data:{url:'https://one.example/rci-security/'}},waitUntil});await pending;
   assert.equal(opened[0],'https://one.example/rci-productions/');
 });
+
 

@@ -4,6 +4,11 @@ function createPushClient({ appId, apiBaseUrl, getToken, onChange, isDemo, stand
   const supported = () => window.isSecureContext && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
   const escape = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const base = apiBaseUrl.replace(/\/$/, "");
+  function usesServeNotifications() {
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return false;
+    // Session-only navigation context: another app/device's permission is not consent here.
+    try { return sessionStorage.getItem("rci-serve:hub") === "1"; } catch (_) { return false; }
+  }
   async function request(path, body, authenticated = true) {
     const headers = { "Content-Type": "application/json" };
     if (authenticated) headers.Authorization = "Bearer " + await getToken();
@@ -12,10 +17,24 @@ function createPushClient({ appId, apiBaseUrl, getToken, onChange, isDemo, stand
     return res.status === 204 ? null : res.json();
   }
   async function registration() {
-    await navigator.serviceWorker.register("sw.js", { updateViaCache: "none" });
-    let timer;
-    try { return await Promise.race([navigator.serviceWorker.ready, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("The app is still updating. Close and reopen it, then retry.")), 15000); })]); }
-    finally { clearTimeout(timer); }
+    const reg = await navigator.serviceWorker.register("sw.js", { updateViaCache: "none" });
+    if (reg.active) return reg;
+    // serviceWorker.ready can still refer to Serve's root worker during this team's first install.
+    // Always subscribe through the registration returned for this team's sw.js.
+    return new Promise((resolve, reject) => {
+      const watched = new Set();
+      const cleanup = () => {
+        clearTimeout(timer); reg.removeEventListener("updatefound", check);
+        for (const worker of watched) worker.removeEventListener("statechange", check);
+      };
+      const check = () => {
+        const worker = reg.installing || reg.waiting;
+        if (reg.active || worker?.state === "activated") { cleanup(); resolve(reg); return; }
+        if (worker && !watched.has(worker)) { watched.add(worker); worker.addEventListener("statechange", check); }
+      };
+      const timer = setTimeout(() => { cleanup(); reject(new Error("The app is still updating. Close and reopen it, then retry.")); }, 15000);
+      reg.addEventListener("updatefound", check); check();
+    });
   }
   function publicKey(value) {
     const s = atob(value.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - value.length % 4) % 4));
@@ -29,21 +48,29 @@ function createPushClient({ appId, apiBaseUrl, getToken, onChange, isDemo, stand
       key = cfg.publicKey; if (!key) throw new Error("Notifications aren't configured yet.");
       ready = true;
       const reg = await registration();
-      const sub = await reg.pushManager.getSubscription();
+      let sub = await reg.pushManager.getSubscription();
       if (sub && Notification.permission === "granted") {
         const currentKey = sub.options.applicationServerKey;
         if (currentKey && btoa(String.fromCharCode(...new Uint8Array(currentKey))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "") !== key) {
           await sub.unsubscribe();
-        } else {
-          enabled = true;   // already on for this phone; refreshing the server copy can fail quietly
-          try { await request("/push/subscriptions", { action: "upsert", subscription: sub.toJSON() }); } catch (_) {}
+          sub = null;
         }
+      }
+      if (!sub && usesServeNotifications()) {
+        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: publicKey(key) });
+        await request("/push/subscriptions", { action: "upsert", subscription: sub.toJSON() });
+        enabled = true;
+      } else if (sub && Notification.permission === "granted") {
+        enabled = true;   // already on for this phone; refreshing the server copy can fail quietly
+        try { await request("/push/subscriptions", { action: "upsert", subscription: sub.toJSON() }); } catch (_) {}
       }
     } catch (e) { error = e.message; enabled = false; }
     finally { busy = false; checked = true; onChange(); }
   }
   async function enable() {
     if (busy) return;
+    // A stale activation button must not ask again after permission was granted in Serve.
+    if (usesServeNotifications()) { await init(); return; }
     // Call permission directly in the tap handler, before any network or worker waits.
     if (!ready) { await init(); return; }
     busy = true; error = "";
@@ -73,7 +100,7 @@ function createPushClient({ appId, apiBaseUrl, getToken, onChange, isDemo, stand
     finally { busy = false; onChange(); }
   }
   function panel() {
-    if (isDemo()) return "";
+    if (isDemo() || usesServeNotifications()) return "";
     const shell = text => `<section class="panel install badge-ask"><h2 class="section-label" style="margin:0">Lock-Screen Notifications</h2>${text}</section>`;
     if (ios() && !standalone()) return shell("<p>To receive notifications on iPhone or iPad (iOS 16.4+), add this app to your Home Screen and open it from its icon.</p>");
     if (!supported()) return shell("<p>This browser doesn't support push notifications. Open the app in a supported browser.</p>");
@@ -85,3 +112,4 @@ function createPushClient({ appId, apiBaseUrl, getToken, onChange, isDemo, stand
   }
   return { init, enable, disable, panel };
 }
+
