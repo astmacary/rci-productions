@@ -1,9 +1,14 @@
 name: Build push-service deployment package
 on:
   push:
-    branches: [codex/lock-screen-push]
+    branches: [codex/lock-screen-push, codex/fix-productions-push]
     paths:
       - .github/workflows/build-push-package.yml
+      - app-recovery.js
+      - sw.js
+      - push-client.js
+      - push-server/test/**
+      - push-server/fixtures/**
       - push-server/src/**
       - push-server/package.json
       - push-server/package-lock.json
@@ -41,4 +46,5 @@ jobs:
           git add push-server/deploy
           git diff --cached --quiet && exit 0
           git commit -m 'Build tested push-service deployment package'
-          git push origin HEAD:codex/lock-screen-push
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+

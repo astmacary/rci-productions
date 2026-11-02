@@ -3,6 +3,7 @@ import { TableClient, odata } from '@azure/data-tables';
 import webpush from 'web-push';
 import { apps } from './apps.js';
 import { createHandlers, HttpError } from './core.js';
+import { createDeliveryReceipts } from './deliveries.js';
 
 let handlers;
 function service() {
@@ -27,7 +28,7 @@ function service() {
     }
   };
   webpush.setVapidDetails(process.env.VAPID_SUBJECT, process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
-  handlers = createHandlers({ apps, table, publicKey: process.env.VAPID_PUBLIC_KEY,
+  handlers = createHandlers({ apps, table, deliveries: createDeliveryReceipts(client, init), publicKey: process.env.VAPID_PUBLIC_KEY,
     send: (sub, payload) => webpush.sendNotification(sub, payload, { TTL: 3600, urgency: 'normal', timeout: 10000 }),
     graph: async (path, authorization) => {
       const res = await fetch('https://graph.microsoft.com/v1.0' + path, { headers: { Authorization: authorization }, signal: AbortSignal.timeout(10000) });
@@ -82,3 +83,4 @@ app.http('push-send', { route: 'push/send', methods: ['POST'], authLevel: 'funct
     return json(result.failed ? 503 : 200, result);
   } catch (e) { return failure(e, {}, context); }
 } });
+

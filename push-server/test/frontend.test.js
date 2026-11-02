@@ -23,8 +23,8 @@ test('requests permission immediately from the user tap before worker/network wa
   const {client,log}=phone(); await client.init(); log.length=0;
   const pending=client.enable(); assert.equal(log[0],'permission'); await pending;
   assert.ok(log.indexOf('permission')<log.indexOf('subscribe'));
-  assert.match(client.panel(),/Notifications are enabled/);
-  await client.disable(); assert.ok(log.includes('unsubscribe'));assert.doesNotMatch(client.panel(),/Notifications are enabled/);
+  assert.equal(client.panel(),''); // Enabled phones intentionally hide the activation panel.
+  await client.disable(); assert.ok(log.includes('unsubscribe'));assert.match(client.panel(),/Enable Notifications/);
 });
 test('permission alone does not claim the phone is registered after a server failure', async()=>{
   const {client}=phone({failStore:true});await client.init();await client.enable();
@@ -32,7 +32,16 @@ test('permission alone does not claim the phone is registered after a server fai
 });
 test('reopening an already subscribed app re-registers with the current signed-in account', async()=>{
   const {client,log}=phone({permission:'granted',existing:{toJSON:()=>({}),options:{}}}); await client.init();
-  assert.ok(log.includes('store'));assert.match(client.panel(),/Notifications are enabled/);assert.ok(!log.includes('permission'));
+  assert.ok(log.includes('store'));assert.equal(client.panel(),'');assert.ok(!log.includes('permission'));
+});
+test('notification taps reuse the correct open app without navigation or disturbing sibling apps',async()=>{
+  const handlers={},calls=[];
+  const client={url:'https://one.example/rci-productions/index.html',navigate:async()=>calls.push('navigate'),focus:async()=>calls.push('focus'),postMessage:message=>calls.push(message.type)};
+  const sibling={url:'https://one.example/rci-security/',focus:async()=>calls.push('wrong-app')};
+  const sandbox={URL,Request,Response,self:{location:{origin:'https://one.example'},registration:{scope:'https://one.example/rci-productions/'},addEventListener:(name,fn)=>{handlers[name]=fn;},clients:{matchAll:async()=>[sibling,client],openWindow:async()=>calls.push('new-window')}}};
+  vm.createContext(sandbox);vm.runInContext(worker,sandbox);
+  let pending;handlers.notificationclick({notification:{close(){},data:{url:'https://evil.example/'}},waitUntil:p=>{pending=p;}});await pending;
+  assert.deepEqual(calls,['focus','RCI_PUSH_OPEN']);
 });
 test('worker shows fallback notifications and blocks off-site click destinations', async()=>{
   const handlers={},shown=[],opened=[];
@@ -46,3 +55,4 @@ test('worker shows fallback notifications and blocks off-site click destinations
   handlers.notificationclick({notification:{close(){},data:{url:'https://one.example/rci-security/'}},waitUntil});await pending;
   assert.equal(opened[0],'https://one.example/rci-productions/');
 });
+
