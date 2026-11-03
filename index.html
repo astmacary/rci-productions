@@ -671,7 +671,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "121";
+const APP_VERSION = "122";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -2872,7 +2872,7 @@ const Onboarding = {
     if(!/^[a-f\d-]{36}$/i.test(id)) throw new Error('Invalid list identity.');
     return `web/lists(guid'${id}')`;
   },
-  async directory(email, create=false, suppliedToken){
+  async directory(email, create=false, suppliedToken, displayName=''){
     if(this.identities.has(email)) return this.identities.get(email);
     const token=suppliedToken || await this.token(['User.ReadBasic.All', ...(create?['User.Invite.All']:[])],create);
     const quoted=email.replace(/'/g,"''");
@@ -2882,6 +2882,7 @@ const Onboarding = {
     if(!user && create){
       if(email.endsWith('@therampchurch.com')) throw new Error('This church account does not exist in Microsoft yet. Create the account first.');
       const invitation=await this.graph('/invitations',{method:'POST',body:JSON.stringify({invitedUserEmailAddress:email,invitedUserType:'Guest',
+        ...(String(displayName||'').trim()?{invitedUserDisplayName:String(displayName).trim()}:{}),
         inviteRedirectUrl:location.origin+location.pathname+'?install',sendInvitationMessage:true,
         invitedUserMessageInfo:{customizedMessageBody:this.invitationMessage()}})},token);
       if(!invitation?.invitedUser?.id) throw new Error('Microsoft did not return the invited guest account.');
@@ -2960,9 +2961,9 @@ const Onboarding = {
     if(matches.length!==1) throw new Error('The configured private Teams channel could not be identified uniquely.');
     return `/teams/${cfg.teamId}/channels/${encodeURIComponent(matches[0].id)}/members`;
   },
-  async channelGrant(email,token){
+  async channelGrant(email,token,displayName=''){
     const cfg=CONFIG.onboardingChannel;
-    const user=await this.directory(email,true,token);
+    const user=await this.directory(email,true,token,displayName);
     const body=JSON.stringify({'@odata.type':'#microsoft.graph.aadUserConversationMember',roles:[],
       'user@odata.bind':`https://graph.microsoft.com/v1.0/users('${user.id}')`});
     const teamPath=`/teams/${cfg.teamId}/members`;
@@ -2986,10 +2987,10 @@ const Onboarding = {
       if(!check.complete && grant){
         if(CONFIG.onboardingChannel){
           const graphToken=await this.token(['User.ReadBasic.All','User.Invite.All','TeamMember.Read.All','TeamMember.ReadWriteNonOwnerRole.All','ChannelMember.ReadWrite.All','Channel.ReadBasic.All'],true);
-          await this.channelGrant(email,graphToken);
+          await this.channelGrant(email,graphToken,p.fullName);
         } else {
           if (!check.user || check.detail === 'The account cannot open the team site yet.') {
-            const identity=await this.directory(email,true);
+            const identity=await this.directory(email,true,undefined,p.fullName);
             await this.share(identity.userPrincipalName,spToken);
           }
         }
