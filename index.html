@@ -671,7 +671,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "118";
+const APP_VERSION = "119";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -773,16 +773,38 @@ const LiveAPI = {
       cache: { cacheLocation: "localStorage" }
     });
     await this.msal.initialize();
-    const r = await this.msal.handleRedirectPromise();
+    this.redirecting = null;
+    // A sign-in left half-finished (in this app or another RCI app on this site, which share the
+    // sign-in) makes every new one fail with "interaction_in_progress". If this page isn't coming
+    // back from Microsoft, nothing can be in progress, so clear that marker first.
+    if (!/[#&?](code|error)=/.test(location.hash + location.search)) this.clearStuck();
+    let r = null;
+    try { r = await this.msal.handleRedirectPromise(); }
+    catch(e){ if (e && e.errorCode === "interaction_in_progress"){ this.clearStuck(); r = await this.msal.handleRedirectPromise(); } else throw e; }
     this.account = r?.account || this.msal.getAllAccounts()[0] || null;
     if (this.account) this.msal.setActiveAccount(this.account);
     return !!this.account;
   },
-  signIn(){ return this.msal.loginRedirect({ scopes: SCOPES }); },
+  signIn(){ this.clearStuck(); return this.msal.loginRedirect({ scopes: SCOPES }); },
   signOut(){ return this.msal.logoutRedirect({ account: this.account }); },
   async token(){
     try { return (await this.msal.acquireTokenSilent({ scopes: SCOPES, account: this.account })).accessToken; }
-    catch(e){ await this.msal.acquireTokenRedirect({ scopes: SCOPES }); throw e; }
+    catch(e){ return this.reauth(); }
+  },
+  /* Microsoft wants the person to sign in again (about once a day for web apps). Many requests can
+     find that out at once; only the first starts the sign-in, the rest wait while the page leaves. */
+  reauth(){
+    if (!this.redirecting) this.redirecting = (async () => {
+      const go = () => this.msal.acquireTokenRedirect({ scopes: SCOPES });
+      try { await go(); }
+      catch(e){ if (e && e.errorCode === "interaction_in_progress"){ this.clearStuck(); await go(); } else { this.redirecting = null; throw e; } }
+    })();
+    return this.redirecting.then(() => new Promise(() => {}));
+  },
+  clearStuck(){
+    for (const store of [window.sessionStorage, window.localStorage]){
+      try { Object.keys(store).filter(k => k === "msal.interaction.status").forEach(k => store.removeItem(k)); } catch(_){}
+    }
   },
   async g(path, opts={}){
     const url = path.startsWith("https://") ? path : "https://graph.microsoft.com/v1.0" + path;
