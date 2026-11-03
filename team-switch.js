@@ -42,7 +42,7 @@
   css.textContent =
     ".rs-btn{flex:none;display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;padding:0;border-radius:999px;border:1px solid var(--line);background:none;color:var(--muted);position:relative;cursor:pointer}" +
     ".rs-btn svg{width:18px;height:18px}" +
-    ".rs-btn .rs-dot{position:absolute;top:1px;right:1px;width:11px;height:11px;border-radius:50%;background:var(--bad,#B3261E);border:2px solid var(--surface)}" +
+    ".rs-btn .rs-dot{position:absolute;top:1px;right:1px;width:11px;height:11px;border-radius:50%;background:var(--stop,#C62828);border:2px solid var(--surface)}" +
     ".rs-back{position:fixed;inset:0;z-index:90;background:rgba(3,17,31,.55)}" +
     ".rs-sheet{position:fixed;left:0;right:0;bottom:0;z-index:91;max-width:560px;margin:0 auto;background:var(--surface);color:var(--fg);border-radius:20px 20px 0 0;padding:10px 16px calc(24px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:6px;box-shadow:0 -8px 30px rgba(3,17,31,.3);max-height:85vh;overflow:auto}" +
     ".rs-grab{width:40px;height:5px;border-radius:3px;background:var(--line);align-self:center;margin-bottom:6px}" +
@@ -55,7 +55,7 @@
     ".rs-ic{width:36px;height:36px;border-radius:10px;background:var(--tl);color:#FFFFFF;display:grid;place-items:center;flex:none}" +
     ".rs-home .rs-ic{background:#0B1D33;color:#D2B07C}" +
     ".rs-info{flex:1;min-width:0}.rs-info b{display:block;font-weight:700}.rs-info small{display:block;font-size:12px;color:var(--muted)}" +
-    ".rs-count{min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:var(--bad,#B3261E);color:#FFFFFF;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}" +
+    ".rs-count{min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:var(--stop,#C62828);color:#FFFFFF;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}" +
     ".rs-label{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:10px 0 2px 4px}" +
     ".rs-t{--t:var(--tl)}" +
     "@media (prefers-color-scheme: dark){:root:not([data-theme=\"light\"]) .rs-t{--t:var(--td)}}:root[data-theme=\"dark\"] .rs-t{--t:var(--td)}";
