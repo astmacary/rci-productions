@@ -53,15 +53,16 @@
   --ok:#5CCB8F; --ok-soft:#0F2E2A; --warn:#E3B866; --warn-soft:#2E2A20; --bad:#F2877F; --bad-soft:#33202C; color-scheme:dark}
 
 *{box-sizing:border-box}
-html,body{height:100%;overscroll-behavior-y:none}
-body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased;min-height:calc(100% + 1px)}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased;overflow:hidden}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .wrap{max-width:720px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 
-header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+#app{display:flex;flex-direction:column;height:100%}
+header.top{flex:none;z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
 header.top .wrap{display:flex;align-items:center;gap:12px;padding-top:16px;padding-bottom:10px}
 .brand{display:flex;align-items:center;gap:10px;min-width:0;flex:1;background:none;border:none;padding:0;cursor:pointer;color:inherit}
 .wm{height:52px;width:auto;max-width:100%;display:block;object-fit:contain;object-position:left center}
@@ -77,7 +78,7 @@ header.top .wrap{display:flex;align-items:center;gap:12px;padding-top:16px;paddi
 .iconbtn{background:none;border:1px solid var(--line);border-radius:999px;width:40px;height:40px;display:grid;place-items:center;color:var(--muted);flex:none}
 .iconbtn svg{width:18px;height:18px}
 
-main{padding-bottom:calc(68px + env(safe-area-inset-bottom,0px))}
+main{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain}
 main .wrap{display:flex;flex-direction:column;gap:18px;padding-block:20px}
 
 .demo{background:var(--accent-soft);color:var(--fg);border:1px solid var(--line);border-radius:var(--r);padding:10px 14px;font-size:13.5px;display:flex;gap:10px;align-items:flex-start}
@@ -558,7 +559,7 @@ ul.rows li:first-child{border-top:none}
 .done .check svg{width:28px;height:28px}
 
 /* Bottom nav */
-nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav.tabs{flex:none;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
 nav.tabs .wrap{display:grid;gap:2px;padding-block:2px}
 nav.tabs button{background:none;border:none;border-radius:8px;display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 2px;color:var(--muted);font-family:var(--display);font-weight:600;font-size:11px;letter-spacing:.02em;text-transform:uppercase;min-width:0}
 nav.tabs button span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -671,7 +672,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "126";
+const APP_VERSION = "127";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -2060,7 +2061,7 @@ function render(){
     if (S.phase === "boot") body = `<div class="center-screen"><p role="status">Opening RCI Productions…</p></div>`;
     if (S.phase === "signin") body = installGuide() || `<div class="center-screen"><img class="wm wm-light" src="icons/wordmark.png?v=${APP_VERSION}" alt="RCI Productions"><img class="wm wm-dark" src="icons/wordmark-dark.png?v=${APP_VERSION}" alt="RCI Productions"><p>Sign in with your church Microsoft account to see your schedule, reply to requests and update your profile.</p><button class="btn primary" data-act="signin">Sign in with Microsoft</button></div>`;
     if (S.phase === "error") body = `<div class="center-screen"><h1>Can't reach the schedule</h1><p>The app couldn't load the Serving Schedule list. Check that you're a member of the RCI Productions SharePoint site, then try again.</p><div class="err">${esc(S.error)}</div><button class="btn primary" data-act="retry">Try again</button></div>`;
-    app.innerHTML = header + `<main><div class="wrap">${body}${ServeProfile.link()}</div></main>`;
+    app.innerHTML = header + `<main id="scroller"><div class="wrap">${body}${ServeProfile.link()}</div></main>`;
     return;
   }
   const views = { messages: () => Comm.view(), admin: viewAdmin, directory: viewDirectory, home: viewHome, schedule: viewSchedule, calendar: viewCalendar, notes: viewNotes, team: viewTeam, member: viewMember, absence: viewAbsence, profile: viewProfile, install: viewInstall };
@@ -2068,7 +2069,7 @@ function render(){
   saveNav();
   const active = ["notes","team","member","admin","absence"].includes(S.view) ? (S.stack[0]?.view || "home") : S.view;
   const demoBar = DEMO ? `<div class="demo"><span><strong>Demo mode.</strong> Sample people and dates; nothing is saved to SharePoint. Add your app's client ID in the configuration to connect the Serving Schedule list.</span></div>` : "";
-  app.innerHTML = header + `<main><div class="wrap">${demoBar}${S.view === "home" ? badgePanel() : ""}${views[S.view]()}</div></main>
+  app.innerHTML = header + `<main id="scroller"><div class="wrap">${demoBar}${S.view === "home" ? badgePanel() : ""}${views[S.view]()}</div></main>
     <nav class="tabs" aria-label="Main"><div class="wrap" style="grid-template-columns:repeat(${TABS.length},minmax(0,1fr))">${TABS.map(([v,l,ic]) => `<button data-act="tab" data-view="${v}" ${v===active?'aria-current="page"':""}>${ic}<span>${l}</span>${v === "messages" && Comm.totalUnread() ? `<span class="comm-unread" aria-label="${Comm.totalUnread()} unread messages">${Comm.totalUnread()}</span>` : ""}</button>`).join("")}</div></nav>`;
   hydratePhotos(); hydrateFlyers();
 }
@@ -2103,7 +2104,7 @@ function restoreNav(){
 function go(view, arg=null, push=true){
   if (!push && view !== "member") ServeProfile.active = false;
   if (push) S.stack.push({ view: S.view, arg: S.arg });
-  S.view = view; S.arg = arg; S.confirm = null; render(); window.scrollTo(0,0);
+  S.view = view; S.arg = arg; S.confirm = null; render(); const sc = document.getElementById("scroller"); if (sc) sc.scrollTop = 0; else window.scrollTo(0,0);
 }
 
 /* ============================================================
@@ -2620,13 +2621,14 @@ const newPill = () => `<span class="pill new-pill">NEW</span> `;
   if (document.body) document.body.appendChild(ind);
   let y0 = null, h = 0;
   const editing = t => t && t.closest && t.closest("input,textarea,select,[contenteditable='true'],iframe,.date-chips,.grid7");
+  const scrollerTop = () => { const el = document.getElementById("scroller"); return el ? el.scrollTop : 0; };
   addEventListener("touchstart", e => {
-    y0 = (window.scrollY <= 0 && e.touches.length === 1 && !editing(e.target) && !editing(document.activeElement)) ? e.touches[0].clientY : null; h = 0;
+    y0 = (scrollerTop() <= 0 && e.touches.length === 1 && !editing(e.target) && !editing(document.activeElement)) ? e.touches[0].clientY : null; h = 0;
   }, { passive: true });
   addEventListener("touchmove", e => {
     if (y0 == null) return;
     const dy = e.touches[0].clientY - y0;
-    if (dy <= 0 || window.scrollY > 0){ ind.style.height = "0"; h = 0; return; }
+    if (dy <= 0 || scrollerTop() > 0){ ind.style.height = "0"; h = 0; return; }
     h = Math.min(dy * 0.5, 90); ind.style.height = h + "px";
     const ready = h >= 60; ind.classList.toggle("ready", ready);
     ind.firstChild.textContent = ready ? "↻ Release to refresh" : "↓ Pull to refresh";
