@@ -559,7 +559,7 @@ ul.rows li:first-child{border-top:none}
 
 /* Bottom nav */
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
-nav.tabs .wrap{display:grid;grid-template-columns:repeat(6,1fr);gap:2px;padding-block:2px}
+nav.tabs .wrap{display:grid;gap:2px;padding-block:2px}
 nav.tabs button{background:none;border:none;border-radius:8px;display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 2px;color:var(--muted);font-family:var(--display);font-weight:600;font-size:11px;letter-spacing:.02em;text-transform:uppercase;min-width:0}
 nav.tabs button span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 nav.tabs button svg{width:20px;height:20px}
@@ -671,7 +671,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "123";
+const APP_VERSION = "124";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -2069,7 +2069,7 @@ function render(){
   const active = ["notes","team","member","admin","absence"].includes(S.view) ? (S.stack[0]?.view || "home") : S.view;
   const demoBar = DEMO ? `<div class="demo"><span><strong>Demo mode.</strong> Sample people and dates; nothing is saved to SharePoint. Add your app's client ID in the configuration to connect the Serving Schedule list.</span></div>` : "";
   app.innerHTML = header + `<main><div class="wrap">${demoBar}${S.view === "home" ? badgePanel() : ""}${views[S.view]()}</div></main>
-    <nav class="tabs" aria-label="Main"><div class="wrap">${TABS.map(([v,l,ic]) => `<button data-act="tab" data-view="${v}" ${v===active?'aria-current="page"':""}>${ic}<span>${l}</span>${v === "messages" && Comm.totalUnread() ? `<span class="comm-unread" aria-label="${Comm.totalUnread()} unread messages">${Comm.totalUnread()}</span>` : ""}</button>`).join("")}</div></nav>`;
+    <nav class="tabs" aria-label="Main"><div class="wrap" style="grid-template-columns:repeat(${TABS.length},minmax(0,1fr))">${TABS.map(([v,l,ic]) => `<button data-act="tab" data-view="${v}" ${v===active?'aria-current="page"':""}>${ic}<span>${l}</span>${v === "messages" && Comm.totalUnread() ? `<span class="comm-unread" aria-label="${Comm.totalUnread()} unread messages">${Comm.totalUnread()}</span>` : ""}</button>`).join("")}</div></nav>`;
   hydratePhotos(); hydrateFlyers();
 }
 
