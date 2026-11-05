@@ -19,9 +19,9 @@ export function subscription(value) {
   requireValue(typeof auth === 'string' && /^[\w-]+={0,2}$/.test(auth) && Buffer.from(auth, 'base64url').length === 16, 'Invalid subscription auth.');
   return { endpoint: endpoint(value.endpoint), keys: { p256dh: key, auth } };
 }
-export function notification(body, app) {
+export function notification(body, app, byOid = false) {
   const recipients = [...new Set((Array.isArray(body.recipients) ? body.recipients : []).map(x => typeof x === 'string' ? x.trim().toLowerCase() : ''))];
-  requireValue(recipients.length > 0 && recipients.length <= 100 && recipients.every(x => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x) && x.length < 256), 'Provide 1–100 recipient email addresses.');
+  requireValue(recipients.length > 0 && recipients.length <= 100 && recipients.every(x => byOid ? /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/.test(x) : /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x) && x.length < 256), 'Provide 1–100 valid recipients.');
   requireValue(typeof body.title === 'string' && body.title.length > 0 && body.title.length <= 120, 'Provide a title up to 120 characters.');
   requireValue(typeof body.body === 'string' && body.body.length <= 1000, 'Provide notification text up to 1000 characters.');
   requireValue(typeof body.eventId === 'string' && body.eventId.length > 0 && body.eventId.length <= 200, 'Provide a stable eventId.');
@@ -55,10 +55,10 @@ export function createHandlers({ apps, table, deliveries, send, graph, publicKey
     }
     return { ok: true };
   }
-  async function dispatch(body) {
-    const app = select(body.appId), { recipients, payload } = notification(body, app);
+  async function dispatch(body, byOid = false) {
+    const app = select(body.appId), { recipients, payload } = notification(body, app, byOid);
     let sent = 0, expired = 0, failed = 0, matched = 0;
-    const rows = await table.find(app.id, recipients);
+    const rows = await table.find(app.id, recipients, byOid);
     requireValue(rows.length <= 200, 'Too many devices. Split this request into smaller groups.');
     const deliver = async row => {
       matched++;
