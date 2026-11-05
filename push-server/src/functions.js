@@ -18,9 +18,9 @@ function service() {
     async get(p, r) { await init(); try { return await client.getEntity(p, r); } catch (e) { if (e.statusCode !== 404) throw e; return null; } },
     async put(row) { await init(); await client.upsertEntity(row, 'Replace'); },
     async remove(p, r) { await init(); try { await client.deleteEntity(p, r); } catch (e) { if (e.statusCode !== 404) throw e; } },
-    async find(appId, recipients) {
+    async find(appId, recipients, byOid = false) {
       await init();
-      const people = recipients.map(email => `(${odata`email eq ${email}`} or ${odata`principal eq ${email}`})`).join(' or ');
+      const people = recipients.map(email => byOid ? odata`oid eq ${email}` : `(${odata`email eq ${email}`} or ${odata`principal eq ${email}`})`).join(' or ');
       const filter = `${odata`PartitionKey eq ${appId}`} and (${people})`;
       const rows = [];
       for await (const row of client.listEntities({ queryOptions: { filter } })) { rows.push(row); if (rows.length > 200) break; }
@@ -95,9 +95,9 @@ app.http('push-marriage-send', { route: 'push/marriage-send', methods: ['POST'],
     };
     if (!Object.hasOwn(messages, body.kind)) throw new HttpError(400, 'Unknown Marriage notification.');
     const result = await service().dispatch({
-      appId: 'rci-marriage', recipients: body.recipients, eventId: body.eventId,
+      appId: 'rci-marriage', recipients: body.memberIds, eventId: body.eventId,
       title: 'RCI Marriage', body: messages[body.kind]
-    });
+    }, true);
     return json(result.failed ? 503 : 200, result);
   } catch (e) { return failure(e, {}, context); }
 } });
