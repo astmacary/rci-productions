@@ -5,6 +5,10 @@ const app = (id, domain, sitePath, extras = []) => ({
   origins: [`https://${domain}`, 'https://astmacary.github.io', ...extras]
 });
 export const apps = {
+  'rci-marriage': {
+    id: 'rci-marriage', baseUrl: 'https://astmacary.github.io/rci-marriage/',
+    site: `${host}:/sites/RCIMarriage`, origins: ['https://astmacary.github.io']
+  },
   'rci-productions': app('rci-productions', 'productions.therampchurch.com', '/sites/RCIProductions', ['https://rci-productions.netlify.app']),
   'rci-security': app('rci-security', 'security.therampchurch.com', '/sites/RCISecurity', ['https://rci-security.netlify.app']),
   'rci-ushers': app('rci-ushers', 'ushers.therampchurch.com', '/sites/RCIUsherDept.-UsherSchedule'),
