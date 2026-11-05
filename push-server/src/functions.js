@@ -84,3 +84,20 @@ app.http('push-send', { route: 'push/send', methods: ['POST'], authLevel: 'funct
   } catch (e) { return failure(e, {}, context); }
 } });
 
+
+// The pilot worker uses a function-scoped key. This endpoint always targets Marriage.
+app.http('push-marriage-send', { route: 'push/marriage-send', methods: ['POST'], authLevel: 'function', handler: async (request, context) => {
+  try {
+    const body = await parse(request);
+    const messages = {
+      'sunday-check-in': 'Your Sunday check-in is available.',
+      'sealed-note': 'A sealed note is ready to read.'
+    };
+    if (!Object.hasOwn(messages, body.kind)) throw new HttpError(400, 'Unknown Marriage notification.');
+    const result = await service().dispatch({
+      appId: 'rci-marriage', recipients: body.recipients, eventId: body.eventId,
+      title: 'RCI Marriage', body: messages[body.kind]
+    });
+    return json(result.failed ? 503 : 200, result);
+  } catch (e) { return failure(e, {}, context); }
+} });
