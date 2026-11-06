@@ -671,7 +671,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "133";
+const APP_VERSION = "134";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1963,14 +1963,27 @@ function recentReplies(){
     const at = Date.parse(m.at); if (!(at >= since)) continue;
     const byThem = (m.by && i.email && m.by === lc(i.email)) || (m.byName && i.fullName && lc(m.byName) === lc(i.fullName));
     if (!byThem) continue;
-    out.push({ i, at, accepted: st === "accepted" });
+    out.push({ i, at, kind: st === "accepted" ? "accept" : "decline" });
   }
   for (const i of S.items){
     if (!isAbsent(i) || !i.date) continue;
     const mm = String(i.notes || "").replace(/<[^>]*>/g, " ").match(/Declined\s+([^<\n]+?)\s*$/i); if (!mm) continue;
     const m = S.modById.get(String(i.id)); if (!m || !m.at) continue;
     const at = Date.parse(m.at); if (!(at >= since)) continue;
-    out.push({ i: { ...i, role: mm[1].trim() }, at, accepted: false });
+    out.push({ i: { ...i, role: mm[1].trim() }, at, kind: "decline" });
+  }
+  // Genuine Time Off submissions (distinct from the "Declined <position>" rows above, which piggyback
+  // on this same Absent category). A multi-day request creates one row per day, so collapse rows from
+  // the same submission into a single notification, and skip it for the admin who entered it themself.
+  const seenAbs = new Set();
+  for (const i of S.items){
+    if (!isAbsent(i) || !i.date) continue;
+    const notes = String(i.notes || ""); if (!/Dates of Absence/i.test(notes)) continue;
+    const m = S.modById.get(String(i.id)); if (!m || !m.at) continue;
+    const at = Date.parse(m.at); if (!(at >= since)) continue;
+    if (S.me && S.me.emails && m.by && S.me.emails.some(e => lc(e) === m.by)) continue;
+    const key = (i.email || i.fullName || "") + "|" + notes; if (seenAbs.has(key)) continue; seenAbs.add(key);
+    out.push({ i, at, kind: "absence" });
   }
   return out.sort((a, b) => b.at - a.at).slice(0, 12);
 }
@@ -1985,9 +1998,14 @@ function repliesPanel(){
   // Only replies that came in since this admin last opened the app (like the NEW tag on announcements).
   const list = recentReplies().filter(r => r.at > repliesSeenAt); if (!isEditor() || !list.length) return "";
   const html = `<section><h2 class="section-label">Recent Replies <span class="count hot">${list.length}</span></h2>
-    <div class="panel replies">${list.map(({ i, at, accepted }) => `<div class="reply-row">${avatar(i, "sm")}
-      <div class="reply-info"><b>${esc(i.fullName || "Someone")}</b><small>${esc(i.role || "")}${i.role ? " · " : ""}${esc(fmtShort(i.date))} · ${esc(replyAgo(at))}</small></div>
-      ${accepted ? `<span class="pill ok">CONFIRMED</span>` : `<span class="pill bad">DECLINED</span>`}</div>`).join("")}</div></section>`;
+    <div class="panel replies">${list.map(({ i, at, kind }) => {
+      const absDates = kind === "absence" ? (String(i.notes || "").match(/Dates of Absence:<\/strong>\s*([^<]+)/i) || ["",""])[1].trim() : "";
+      const sub = kind === "absence" ? esc(absDates) : `${esc(i.role || "")}${i.role ? " · " : ""}${esc(fmtShort(i.date))}`;
+      const pill = kind === "accept" ? `<span class="pill ok">CONFIRMED</span>` : kind === "decline" ? `<span class="pill bad">DECLINED</span>` : `<span class="pill warn">TIME OFF</span>`;
+      return `<div class="reply-row">${avatar(i, "sm")}
+      <div class="reply-info"><b>${esc(i.fullName || "Someone")}</b><small>${sub} · ${esc(replyAgo(at))}</small></div>
+      ${pill}</div>`;
+    }).join("")}</div></section>`;
   try { localStorage.setItem(REPLY_KEY, String(Date.now())); } catch(_){}
   return html;
 }
