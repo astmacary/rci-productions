@@ -24,6 +24,7 @@
 .access-panel .actions{display:flex;gap:8px;flex-wrap:wrap}
 .comm{display:flex;flex-direction:column;gap:14px}.comm h1{margin:0}.comm h2,.comm h3{margin:0;font-size:17px}.comm .panel.pad{padding:14px;display:flex;flex-direction:column;gap:10px;margin:0}.comm-text{white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0}.comm-record+.comm-record{border-top:1px solid var(--line);padding-top:12px}.comm-topic{justify-content:flex-start;text-align:left;white-space:normal;overflow-wrap:anywhere}.comm time{display:block}.comm .chiprow{display:flex;flex-wrap:wrap;gap:8px}.comm .chipcheck{padding:8px 12px;border-radius:20px;background:var(--surface);color:var(--fg);border:1px solid var(--line);font:inherit;font-size:13px}.comm .chipcheck[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}nav.tabs button{position:relative}.comm-unread{position:absolute;right:3px;top:0;border-radius:10px;background:var(--accent);color:var(--accent-ink);padding:1px 4px;font-size:10px;min-width:16px}@media(max-width:430px){nav.tabs button{font-size:10px;letter-spacing:0;padding-inline:1px}}
 .comm-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.comm-head .iconbtn{flex:none}.comm-head .iconbtn svg{width:20px;height:20px}
+.comm-reactions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.comm-reactions .btn{min-width:40px;min-height:36px;padding:4px 8px}.comm-reactions .btn[aria-pressed="true"]{border-color:var(--fg);box-shadow:inset 0 0 0 1px currentColor}
 .comm-head,.comm-record-head,.comm-topic-line{display:flex;align-items:center;justify-content:space-between;gap:12px}.comm-head h1{margin:0}.comm-actions{display:flex;gap:4px;align-items:center;margin-left:auto;flex:none}.comm-actions:empty{display:none}.comm-actions .iconbtn,.comm-head .iconbtn{flex:none}.comm-actions svg,.comm-head svg{width:19px;height:19px}.comm-topic-line .comm-topic{flex:1;min-width:0}.comm-edit-form{display:flex;flex-direction:column;gap:10px;width:100%;margin-top:8px}.comm-edit-buttons{display:flex;gap:8px;flex-wrap:wrap}.comm-record-head{align-items:flex-start}
 .comm-hidden-label{display:block;border-left:3px solid var(--accent);padding-left:8px}
 </style>
@@ -623,7 +624,7 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 <script src="push-client.js"></script>
 <script src="app-recovery.js"></script>
 <script src="team-switch.js"></script>
-<script src="communications.js?v=114"></script>
+<script src="communications.js?v=137"></script>
 <script src="serve-profile.js?v=2"></script>
 <script>
 /* ============================================================
@@ -671,7 +672,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "136";
+const APP_VERSION = "137";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
