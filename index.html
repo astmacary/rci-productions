@@ -672,7 +672,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "137";
+const APP_VERSION = "138";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1706,7 +1706,8 @@ function viewDirectory(){
     <p class="sub" style="margin-top:-10px">${people.length} team members</p>
     ${people.length ? `<div class="roster">${people.map(p => `<button class="tile" data-act="member" data-id="${p.id}">${adminStar(p)}${avatar(p)}<span class="meta"><b>${esc(p.fullName)}</b></span></button>`).join("")}${isEditor() && !S.addPerson ? addTile() : ""}</div>` : isEditor() && !S.addPerson ? `<div class="roster">${addTile()}</div>` : `<div class="empty">No team members yet.</div>`}
     ${archivedSection()}
-    ${waitingPanel()}`;
+    ${waitingPanel()}
+    ${needsEmailPanel()}`;
 }
 
 function viewProfile(){
@@ -2328,6 +2329,15 @@ document.addEventListener("click", async e => {
     }
     case "card-edit": S.cardEdit = b.dataset.id; render(); $("#ce-bday")?.focus(); break;
     case "card-edit-cancel": S.cardEdit = null; render(); break;
+    case "need-email": {
+      const p = S.items.find(i => String(i.id) === b.dataset.id);
+      if (!p || !canEditCard(p) || p.personId) break;
+      go("member", p.id);
+      S.cardEdit = p.id; render();
+      const email = $("#ce-email");
+      email?.scrollIntoView({ block: "center" }); email?.focus();
+      break;
+    }
     case "cal-view": S.calView = b.dataset.view; try { localStorage.setItem(calViewKey(), S.calView); } catch(_){} render(); break;
     case "ann-toggle": S.annClosed = !annClosed(); try { localStorage.setItem(ANN_CLOSED_KEY, S.annClosed ? "1" : "0"); } catch(_){} render(); break;
     case "fold": { const k = b.dataset.k; S.folds ||= {}; S.folds[k] = !foldClosed(k); try { localStorage.setItem(FOLD_KEY(k), S.folds[k] ? "1" : "0"); } catch(_){} render(); break; }
@@ -2722,6 +2732,16 @@ function archivedSection(){
   return `<details class="archived-sec"${S.showArchived ? " open" : ""}><summary class="section-label" data-act="toggle-archived">Archived <span class="count">${list.length}</span></summary>
     <p class="sub" style="margin:0 0 8px">Only admins see this. Open someone to restore or delete them.</p>
     <div class="roster archived-roster">${list.map(t).join("")}</div></details>`;
+}
+/* Team page (admins): Roster people with no email yet. They can't be invited or shared the app until one is added. */
+function needsEmailPanel(){
+  if (!isEditor()) return "";
+  const list = S.items.filter(p => Onboarding.writable(p) && !p.gone && !Onboarding.email(p) && !p.personId).sort((a,b) => (a.fullName||"").localeCompare(b.fullName||""));
+  if (!list.length) return "";
+  return `<section class="fold-sec ${foldClosed("needemail") ? "closed" : ""}">${foldHead("needemail", "Needs an Email", list.length, true)}
+    <p class="sub" style="margin:0 0 8px">Add the email they sign in with. Then open their profile to check or set up access.</p>
+    <div class="list">${list.map(p => `<div class="panel wait-row">${avatar(p)}<div class="wait-info"><b>${esc(p.fullName)}</b><span class="sub" style="margin:0">No email yet</span></div>
+      <button class="btn" data-act="need-email" data-id="${esc(p.id)}">Add Email</button></div>`).join("")}</div></section>`;
 }
 /* Admin Home: people added with an email who can't sign in yet (the site hasn't been shared with them). */
 function waitingPanel(){
