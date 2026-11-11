@@ -672,7 +672,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "143";
+const APP_VERSION = "144";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1073,8 +1073,11 @@ const Push = createPushClient({
 /* ============================================================
    STATE + SELECTORS
    ============================================================ */
+function loadNotesSeen(){
+  try { return JSON.parse(localStorage.getItem("rci-productions:notes-seen") || "{}"); } catch(_){ return {}; }
+}
 const S = { phase: "boot", error: "", me: null, items: [], names: [], view: "home", arg: null, stack: [],
-            cal: { month: null, sel: null }, confirm: null, busy: new Set(), absenceDone: false, demoPhotos: {} };
+            cal: { month: null, sel: null }, confirm: null, busy: new Set(), absenceDone: false, demoPhotos: {}, notesSeen: loadNotesSeen() };
 
 const isProfile = i => i.category === CONFIG.profileCategory;
 const mine = i => (i.email && S.me.emails.includes(i.email)) || (!i.email && i.fullName && lc(i.fullName) === lc(S.me.name));
@@ -1355,7 +1358,7 @@ function cue(i, opts={}){
     actions = `<div class="actions">
       <button class="btn" data-act="notes" data-date="${i.date}">Notes</button>
       <button class="btn" data-act="team" data-date="${i.date}">Team</button>
-      <button class="btn" data-act="ask-decline" data-id="${i.id}" ${busy?"disabled":""}>Decline</button></div>`;
+      <button class="btn" style="margin-left:auto" data-act="ask-decline" data-id="${i.id}" ${busy?"disabled":""}>Can't Make It</button></div>`;
   }
   return `<article class="cue ${isPending?"pending":""}">
     <div class="when"><span class="dow">${d.toLocaleDateString(undefined,{weekday:"short"})}</span><span class="day">${d.getDate()}</span><span class="mon">${d.toLocaleDateString(undefined,{month:"short"})}</span></div>
@@ -1416,8 +1419,11 @@ function viewHome(){
     .sort((a,b) => (a.until || "9999-12-31").localeCompare(b.until || "9999-12-31") || a.id - b.id);
   const bdays = birthdaysToday();
   const myWall = myProfile() ? wallMessages(myProfile()) : [];
+  const todayRec = notesRecord(t), showTodayNotes = !!todayRec && (todayRec.notes || isEditor());
   return `
-    <div><h1 class="greet">Welcome ${esc(first)}</h1><p class="sub">${esc(fmtLong(t))}</p></div>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+      <div><h1 class="greet">Welcome ${esc(first)}</h1><p class="sub">${esc(fmtLong(t))}</p></div>
+      ${showTodayNotes ? `<button class="iconbtn" style="position:relative" data-act="today-notes" aria-label="Today's Production Notes${todayNotesUnseen() ? ", unread edit" : ""}" title="Today's Production Notes">${ICON.notes}${todayNotesUnseen() ? '<span class="red-dot" aria-hidden="true"></span>' : ""}</button>` : ""}</div>
     ${todayHero()}
     ${repliesPanel()}
     <section class="ann-sec ${annClosed() ? "closed" : ""}"><div class="day-h"><button type="button" class="sec-head inline-chev ann-head" data-act="ann-toggle" aria-expanded="${!annClosed()}"><h2 class="section-label">Announcements <span class="count ${anns.some(a => isNewAnn(a)) ? "hot" : ""}" title="${anns.some(a => isNewAnn(a)) ? "New announcement" : ""}">${anns.length}</span></h2><span class="sec-chev" aria-hidden="true">${ICON.next}</span></button>${annEditBtn()}</div>
@@ -1587,6 +1593,17 @@ function safeStyle(n, style, renameTo){
 function backBar(title){ return `<div class="page-h"><button class="back" data-act="back">${ICON.back}Back</button></div><div class="page-h"><h1>${esc(title)}</h1></div>`; }
 
 function notesRecord(k){ return S.items.find(i => i.date === k && i.role === CONFIG.notesRole); }
+/* Remembers the Production Notes text each date looked like the last time this device's viewer opened it,
+   so the Home shortcut's red dot can tell a fresh edit from one already seen. Per-device, like other local prefs. */
+function markNotesSeen(k, notes){
+  if (!k) return;
+  S.notesSeen[k] = notes || "";
+  try { localStorage.setItem("rci-productions:notes-seen", JSON.stringify(S.notesSeen)); } catch(_){}
+}
+function todayNotesUnseen(){
+  const rec = notesRecord(todayKey());
+  return !!(rec && rec.notes && S.notesSeen[todayKey()] !== rec.notes);
+}
 /* Notes show from the "SET LIST" marker on; editing changes that part and keeps anything before it. */
 function notesParts(rec){
   const all = (rec && rec.notes) || "";
@@ -2361,7 +2378,8 @@ document.addEventListener("click", async e => {
     case "ask-decline": S.confirm = item.id; render(); break;
     case "decline": setStatus(item, false); break;
     case "cancel": S.confirm = null; render(); break;
-    case "notes": go("notes", b.dataset.date); break;
+    case "notes": { const k = b.dataset.date; markNotesSeen(k, notesRecord(k)?.notes); go("notes", k); break; }
+    case "today-notes": { const k = todayKey(); markNotesSeen(k, notesRecord(k)?.notes); go("notes", k); break; }
     case "team": go("team", b.dataset.date); break;
     case "abs-open": {
       const k = b.dataset.date;
