@@ -13,6 +13,9 @@
     { key: "ushers", name: "Ushers & Altar Workers", path: "/rci-ushers/", tl: "#1E5E43", td: "#6CC69C", icon: '<path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M10 21v-6h4v6"/>' },
     { key: "worship", name: "Worship & Arts", path: "/rci-worship-arts/", tl: "#4A2F7A", td: "#B9A1EA", icon: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>' }
   ];
+  var MINISTRIES = [
+    { key: "marriage", name: "Marriage", path: "/rci-marriage/", tl: "#0F6B73", td: "#5CC6CC", icon: '<circle cx="9" cy="14" r="5"/><circle cx="15" cy="14" r="5"/><path d="m10 5 2-2 2 2"/>' }
+  ];
   var here = TEAMS.filter(function(t){ return location.pathname.indexOf(t.path) === 0; })[0];
   if (!here) { window.RCIServe = { extra: function(){ return 0; } }; return; }
   var KEY = "rci-serve:state";
@@ -31,7 +34,8 @@
   }
   function shown(){
     var s = mine();
-    return !!s && s.teams.length >= 2 && s.teams.some(function(t){ return t.key === here.key; }) && (inHub || !standalone());
+    var mins = Array.isArray(s && s.ministries) ? s.ministries.length : 0;
+    return !!s && s.teams.length + mins >= 2 && s.teams.some(function(t){ return t.key === here.key; }) && (inHub || !standalone());
   }
   function othersPending(s){
     return s.teams.filter(function(t){ return t.key !== here.key; }).reduce(function(a, t){ return a + (Number(t.count) || 0); }, 0);
@@ -106,7 +110,14 @@
     sheet.innerHTML = '<div class="rs-grab" aria-hidden="true"></div><div class="rs-head"><h2>Switch Team</h2><button type="button" class="rs-x" aria-label="Close">' + svg('<path d="M18 6 6 18M6 6l12 12"/>') + '</button></div>' +
       '<a class="rs-row rs-home" href="/"><span class="rs-ic">' + svg('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>') + '</span>' +
       '<span class="rs-info"><b>RCI Serve</b><small>' + (total ? total + (total === 1 ? " request" : " requests") + " on your other teams" : "All Teams Home") + '</small></span><span style="color:var(--accent)">' + svg('<path d="m9 6 6 6-6 6"/>') + '</span></a>' +
-      '<div class="rs-label">Your teams</div>' + rows;
+      '<div class="rs-label">Your teams</div>' + rows +
+      (function(){
+        var ms = (Array.isArray(s.ministries) ? s.ministries : []).map(function(sm){
+          var m = MINISTRIES.filter(function(x){ return x.key === sm.key; })[0]; if (!m) return "";
+          return '<a class="rs-row rs-t" style="--tl:' + m.tl + ";--td:" + m.td + '" href="' + m.path + '"><span class="rs-ic">' + svg(m.icon) + '</span><span class="rs-info"><b>' + esc(m.name) + '</b><small>Fruit of Our Union</small></span><span style="color:var(--muted)">' + svg('<path d="m9 6 6 6-6 6"/>') + '</span></a>';
+        }).join("");
+        return ms ? '<div class="rs-label">Your ministries</div>' + ms : "";
+      })();
     sheet.querySelector(".rs-x").addEventListener("click", close);
     sheet.addEventListener("keydown", function(ev){ if (ev.key === "Escape") close(); });
     document.body.appendChild(back); document.body.appendChild(sheet);
