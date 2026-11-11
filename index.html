@@ -283,6 +283,7 @@ a.btn{text-decoration:none}
 .btn.accept{background:var(--go);border-color:var(--go);color:#FFFFFF}
 .btn.decline{background:var(--stop);border-color:var(--stop);color:#FFFFFF}
 .btn.decline-soft{color:var(--bad)}
+.btn.decline-outline{color:var(--bad);border-color:var(--bad)}
 /* Oct 26: tighter Serving Team spacing and compact list cards (text the size of the date, not bold) */
 .day-h:has(+ .team-h){margin-bottom:0 !important}
 .team-h{margin:0 0 6px !important}
@@ -672,7 +673,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "144";
+const APP_VERSION = "145";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1358,7 +1359,7 @@ function cue(i, opts={}){
     actions = `<div class="actions">
       <button class="btn" data-act="notes" data-date="${i.date}">Notes</button>
       <button class="btn" data-act="team" data-date="${i.date}">Team</button>
-      <button class="btn" style="margin-left:auto" data-act="ask-decline" data-id="${i.id}" ${busy?"disabled":""}>Can't Make It</button></div>`;
+      <button class="btn decline-outline" style="margin-left:auto" data-act="ask-decline" data-id="${i.id}" ${busy?"disabled":""}>Can't Make It</button></div>`;
   }
   return `<article class="cue ${isPending?"pending":""}">
     <div class="when"><span class="dow">${d.toLocaleDateString(undefined,{weekday:"short"})}</span><span class="day">${d.getDate()}</span><span class="mon">${d.toLocaleDateString(undefined,{month:"short"})}</span></div>
