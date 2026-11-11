@@ -673,7 +673,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "145";
+const APP_VERSION = "146";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1294,8 +1294,8 @@ function annCard(a){
   return `<article class="ann-card${annToday(a) ? " ann-today" : ""}">
     <div class="ann-body"><b class="ann-title">${annToday(a) ? todayPill() : ""}${isNewAnn(a) ? newPill() : ""}${esc(head)}</b>${rest ? `<p class="ann-text">${esc(rest)}</p>` : ""}${S.annEdit ? annEditLine(a) : ""}</div>
     ${a.flyer ? (flyerCollapsed(a.id)
-      ? `<button class="linkbtn" data-act="flyer-toggle" data-flyer-id="${a.id}" style="align-self:flex-start;margin:0 12px 12px">Show flyer</button>`
-      : `<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><button class="flyer" data-act="flyer-open" data-flyer="${a.id}" aria-label="Open the flyer"><span class="flyer-load">Loading…</span></button><button class="linkbtn" data-act="flyer-toggle" data-flyer-id="${a.id}">Hide flyer</button></div>`) : ""}
+      ? `<button class="linkbtn" data-act="flyer-toggle" data-flyer-id="${a.id}" style="align-self:flex-end;margin:0;text-decoration:none">Show Flyer</button>`
+      : `<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><button class="flyer" data-act="flyer-open" data-flyer="${a.id}" aria-label="Open the flyer"><span class="flyer-load">Loading…</span></button><button class="linkbtn" data-act="flyer-toggle" data-flyer-id="${a.id}" style="text-decoration:none">Hide Flyer</button></div>`) : ""}
   </article>`;
 }
 function annForm(){
