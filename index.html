@@ -672,7 +672,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "142";
+const APP_VERSION = "143";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1275,12 +1275,23 @@ function annText(v){
   const d = new DOMParser().parseFromString(v.replace(/<br\s*\/?>/gi, "\n").replace(/<\/(p|div|li)>/gi, "\n"), "text/html");
   return (d.body.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
 }
+/* Remembers which announcement flyers someone has collapsed, so they stay hidden across visits (same device/browser). */
+function flyerCollapsed(id){
+  try { return JSON.parse(localStorage.getItem("flyer-collapsed") || "[]").includes(String(id)); } catch(e){ return false; }
+}
+function toggleFlyerCollapsed(id){
+  let list; try { list = new Set(JSON.parse(localStorage.getItem("flyer-collapsed") || "[]")); } catch(e){ list = new Set(); }
+  const k = String(id); list.has(k) ? list.delete(k) : list.add(k);
+  try { localStorage.setItem("flyer-collapsed", JSON.stringify([...list])); } catch(e){}
+}
 function annCard(a){
   const lines = a.text.split(/\n/).map(l => l.trim()).filter(Boolean);
   const head = lines.shift() || "", rest = lines.join("\n");
   return `<article class="ann-card${annToday(a) ? " ann-today" : ""}">
     <div class="ann-body"><b class="ann-title">${annToday(a) ? todayPill() : ""}${isNewAnn(a) ? newPill() : ""}${esc(head)}</b>${rest ? `<p class="ann-text">${esc(rest)}</p>` : ""}${S.annEdit ? annEditLine(a) : ""}</div>
-    ${a.flyer ? `<button class="flyer" data-act="flyer-open" data-flyer="${a.id}" aria-label="Open the flyer"><span class="flyer-load">Loading…</span></button>` : ""}
+    ${a.flyer ? (flyerCollapsed(a.id)
+      ? `<button class="linkbtn" data-act="flyer-toggle" data-flyer-id="${a.id}" style="align-self:flex-start;margin:0 12px 12px">Show flyer</button>`
+      : `<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><button class="flyer" data-act="flyer-open" data-flyer="${a.id}" aria-label="Open the flyer"><span class="flyer-load">Loading…</span></button><button class="linkbtn" data-act="flyer-toggle" data-flyer-id="${a.id}">Hide flyer</button></div>`) : ""}
   </article>`;
 }
 function annForm(){
@@ -2380,6 +2391,7 @@ document.addEventListener("click", async e => {
       S.confirmMsg = null; render(); break;
     }
     case "flyer-open": if (b.dataset.url) openLightbox(b.dataset.url, b.querySelector("img")?.alt); break;
+    case "flyer-toggle": toggleFlyerCollapsed(b.dataset.flyerId); render(); break;
     case "serve-toggle": b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") === "true" ? "false" : "true"); break;
     case "absence-again": S.absenceDone = false; S.abs = null; render(); break;
     case "abs-pick": { const A = absState(), k = b.dataset.date; A.sel.has(k) ? A.sel.delete(k) : A.sel.add(k); render(); break; }
