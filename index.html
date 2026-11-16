@@ -673,7 +673,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "148";
+const APP_VERSION = "149";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -3035,7 +3035,7 @@ const Onboarding = {
     if(!group?.Id) throw new Error('The site has no Members group. A site owner must configure it.');
     const data=await this.sp('SP.Web.ShareObject',{method:'POST',body:JSON.stringify({
       url:this.siteUrl(),peoplePickerInput:JSON.stringify([{Key:email}]),roleValue:'group:'+group.Id,
-      groupId:0,propagateAcl:false,sendEmail:true,includeAnonymousLinkInEmail:false,
+      groupId:0,propagateAcl:false,sendEmail:false,includeAnonymousLinkInEmail:false,   // no extra email: guests get the Microsoft invitation (the step that needs them); everyone else is already set
       emailSubject:`Access to ${APP_NAME}`,
       emailBody:this.invitationMessage()
     })},token);

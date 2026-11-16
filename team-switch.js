@@ -10,7 +10,7 @@
   var TEAMS = [
     { key: "productions", name: "Productions", path: "/rci-productions/", tl: "#0B3A6E", td: "#6FA4E0", icon: '<rect x="2" y="6" width="14" height="12" rx="2"/><path d="m22 8-6 4 6 4V8z"/>' },
     { key: "security", name: "Security", path: "/rci-security/", tl: "#7A1F1F", td: "#EB9393", icon: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>' },
-    { key: "armorbearers", name: "Armor Bearers", path: "/rci-armor-bearers/", tl: "#6B4E16", td: "#E0B865", icon: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 7v10M8 11h8"/>' },
+    { key: "armorbearers", name: "Armor Bearers", path: "/rci-armor-bearers/", tl: "#8E2453", td: "#E68AB0", icon: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 7v10M8 11h8"/>' },
     { key: "ushers", name: "Ushers & Altar Workers", path: "/rci-ushers/", tl: "#1E5E43", td: "#6CC69C", icon: '<path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M10 21v-6h4v6"/>' },
     { key: "worship", name: "Worship & Arts", path: "/rci-worship-arts/", tl: "#4A2F7A", td: "#B9A1EA", icon: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>' }
   ];
