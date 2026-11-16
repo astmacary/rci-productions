@@ -27,6 +27,11 @@
 .comm-reactions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.comm-reactions .btn{min-width:40px;min-height:36px;padding:4px 8px}.comm-reactions .btn[aria-pressed="true"]{border-color:var(--fg);box-shadow:inset 0 0 0 1px currentColor}
 .comm-head,.comm-record-head,.comm-topic-line{display:flex;align-items:center;justify-content:space-between;gap:12px}.comm-head h1{margin:0}.comm-actions{display:flex;gap:4px;align-items:center;margin-left:auto;flex:none}.comm-actions:empty{display:none}.comm-actions .iconbtn,.comm-head .iconbtn{flex:none}.comm-actions svg,.comm-head svg{width:19px;height:19px}.comm-topic-line .comm-topic{flex:1;min-width:0}.comm-edit-form{display:flex;flex-direction:column;gap:10px;width:100%;margin-top:8px}.comm-edit-buttons{display:flex;gap:8px;flex-wrap:wrap}.comm-record-head{align-items:flex-start}
 .comm-hidden-label{display:block;border-left:3px solid var(--accent);padding-left:8px}
+.cal-anns{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.cal-ann{display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:var(--r);padding:12px 12px 12px 14px}
+.cal-ann-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.cal-ann-tag{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.cal-ann-body p{margin:0;white-space:pre-line;color:var(--muted);font-size:14px}
 </style>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -673,7 +678,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "150";
+const APP_VERSION = "151";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -877,8 +882,8 @@ const LiveAPI = {
   },
   async announcements(){
     try {
-      const rows = await this.all(`/sites/${this.siteId}/lists/${CONFIG.announcementsListId}/items?$expand=fields($select=Title,Announcements,ShowUntil,Flyer)&$top=200`);
-      return rows.map(r => ({ id: Number(r.id), created: r.createdDateTime || "", text: annText(r.fields.Announcements) || r.fields.Title || "", until: spDate(r.fields.ShowUntil), flyer: r.fields.Flyer || "" }));
+      const rows = await this.all(`/sites/${this.siteId}/lists/${CONFIG.announcementsListId}/items?$expand=fields&$top=200`);
+      return rows.map(r => ({ id: Number(r.id), created: r.createdDateTime || "", text: annText(r.fields.Announcements) || r.fields.Title || "", until: spDate(r.fields.ShowUntil), eventDate: spDate(r.fields.EventDate), flyer: r.fields.Flyer || "" }));
     } catch(e){ console.warn("Couldn't read the Announcements list.", e); return []; }
   },
   async update(id, fields){
@@ -1305,6 +1310,7 @@ function annForm(){
     <h3 class="ann-form-h" style="margin-top:0">${editing ? "Edit Announcement" : "New Announcement"}</h3>
     <div class="field"><label for="ann-text">Announcement</label><textarea id="ann-text" maxlength="2000" required placeholder="First line is the headline, e.g.&#10;NOV. 15 - FOUNDER'S DAY CELEBRATION&#10;Colors are Navy Blue and Orange">${esc(d.text || "")}</textarea></div>
     <div class="field"><label for="ann-until">Show Until <span class="hint">(optional)</span></label><input id="ann-until" type="date" min="${todayKey()}" value="${esc(d.until || "")}"></div>
+    <div class="field"><label for="ann-event">Event Date <span class="hint">(optional — also shows it on the Calendar that day, with the flyer)</span></label><input id="ann-event" type="date" value="${esc(d.eventDate || "")}"></div>
     <div class="field"><span class="label">Flyer <span class="hint">(optional)</span></span>
       ${cur && cur.flyer && !d.file ? (d.removeFlyer
         ? `<span class="flyer-picked"><span>The current flyer will be removed.</span><button type="button" class="linkbtn" data-act="ann-flyer-keep">Keep It</button></span>`
@@ -1448,12 +1454,43 @@ function viewSchedule(){
     ${list.length ? `<div class="list">${list.map(i=>cue(i,{pill:true})).join("")}</div>` : `<div class="empty">Nothing on your schedule yet. New requests will show up here.</div>`}`;
 }
 
+/* ---------- Announcements on the Calendar (same idea as RCI Serve's Church Calendar) ----------
+   An announcement can have an Event Date. It then also shows on the Calendar on that day (📣 on the day,
+   and a card with the text and flyer under the day's heading). The date is saved in the Announcements list's
+   "EventDate" column, which the app adds to the list itself the first time an admin uses it. */
+async function annSetEvent(id, date){
+  if (DEMO) return;
+  const list = `web/lists(guid'${CONFIG.announcementsListId}')/fields`;
+  if (!S.annEventCol){
+    const has = await Onboarding.sp(`${list}?$filter=InternalName eq 'EventDate'&$select=InternalName`);
+    if (!((has && (has.value || has.results)) || []).length){
+      if (!date) return;
+      await Onboarding.sp(`${list}/createfieldasxml`, { method: "POST", body: JSON.stringify({ parameters: { __metadata: { type: "SP.XmlSchemaFieldCreationInformation" },
+        SchemaXml: `<Field Type="DateTime" Format="DateOnly" Name="EventDate" StaticName="EventDate" DisplayName="Event Date" />`, Options: 8 } }) });
+    }
+    S.annEventCol = true;
+  }
+  await LiveAPI.g(`/sites/${LiveAPI.siteId}/lists/${CONFIG.announcementsListId}/items/${id}/fields`, { method: "PATCH", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ EventDate: date ? date + "T12:00:00Z" : null }) });
+}
+async function annSaveEvent(id, date, prev){
+  const a = (S.announcements || []).find(x => x.id === id); if (a) a.eventDate = date || "";
+  if ((date || "") === (prev || "")) return "";
+  try { await annSetEvent(id, date); return ""; } catch(e){ return " The Calendar date couldn't be saved: " + e.message; }
+}
+const annsOn = k => (S.announcements || []).filter(a => a.eventDate === k);
+function calAnnCard(a){
+  const lines = annText(a.text).split(/\n/).map(l => l.trim()).filter(Boolean);
+  const head = lines.shift() || "", rest = lines.join("\n");
+  return `<article class="cal-ann"><div class="cal-ann-body"><span class="cal-ann-tag">📣 Announcement</span><b>${esc(head)}</b>${rest ? `<p>${esc(rest)}</p>` : ""}</div>
+    ${a.flyer ? `<button class="flyer" data-act="flyer-open" data-flyer="${a.id}" aria-label="Open the flyer"><span class="flyer-load">Loading…</span></button>` : ""}</article>`;
+}
 function eventsOn(k){
   const md = k.slice(5);
   const a = assignments().filter(i => approved(i) && i.date === k).sort((x, y) => Number(x.id) - Number(y.id));   // same order as the SharePoint list
   const b = S.items.filter(i => isProfile(i) && !i.gone && i.birthday && i.birthday.slice(5) === md);
   const none = S.items.some(i => i.date === k && lc(i.category) === lc(CONFIG.noServiceCategory));
-  return { a, b, none };
+  return { a, b, none, n: annsOn(k) };
 }
 /* Calendar roster: photo squares or a list, picked with two icons beside the day's heading (remembered per phone). */
 const calViewKey = () => "cal-view:" + location.pathname + ":" + ((S.me && S.me.emails && S.me.emails[0]) || "");
@@ -1483,7 +1520,7 @@ function viewCalendar(){
   let cells = "";
   for (let n = 0; n < weeks*7; n++){
     const k = addDays(start, n), d = fromKey(k), ev = eventsOn(k);
-    const dots = (ev.none ? '<span class="cake" aria-hidden="true">❌</span>' : "") + (ev.a.length ? "<i></i>" : "") + (ev.b.length ? '<span class="cake" aria-hidden="true">🎂</span>' : "");
+    const dots = (ev.none ? '<span class="cake" aria-hidden="true">❌</span>' : "") + (ev.a.length ? "<i></i>" : "") + (ev.b.length ? '<span class="cake" aria-hidden="true">🎂</span>' : "") + (ev.n.length ? '<span class="cake" aria-hidden="true">📣</span>' : "");
     cells += `<button class="dcell ${d.getMonth()!==m.getMonth()?"out":""} ${k===t?"today":""} ${k===sel?"sel":""}" data-act="pick" data-date="${k}" aria-label="${esc(fmtLong(k))}${ev.none?", no service":""}${ev.a.length?`, ${ev.a.length} assignments`:""}${ev.b.length?", birthday":""}"><span>${d.getDate()}</span><span class="dots">${dots}</span></button>`;
   }
   const ev = eventsOn(sel);
@@ -1508,8 +1545,9 @@ function viewCalendar(){
         ${myProfile() || isEditor() ? `<button class="iconbtn notes-btn" data-act="abs-open" data-date="${sel}" aria-label="Report Time Off for this day" title="Report Time Off">${ICON.away}</button>` : ""}
         ${isEditor() ? `<button class="iconbtn notes-btn" data-act="admin-open" data-date="${sel}" aria-label="Edit this day's schedule" title="Edit schedule">${ICON.pencil}</button>` : ""}</div>
       ${ev.none ? `<div class="no-service"><span aria-hidden="true">❌</span> No Service</div>` : ""}
+      ${ev.n.length ? `<div class="cal-anns">${ev.n.map(calAnnCard).join("")}</div>` : ""}
       ${bdayRows ? `<div class="list" style="margin-bottom:10px">${bdayRows}</div>` : ""}
-      ${team ? servingHead() + bySection(ev.a, part => rosterBlock(part), "cal") : (bdayRows || ev.none ? "" : `<div class="empty">No events scheduled.</div>`)}
+      ${team ? servingHead() + bySection(ev.a, part => rosterBlock(part), "cal") : (bdayRows || ev.none || ev.n.length ? "" : `<div class="empty">No events scheduled.</div>`)}
     </section>`;
 }
 
@@ -2294,7 +2332,7 @@ document.addEventListener("click", async e => {
     case "ann-ask": S.annConfirm = Number(b.dataset.id); render(); break;
     case "ann-change": {
       const a = (S.announcements || []).find(x => x.id === Number(b.dataset.id)); if (!a) break;
-      S.annConfirm = null; S.annDraft = { editId: a.id, text: a.text, until: a.until || "" };
+      S.annConfirm = null; S.annDraft = { editId: a.id, text: a.text, until: a.until || "", eventDate: a.eventDate || "", prevEvent: a.eventDate || "" };
       render(); const f = $("#annForm"); f?.scrollIntoView({ block: "start", behavior: "smooth" }); setTimeout(() => $("#ann-text")?.focus({ preventScroll: true }), 300); break;
     }
     case "ann-change-cancel": S.annDraft = null; render(); break;
@@ -2567,8 +2605,9 @@ document.addEventListener("submit", async e => {
         const flyer = d.file ? await resizeImage(d.file, 1600) : null;
         const a = await API.updateAnnouncement(d.editId, { text: d.text, until: d.until, flyer, removeFlyer: !!d.removeFlyer });
         S.announcements = (S.announcements || []).map(x => x.id === d.editId ? { ...x, ...a } : x);
+        const evErr = await annSaveEvent(d.editId, d.eventDate, d.prevEvent);
         S.annEdit = false; S.annDraft = null; S.annConfirm = null; render();
-        toast(a.flyerError ? "Announcement saved, but the flyer couldn't be attached. Add it in SharePoint." : "Announcement updated", !!a.flyerError);
+        toast((a.flyerError ? "Announcement saved, but the flyer couldn't be attached. Add it in SharePoint." : "Announcement updated") + evErr, !!(a.flyerError || evErr));
       } catch(err){ toast("Couldn't save the announcement. " + err.message, true); btn.disabled = false; btn.textContent = "Save Changes"; }
       return;
     }
@@ -2576,8 +2615,9 @@ document.addEventListener("submit", async e => {
       const flyer = d.file ? await resizeImage(d.file, 1600) : null;
       const a = await API.addAnnouncement({ text: d.text, until: d.until, flyer });
       S.announcements = [...(S.announcements || []), a];
+      const evErr = await annSaveEvent(a.id, d.eventDate, "");
       S.annEdit = false; S.annDraft = null; S.annConfirm = null; render();
-      toast(a.flyerError ? "Announcement added, but the flyer couldn't be attached. Add it in SharePoint." : "Announcement added", !!a.flyerError);
+      toast((a.flyerError ? "Announcement added, but the flyer couldn't be attached. Add it in SharePoint." : "Announcement added") + evErr, !!(a.flyerError || evErr));
     } catch(err){ toast("Couldn't add the announcement. " + err.message, true); btn.disabled = false; btn.textContent = "Add Announcement"; }
     return;
   }
@@ -2629,6 +2669,7 @@ function annDraftSave(){
   const t = $("#ann-text"), u = $("#ann-until");
   if (t) S.annDraft.text = t.value.trim();
   if (u) S.annDraft.until = u.value;
+  const ev = $("#ann-event"); if (ev) S.annDraft.eventDate = ev.value;
 }
 document.addEventListener("change", async e => {
   if (e.target.id === "abs-for"){ S.absFor = e.target.value || null; S.abs = null; S.absConfirm = null; S.absenceDone = false; render(); return; }
