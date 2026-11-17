@@ -687,7 +687,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "157";
+const APP_VERSION = "158";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1192,12 +1192,12 @@ function bdayCue(i){
     <div class="cue-body"><div class="cue-top"><span class="role">🎂 Birthday</span></div><div class="cat">${esc(p.fullName)}</div></div></article>`;
 }
 
-/* Confetti: phones only, once per day per device, skipped for reduced motion. */
+/* Balloons: phones only, once per day per device, skipped for reduced motion. */
 function maybeConfetti(){
   if (!birthdaysToday().length) return;
   if (!matchMedia("(pointer: coarse)").matches && innerWidth > 820) return;
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const key = "rci-confetti-" + todayKey();
+  const key = "rci-balloons-" + todayKey();
   try { if (localStorage.getItem(key)) return; localStorage.setItem(key, "1"); } catch(e){}
   const c = document.createElement("canvas");
   c.setAttribute("aria-hidden", "true");
@@ -1205,24 +1205,31 @@ function maybeConfetti(){
   document.body.appendChild(c);
   const ctx = c.getContext("2d"), dpr = Math.min(devicePixelRatio || 1, 2);
   const W = c.width = innerWidth * dpr, H = c.height = innerHeight * dpr;
-  const colors = ["#D2B07C", "#BD9863", "#072442", "#FFFFFF", "#1E8A52", "#C62828", "#4A90D9"];
-  const bits = Array.from({ length: 160 }, () => ({
-    x: W/2 + (Math.random() - .5) * W * .3, y: H * .35,
-    vx: (Math.random() - .5) * 16 * dpr, vy: (-Math.random() * 18 - 6) * dpr,
-    w: (6 + Math.random() * 6) * dpr, h: (8 + Math.random() * 8) * dpr,
-    r: Math.random() * Math.PI, vr: (Math.random() - .5) * .3, col: colors[Math.floor(Math.random() * colors.length)]
+  const colors = ["#D2B07C", "#BD9863", "#072442", "#1E8A52", "#C62828", "#4A90D9"];
+  const balloons = Array.from({ length: 16 }, (_, n) => ({
+    x: (0.08 + Math.random() * 0.84) * W,
+    y: H + Math.random() * H * .6 + n * H * .08,
+    vy: -(1.1 + Math.random() * .9) * dpr,
+    sway: Math.random() * Math.PI * 2, swaySpeed: .02 + Math.random() * .02, swayAmp: (14 + Math.random() * 14) * dpr,
+    rw: (24 + Math.random() * 10) * dpr, rh: (30 + Math.random() * 12) * dpr,
+    col: colors[Math.floor(Math.random() * colors.length)]
   }));
   const start = performance.now();
   (function frame(now){
     const age = now - start;
     ctx.clearRect(0, 0, W, H);
-    bits.forEach(b => {
-      b.vy += .45 * dpr; b.vx *= .99; b.x += b.vx; b.y += b.vy; b.r += b.vr;
-      ctx.save(); ctx.globalAlpha = Math.max(0, 1 - Math.max(0, age - 2600) / 900);
-      ctx.translate(b.x, b.y); ctx.rotate(b.r); ctx.fillStyle = b.col;
-      ctx.fillRect(-b.w/2, -b.h/2, b.w, b.h * Math.abs(Math.cos(b.r * 2)) + 2); ctx.restore();
+    balloons.forEach(b => {
+      b.y += b.vy; b.sway += b.swaySpeed;
+      const x = b.x + Math.sin(b.sway) * b.swayAmp;
+      ctx.save(); ctx.globalAlpha = Math.max(0, 1 - Math.max(0, age - 3400) / 900);
+      ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = Math.max(1, dpr);
+      ctx.beginPath(); ctx.moveTo(x, b.y + b.rh); ctx.lineTo(x, b.y + b.rh + 18 * dpr); ctx.stroke();
+      ctx.fillStyle = b.col;
+      ctx.beginPath(); ctx.ellipse(x, b.y, b.rw, b.rh, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x - 4 * dpr, b.y + b.rh); ctx.lineTo(x + 4 * dpr, b.y + b.rh); ctx.lineTo(x, b.y + b.rh + 6 * dpr); ctx.closePath(); ctx.fill();
+      ctx.restore();
     });
-    if (age < 3500) requestAnimationFrame(frame); else c.remove();
+    if (age < 4300) requestAnimationFrame(frame); else c.remove();
   })(start);
 }
 
