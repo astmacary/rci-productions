@@ -396,6 +396,8 @@ a.btn{text-decoration:none}
 .next7 .cue:not(.abs) .role{font-family:var(--display);font-weight:700;font-size:21px;line-height:1.1;letter-spacing:.01em;color:var(--accent)}
 .next7 .cue:not(.abs) .cat{color:var(--fg);font-weight:600}
 .next7 .cue:not(.abs) .times b{color:var(--accent);font-weight:700}
+.next7 .bday-cue .role{color:var(--accent)}
+.next7 .bday-cue .when{background:#0B1D33;color:#FFFFFF}
 
 /* iPhone zooms the page when a box under 16px text is tapped, and then the menu bar seems to scroll with the page. */
 @media (max-width:820px){input,select,textarea{font-size:16px!important}}
@@ -685,7 +687,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "156";
+const APP_VERSION = "157";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1169,6 +1171,26 @@ function birthdaysToday(){
   return S.items.filter(i => isProfile(i) && !i.gone && i.birthday && (i.birthday.slice(5) === md || (!leap && md === "02-28" && i.birthday.slice(5) === "02-29")))
     .sort((a,b) => a.fullName.localeCompare(b.fullName));
 }
+/* Birthdays in the next 7 days (today's excluded — that one's in the Birthdays panel above), folded into Next 7 Days. */
+function nextBirthday(p){
+  if (!p || !p.birthday) return null;
+  const t = todayKey(), y = Number(t.slice(0,4)), md = p.birthday.slice(5);
+  const occ = yr => { const leap = (yr % 4 === 0 && yr % 100 !== 0) || yr % 400 === 0; return `${yr}-${md === "02-29" && !leap ? "02-28" : md}`; };
+  const k = occ(y);
+  return k >= t ? k : occ(y + 1);
+}
+function birthdaysWeek(){
+  const t = todayKey(), wk = addDays(t, 7);
+  return S.items.filter(i => isProfile(i) && !i.gone && i.birthday).map(p => ({ p, d: nextBirthday(p) }))
+    .filter(x => x.d && x.d > t && x.d <= wk)
+    .map(x => ({ id: "bday-" + x.p.id, date: x.d, role: x.p.fullName, _bday: true, person: x.p }));
+}
+function bdayCue(i){
+  const d = fromKey(i.date), p = i.person;
+  return `<article class="cue bday-cue">
+    <div class="when"><span class="dow">${d.toLocaleDateString(undefined,{weekday:"short"})}</span><span class="day">${d.getDate()}</span><span class="mon">${d.toLocaleDateString(undefined,{month:"short"})}</span></div>
+    <div class="cue-body"><div class="cue-top"><span class="role">🎂 Birthday</span></div><div class="cat">${esc(p.fullName)}</div></div></article>`;
+}
 
 /* Confetti: phones only, once per day per device, skipped for reduced motion. */
 function maybeConfetti(){
@@ -1426,7 +1448,7 @@ function viewHome(){
   const todayShown = assignments().some(i => mine(i) && i.date === t && (approved(i) || pending(i)));   // the "You're Serving Today" card
   const pend = assignments().filter(i => mine(i) && pending(i) && i.date >= t).sort(byDate);
   const up = [...assignments().filter(i => mine(i) && approved(i) && i.date >= t && i.date <= wk && !(todayShown && i.date === t)),
-              ...myAbsences().filter(i => i.date >= t && i.date <= wk)].sort(byDate);
+              ...myAbsences().filter(i => i.date >= t && i.date <= wk), ...birthdaysWeek()].sort(byDate);
   const first = myProfile()?.first || firstOf(S.me.name);
   // Soonest "Show Until" first; announcements with no end date go last, oldest first.
   const anns = (S.announcements || []).filter(a => a.text && (!a.until || a.until > t))
@@ -1451,7 +1473,7 @@ function viewHome(){
     <section class="fold-sec ${foldClosed("pend") ? "closed" : ""}">${foldHead("pend", "Pending Requests", pend.length, pend.length > 0)}
       ${pend.length ? `<div class="list">${pend.map(i=>cue(i)).join("")}</div>` : `<div class="empty">You have no pending requests right now.</div>`}</section>
     <section class="fold-sec ${foldClosed("next7") ? "closed" : ""}">${foldHead("next7", "Next 7 Days", up.length, newUpCount(up) > 0)}
-      ${up.length ? `<div class="list next7">${up.map(i => isAbsent(i) ? absentCue(i) : cue(i,{pill:true})).join("")}</div>` : `<div class="empty">You have no confirmed assignments this week.</div>`}</section>`;
+      ${up.length ? `<div class="list next7">${up.map(i => i._bday ? bdayCue(i) : (isAbsent(i) ? absentCue(i) : cue(i,{pill:true}))).join("")}</div>` : `<div class="empty">You have no confirmed assignments this week.</div>`}</section>`;
 }
 
 function viewSchedule(){
