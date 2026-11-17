@@ -685,7 +685,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "152";
+const APP_VERSION = "153";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1779,11 +1779,12 @@ function teamEmailPeople(){
   return S.items.filter(p => isProfile(p) && !p.gone).map(p => ({ name: p.fullName || "", email: p.email || p.pendingEmail || "" }));
 }
 function viewDirectory(){
-  const people = S.items.filter(p => isProfile(p) && !p.gone).sort((a,b) => (a.fullName||"").localeCompare(b.fullName||""));
+  const people = S.items.filter(p => isProfile(p) && !p.gone && lc(p.active) !== "non active").sort((a,b) => (a.fullName||"").localeCompare(b.fullName||""));
   return `<div class="page-h"><h1>Team Directory</h1></div>
     ${isEditor() ? newPersonForm() : ""}
     <p class="sub" style="margin-top:-10px">${people.length} team members</p>
     ${people.length ? `<div class="roster">${people.map(p => `<button class="tile" data-act="member" data-id="${p.id}">${adminStar(p)}${avatar(p)}<span class="meta"><b>${esc(p.fullName)}</b></span></button>`).join("")}${isEditor() && !S.addPerson ? addTile() : ""}</div>` : isEditor() && !S.addPerson ? `<div class="roster">${addTile()}</div>` : `<div class="empty">No team members yet.</div>`}
+    ${nonActiveSection()}
     ${archivedSection()}
     ${waitingPanel()}
     ${needsEmailPanel()}`;
@@ -2813,6 +2814,17 @@ function managePanel(p){
           <div class="actions"><button class="btn decline-soft" data-act="person-del-yes" data-id="${id}" ${busy ? "disabled" : ""}>${busy ? "Deleting…" : "Yes, Delete"}</button><button class="btn" data-act="person-del-no">Keep Them</button></div></div>`
       : `<div class="actions"><button class="btn" data-act="person-archive" data-on="${p.gone ? "0" : "1"}" data-id="${id}" ${busy ? "disabled" : ""}>${busy ? "Saving…" : p.gone ? "Restore" : "Archive"}</button><button class="btn decline-soft" data-act="person-del-ask" data-id="${id}" ${busy ? "disabled" : ""}>Delete</button></div>`}
   </section>`;
+}
+/* Team Directory (admins): Non Active people are hidden from the directory; admins can still open them here
+   to switch them back to Active. */
+function nonActiveSection(){
+  if (!isEditor()) return "";
+  const list = S.items.filter(p => isProfile(p) && !p.gone && lc(p.active || "") === "non active").sort((a, b) => (a.fullName || "").localeCompare(b.fullName || ""));
+  if (!list.length) return "";
+  const t = p => `<button class="tile" data-act="member" data-id="${p.id}">${avatar(p)}<span class="meta"><b>${esc(p.fullName)}</b></span></button>`;
+  return `<details class="archived-sec"><summary class="section-label">Non Active <span class="count">${list.length}</span></summary>
+    <p class="sub" style="margin:0 0 8px">Only admins see this. These people are hidden from the Team Directory. Open someone to set them back to Active.</p>
+    <div class="roster four archived-roster">${list.map(t).join("")}</div></details>`;
 }
 function archivedSection(){
   if (!isEditor()) return "";
