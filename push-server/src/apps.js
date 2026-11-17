@@ -10,6 +10,8 @@ export const apps = {
     site: `${host}:/sites/RCIMarriage`, origins: ['https://astmacary.github.io']
   },
   'rci-productions': app('rci-productions', 'productions.therampchurch.com', '/sites/RCIProductions', ['https://rci-productions.netlify.app']),
+  'rci-armor-bearers': app('rci-armor-bearers', 'armorbearers.therampchurch.com', '/sites/RCIArmorBearers'),
+  'rci-greeters': app('rci-greeters', 'greeters.therampchurch.com', '/sites/RCIGreeters'),
   'rci-security': app('rci-security', 'security.therampchurch.com', '/sites/RCISecurity', ['https://rci-security.netlify.app']),
   'rci-ushers': app('rci-ushers', 'ushers.therampchurch.com', '/sites/RCIUsherDept.-UsherSchedule'),
   'rci-worship-arts': app('rci-worship-arts', 'worship.therampchurch.com', '/sites/RCIMusicDept')
