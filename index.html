@@ -28,10 +28,17 @@
 .comm-head,.comm-record-head,.comm-topic-line{display:flex;align-items:center;justify-content:space-between;gap:12px}.comm-head h1{margin:0}.comm-actions{display:flex;gap:4px;align-items:center;margin-left:auto;flex:none}.comm-actions:empty{display:none}.comm-actions .iconbtn,.comm-head .iconbtn{flex:none}.comm-actions svg,.comm-head svg{width:19px;height:19px}.comm-topic-line .comm-topic{flex:1;min-width:0}.comm-edit-form{display:flex;flex-direction:column;gap:10px;width:100%;margin-top:8px}.comm-edit-buttons{display:flex;gap:8px;flex-wrap:wrap}.comm-record-head{align-items:flex-start}
 .comm-hidden-label{display:block;border-left:3px solid var(--accent);padding-left:8px}
 .cal-anns{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
-.cal-ann{display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:var(--r);padding:12px 12px 12px 14px}
+.cal-ann{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:var(--r);padding:12px 12px 12px 14px}
+.cal-ann summary{display:flex;gap:10px;align-items:center;cursor:pointer;list-style:none}
+.cal-ann summary::-webkit-details-marker{display:none}
 .cal-ann-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
 .cal-ann-tag{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
-.cal-ann-body p{margin:0;white-space:pre-line;color:var(--muted);font-size:14px}
+.cal-ann-chev{display:grid;place-items:center;width:20px;height:20px;color:var(--muted);transform:rotate(90deg);transition:transform .15s}
+.cal-ann-chev svg{width:16px;height:16px}
+.cal-ann[open] .cal-ann-chev{transform:rotate(-90deg)}
+.cal-ann-more{display:flex;gap:12px;align-items:flex-start;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+.cal-ann-more p{flex:1;margin:0;white-space:pre-line;color:var(--muted);font-size:14px}
+.cal-ann-more .flyer{margin-left:auto}
 </style>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -678,7 +685,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "151";
+const APP_VERSION = "152";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -1482,8 +1489,9 @@ const annsOn = k => (S.announcements || []).filter(a => a.eventDate === k);
 function calAnnCard(a){
   const lines = annText(a.text).split(/\n/).map(l => l.trim()).filter(Boolean);
   const head = lines.shift() || "", rest = lines.join("\n");
-  return `<article class="cal-ann"><div class="cal-ann-body"><span class="cal-ann-tag">📣 Announcement</span><b>${esc(head)}</b>${rest ? `<p>${esc(rest)}</p>` : ""}</div>
-    ${a.flyer ? `<button class="flyer" data-act="flyer-open" data-flyer="${a.id}" aria-label="Open the flyer"><span class="flyer-load">Loading…</span></button>` : ""}</article>`;
+  // Folded by default: just the 📣 tag and the headline. Tap to show the details and flyer.
+  return `<details class="cal-ann"><summary><span class="cal-ann-body"><span class="cal-ann-tag">📣 Announcement</span><b>${esc(head)}</b></span><span class="cal-ann-chev" aria-hidden="true">${ICON.next}</span></summary>
+    ${rest || a.flyer ? `<div class="cal-ann-more">${rest ? `<p>${esc(rest)}</p>` : ""}${a.flyer ? `<button class="flyer" data-act="flyer-open" data-flyer="${a.id}" aria-label="Open the flyer"><span class="flyer-load">Loading…</span></button>` : ""}</div>` : ""}</details>`;
 }
 function eventsOn(k){
   const md = k.slice(5);
