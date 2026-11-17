@@ -685,7 +685,7 @@ const CONFIG = {
 
 const onAppHost = !CONFIG.appHosts || CONFIG.appHosts.some(h => h.startsWith(".") ? location.hostname.endsWith(h) : location.hostname === h);
 // Bump together with CACHE in sw.js whenever the app changes.
-const APP_VERSION = "154";
+const APP_VERSION = "155";
 const DEMO = !CONFIG.clientId || /[?&]demo\b/.test(location.search) || !onAppHost;
 const SCOPES = ["User.Read", "User.ReadBasic.All", "Sites.ReadWrite.All"];
 
@@ -2108,10 +2108,10 @@ const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.
 /* Admins: share the app with the team. The link opens a page that walks people through adding it to their home screen. */
 const APP_NAME = document.title;
 async function shareApp(){
-  const url = location.origin + location.pathname + "?install";
-  const text = `Add ${APP_NAME} to your phone: open this link in Safari (iPhone) or Chrome (Android), then tap "Add to Home Screen" (iPhone: Share button → Add to Home Screen; Android: Install app). Sign in with your church Microsoft account.`;
+  const url = "https://astmacary.github.io/?install";  // everyone installs RCI Serve, which opens every team app
+  const text = `Add the RCI Serve app to your phone: open this link in Safari (iPhone) or Chrome (Android), then tap "Add to Home Screen" (iPhone: Share button → Add to Home Screen; Android: Install app). Sign in with your church Microsoft account.`;
   try {
-    if (navigator.share){ await navigator.share({ title: APP_NAME, text, url }); return; }
+    if (navigator.share){ await navigator.share({ title: "RCI Serve", text, url }); return; }
   } catch(e){ if (e && e.name === "AbortError") return; }
   try { await navigator.clipboard.writeText(text + "\n" + url); toast("Link copied. Paste it into a text or email to your team."); }
   catch(_){ prompt("Copy this link and send it to your team:", url); }
